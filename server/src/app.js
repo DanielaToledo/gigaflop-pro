@@ -6,6 +6,8 @@ import usuariosRoutes from './routes/usuariosRoutes.js';
 import menuRoutes from "./routes/menuRoutes.js";
 import clientesRoutes from "./routes/clientesRoutes.js";
 import productosRoutes from './routes/productosRoutes.js'; // Importa las rutas de productos
+import cotizacionRoutes from './routes/cotizacionRoutes.js';
+
 
 const app = express();
 
@@ -24,6 +26,7 @@ app.use("/api/usuarios", usuariosRoutes);
 app.use("/api", menuRoutes);
 app.use("/api/clientes", clientesRoutes);
 app.use("/api", productosRoutes); // Usa las rutas de productos
+app.use("/api/cotizaciones", cotizacionRoutes);
 
 
 export default app;

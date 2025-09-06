@@ -33,3 +33,6 @@
 ```sh
 git clone https://github.com/DanielaToledo/gigaflop-pro.git
 cd gigaflop-pro
+
+
+dependencias morgan, nodemon, cors

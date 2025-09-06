@@ -1,10 +1,10 @@
 import pool from '../config/db.js'; // Importa la conexión a la base de datos
 
 
-// Buscar producto por part_number
-export const buscarProductoPorPartNumber = async (partNumber) => {
+// Buscar producto por part_number 
+export const buscarProductoPorPartNumber = async (partNumber) => { 
   const [rows] = await pool.query(
-    'SELECT * FROM productos WHERE LOWER(TRIM(part_number)) = LOWER(TRIM(?))',
+    'SELECT * FROM productos WHERE LOWER(TRIM(part_number)) = LOWER(TRIM(?))', // Utiliza TRIM y LOWER para normalizar la búsqueda
     [partNumber]
   );
   return rows[0]; // Devuelve uno
