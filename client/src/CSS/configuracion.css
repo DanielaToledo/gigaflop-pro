@@ -1,0 +1,448 @@
+.custom-icon {
+  color: rgb(255, 255, 255);
+  font-size: 3.5vw;
+  line-height: 70px;
+  cursor: pointer;
+  
+}
+
+.custom-icon:hover {
+  color: #000000;
+  font-size: 3.7vw;
+  transition: all 0.3s ease;
+}
+
+
+
+
+
+.btn-menu {
+  display: none;
+}
+
+#btn-menu {
+  display: none;
+}
+
+.container-menu {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.5);
+  width: 100%;
+  height: 100vh;
+  top: 0;
+  right: 0;
+  transition: all 500ms ease;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 1000;
+  
+}
+
+#btn-menu:checked ~ .container-menu {
+  opacity: 1;
+  visibility: visible;
+}
+
+.cont-menu {
+  width: 100%;
+  max-width: 250px;
+  background: #1c1c1c;
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  right: 0;
+  transition: all 500ms ease;
+  transform: translateX(100%);
+}
+
+#btn-menu:checked ~ .container-menu .cont-menu {
+  transform: translateX(0%);
+}
+
+.cont-menu nav {
+  transform: translateY(15%);
+}
+
+.cont-menu nav a {
+  display: block;
+  text-decoration: none;
+  padding: 20px;
+  color: #c7c7c7;
+  border-left: 5px solid transparent;
+  transition: all 400ms ease;
+}
+
+.cont-menu nav a:hover {
+  border-left: 5px solid #c7c7c7;
+  background: #1f1f1f;
+}
+
+.cont-menu label {
+  position: absolute;
+  left: 5px;
+  top: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.background-container-config {
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Centra verticalmente los elementos */
+  align-items: center;
+  width: 100%;
+  height: 18vh; /* Aseguramos que ocupe toda la altura */
+  padding-top: 70px; /* Para no quedar debajo del header fijo */
+ 
+
+}
+
+
+.title-container {
+  height: 5vw;
+   /* No necesitamos estilos específicos ahora */
+}
+
+.title-menu {
+  color: #4285f4;
+  font-size: 4vw;
+  text-shadow: 3px 5px #cbcbdd9c;
+  font-weight: bold;
+  
+}
+.headerprod {
+  width: 100%;
+  height: 5vw;
+  position: fixed;
+  top: 0;
+  background-image: linear-gradient(to right, white,white,#a7a7b19c,#7e7c7c);
+  display: flex;
+  align-items: center;
+  padding:10px;
+  
+  display: flex;
+  
+  justify-content: space-between;
+  align-items: center;
+ 
+ 
+}
+.nombre-sidebar{
+  color: #4285f4;
+  margin-left: 50px;
+
+}
+
+.optionconfig{
+  background-color: white;
+  width: 100%;
+  height: 4vw;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  align-content: center;
+  margin-top: -2px;
+  border-top: 1px solid #a7a7b19c;
+  
+}
+.option-button{
+  color: #000000;
+  text-decoration: none;
+  font-weight: bold;
+  text-align: center;
+}
+.option-button2{
+  color: #4285f4;
+  text-decoration: none;
+  font-weight: bold;
+}
+.option-button:hover{
+  color: #4285f4;
+  font-weight: bold;
+}
+
+.menuboxconfig {
+  background-color: rgb(255, 255, 255);
+  width: 100%;
+  
+  top:0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+}
+
+.menu-superior{
+  box-shadow: 0px 5px 5px #d9e2f1;
+  
+  height: 5vw;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  background: rgb(255, 255, 255);
+  border-top: 1px solid #a7a7b19c;
+}
+
+.infofc{
+    
+    display: flex;
+    justify-content: center;
+    width: 80%;
+    padding: 10px;
+    margin-top: 30px;
+    box-shadow: 0 0 5px 7px #d9e2f1;
+}
+
+.infofccontainer{
+    width: 100%;
+    display: flex;
+    height: 50vh;
+    justify-content: space-around;
+   
+    width: 80%;
+    align-items: center;
+    
+    
+}
+.infoblock{
+    
+    height: 100%;
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin: 20px;
+}
+.infofcdata{
+    margin-bottom: 20px;
+}
+.cotizatitle{
+  color: #4285f4;
+  font-size: 2.5vw;
+  ;
+  font-weight: bold;
+}
+.reporte{
+  border-radius: 3px;
+  background-image: linear-gradient(to right,#8282859c,#7e7c7c,black);
+  color: white;
+  margin: 3px;
+  border-color: white;
+  box-shadow: 0px 0px 10px rgba(202, 189, 189, 0.7);
+  
+}
+.reporte:hover{
+  border-radius: 5px;
+  background: #000000;
+  box-shadow: 2px 2px #eeecec;
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+  
+}
+.nc{
+  border-radius: 3px;
+  background-image: linear-gradient(to right,#4285f4, blue,#4285f4);
+  color: white;
+  border-color: #4285f4;
+  box-shadow: 0px 0px 10px rgba(202, 189, 189, 0.7);
+}
+.nc:hover{
+  
+  background: #000000;
+  border-color: black;
+  box-shadow: 2px 2px #c0c0c0;
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+.menu-matriz{
+  margin-top: 20px;
+  width: 100%;
+  height: 33vw;
+  padding: 10px;
+  
+}
+.filtros{
+  display: flex;
+  justify-content: space-around;
+  
+}
+.filtros-box{
+  margin-right: 70px;
+}
+
+.matrizconfig {
+  border: 1px solid #e9e6f3;
+  height: 80%;
+  margin-top: 30px;
+  border-radius: 3px;
+  overflow-y: auto; /* Asegurar scroll vertical */
+  box-shadow: 0px 0px 15px #dadada;
+  scroll-snap-type: y mandatory; /* Activa el desplazamiento escalonado */
+
+
+}
+
+.aprobada {
+  color: green;
+}
+
+.pendiente {
+  color: yellow;
+}
+
+.rechazada {
+  color: red;
+}
+.table-trdatos:hover td {
+  background: #ebf2fc;
+  cursor: pointer;
+  color: #4285f4;
+      
+  height: 5vw;
+  transition: background-color 0.3s ease, color 0.3s ease;
+
+}
+/*encabezado de la tabla*/
+.table-tr th {
+  /*background-color: #ebf2fc;*/
+  position: sticky;
+  height: 2vw;
+  top: 0;
+  z-index: 10;
+background: #f5f4f7;
+
+}
+
+.table-thead{
+  
+}
+
+
+thead { /*lineas debajo del encabezado*/
+  position: sticky;
+  top: 0;
+  background-color: #d6d6d6;
+  z-index: 100;
+  outline: 0.5px solid #e9e6f3;
+  padding-bottom: 0;
+  height: 40px; /* Ajusta según el tamaño del encabezado */
+  
+}
+thead::after {
+  content: "";
+  display: block;
+  height: 2px; /* Grosor del borde */
+  background-color: #e9e6f3;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+/* Contenedor de la tabla */
+.table-trdatos {
+  overflow-y: auto; /* Scroll vertical */
+  max-height: 500px; /* Ajusta según necesites */
+  scroll-snap-type: y mandatory; /* Activamos el scroll escalonado en eje Y */
+  
+}
+
+/* Filas de la tabla */
+tr {
+  scroll-snap-align: start; /* Cada fila se alinea al inicio */
+}
+
+.table{
+
+  margin-top: 130px;
+  
+}
+/*lineas de filas*/
+.table-trdatos {
+  border-bottom: 1px solid #e7e7e7;
+}
+/* Estilos generales para los iconos */
+.bi-pencil-fill,
+.bi-file-earmark-arrow-down-fill,
+.bi-trash3-fill,
+.bi-eye-fill {
+    background-color: transparent !important;
+    margin: 5px;
+    display: none;
+    color: black; /* Color inicial */
+}
+
+/* Mostrar los iconos solo cuando el mouse está sobre la fila */
+tr:hover .bi-pencil-fill,
+tr:hover .bi-file-earmark-arrow-down-fill,
+tr:hover .bi-trash3-fill,
+tr:hover .bi-eye-fill {
+    display: inline-block; /* O el tipo de display que prefieras */
+}
+
+/* Cambiar color solo cuando el usuario pasa sobre el icono */
+.bi-pencil-fill:hover,
+.bi-file-earmark-arrow-down-fill:hover,
+.bi-trash3-fill:hover,
+.bi-eye-fill:hover {
+    cursor: pointer;
+    color: #4285f4; /* Color al hacer hover */
+}
+.table-datostotal{
+  
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  width: 80%;
+  height: 5vw;
+  border-bottom: transparent;
+}
+.crud-icons{
+  
+ 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 3vw;
+  width: 50%;
+  background-color: transparent !important;
+}
+
+.crud-icons_hover {
+  background-color: transparent !important;
+  color: white !important;
+}
+.table-datos,
+.table-header {
+  text-align: center; /* Asegura que todo el texto esté centrado */
+  vertical-align: middle; /* Centra verticalmente el contenido */             
+}
+
+tbody {
+  margin-top: 40px; /* Da espacio debajo del encabezado */
+  
+}
+.table-header-total{
+  width: 22%;
+  margin-bottom: 20px;
+}
+
+.nc-config{
+ border-radius: 3px;
+  background-image: linear-gradient(to right,#4285f4, blue,#4285f4);
+  color: white;
+  border-color: #4285f4;
+  box-shadow: 0px 0px 10px rgba(202, 189, 189, 0.7);
+}
+.nc-config:hover{
+  background: #000000;
+  border-color: black;
+  box-shadow: 2px 2px #c0c0c0;
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
