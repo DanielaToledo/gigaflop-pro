@@ -31,7 +31,7 @@ const CardProductos = ({ item }) => {
             <span className='fw-bold'>Categoría: </span>{item.category}
           </p>
           <p>
-            <span className='fw-bold'>Precio: </span>${item.price}
+            <span className='fw-bold'>Precio: . . . . . . </span>${item.price}
           </p>
           <button className="btn btn-primary">Agregar al carrito</button>
         </div>
