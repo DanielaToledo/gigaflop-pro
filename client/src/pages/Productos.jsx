@@ -1,5 +1,6 @@
+// ...importaciones
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import '../CSS/productos.css';
 import Sidebar from '../components/Sidebar';
 import CardProductos from '../components/CardProductos';
@@ -12,33 +13,52 @@ const Productos = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [cart, setCart] = useState([]);
+  const [showCart, setShowCart] = useState(false);
+  const navigate = useNavigate();
 
+  useEffect(() => {
+    try {
+      const storedCart = localStorage.getItem('gigaflop_cart');
+      if (storedCart) {
+        const parsed = JSON.parse(storedCart);
+        if (Array.isArray(parsed)) {
+          setCart(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar el carrito desde localStorage:', error);
+      localStorage.removeItem('gigaflop_cart');
+    }
+  }, []);
 
-const fetchProducts = async () => {
-  setLoading(true);
-  setError(null);
-  try {
-    const baseUrl = searchTerm
-      ? `https://dummyjson.com/products/search?q=${searchTerm}`
-      : `https://dummyjson.com/products?limit=${limit}&skip=${skip}`;
+  useEffect(() => {
+    localStorage.setItem('gigaflop_cart', JSON.stringify(cart));
+  }, [cart]);
 
-    const res = await fetch(baseUrl);
-    const data = await res.json();
-    setProducts(data.products || []);
-    setTotal(data.total || 0);
-  } catch (err) {
-    setError('Error al cargar los productos.');
-    console.error('Error fetching products:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchProducts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const baseUrl = searchTerm
+        ? `https://dummyjson.com/products/search?q=${searchTerm}`
+        : `https://dummyjson.com/products?limit=${limit}&skip=${skip}`;
 
+      const res = await fetch(baseUrl);
+      const data = await res.json();
+      setProducts(data.products || []);
+      setTotal(data.total || 0);
+    } catch (err) {
+      setError('Error al cargar los productos.');
+      console.error('Error fetching products:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-useEffect(() => {
-  fetchProducts();
-}, [skip, searchTerm]);
-
+  useEffect(() => {
+    fetchProducts();
+  }, [skip, searchTerm]);
 
   const onSiguiente = () => {
     if (skip + limit < total) {
@@ -50,56 +70,122 @@ useEffect(() => {
     setSkip(prev => Math.max(prev - limit, 0));
   };
 
+  const handleAddToCart = (product) => {
+    setCart(prevCart => {
+      const exists = prevCart.find(item => item.id === product.id);
+      if (exists) {
+        return prevCart.map(item =>
+          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      } else {
+        return [...prevCart, { ...product, quantity: 1 }];
+      }
+    });
+  };
 
+  const handleIncrement = (id) => {
+    setCart(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
+      )
+    );
+  };
+
+  const handleDecrement = (id) => {
+    setCart(prev =>
+      prev
+        .map(item =>
+          item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+        )
+        .filter(item => item.quantity > 0)
+    );
+  };
+
+  const handleFinalizarCotizacion = () => {
+    navigate('/nuevacotizacion');
+  };
 
   return (
     <>
       <Sidebar />
       <div className="encabezado-fijo">
-      <div className="background-container-prod">
-
-        <header className="headerprod">
-          <div className='container-header'>
-            <div className="title-container">
-              <h2 className="title-menu">GIGAFLOP</h2>
+        <div className="background-container-prod">
+          <header className="headerprod">
+            <div className='container-header'>
+              <div className="title-container">
+                <h2 className="title-menu">GIGAFLOP</h2>
+              </div>
             </div>
+            <div className='container-icon'>
+              <div
+                className="cotizacion-icon-container"
+                title="Tu cotización"
+                onClick={() => setShowCart(!showCart)}
+              >
+                <span className="cotizacion-icon">C</span>
+                {cart.length > 0 && (
+                  <span className="cart-badge">
+                    {cart.reduce((acc, item) => acc + item.quantity, 0)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </header>
+          <div className='optionprod'>
+            <NavLink className='option-button' to='/menu'>Cotizaciones</NavLink>
+            <NavLink className='option-button' to="/clientes">Clientes</NavLink>
+            <NavLink className='option-button2' to='/productos'>Productos</NavLink>
+            <NavLink className='option-button' to='/configuracion'>Configuración</NavLink>
           </div>
-          <div className='container-icon'>
-            <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
-          </div>
-        </header>
-        <div className='optionprod'>
-          <NavLink className='option-button' to='/menu'>Cotizaciones</NavLink>
-          <NavLink className='option-button' to="/clientes">Clientes</NavLink>
-          <NavLink className='option-button2' to='/productos'>Productos</NavLink>
-          <NavLink className='option-button' to='/configuracion'>Configuración</NavLink>
         </div>
-      </div>
-      <div className='menu-superior-prod'>
+
+        <div className='menu-superior-prod'>
           <div className='cotizatitlecontainer'>
             <h3 className='cotizatitle'>Productos</h3>
-            
           </div>
           <div className="buscador-container">
-  <input
-    type="text"
-    className="form-control"
-    placeholder="Buscar productos por nombre..."
-    value={searchTerm}
-    onChange={(e) => {
-      setSkip(0); // reinicia paginación al buscar
-      setSearchTerm(e.target.value);
-    }}
-  />
-</div>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Buscar productos por nombre..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSkip(0);
+                setSearchTerm(e.target.value);
+              }}
+            />
+          </div>
         </div>
-        
-
       </div>
 
-      <div className="menuboxprod">
-        
+      {showCart && (
+        <div className="cart-modal">
+          <h5 className="cart-title">🧾 Tu Cotización</h5>
+          {cart.length === 0 ? (
+            <p>No hay productos seleccionados.</p>
+          ) : (
+            <>
+              <ul className="cart-list">
+                {cart.map(item => (
+                  <li key={item.id} className="cart-item">
+                    <span>{item.title}</span>
+                    <div className="quantity-controls">
+                      <button onClick={() => handleDecrement(item.id)}>-</button>
+                      <span>{item.quantity}</span>
+                      <button onClick={() => handleIncrement(item.id)}>+</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <button className="btn btn-success finalizar-btn" onClick={handleFinalizarCotizacion}>
+                Generar Cotización
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
+      <div className="menuboxprod">
         <div className="productos-container">
           {loading ? (
             <p className="text-center">Cargando productos...</p>
@@ -109,7 +195,7 @@ useEffect(() => {
             <>
               <div className='productos-box'>
                 {products.map((item) => (
-                  <CardProductos key={item.id} item={item} />
+                  <CardProductos key={item.id} item={item} onAddToCart={handleAddToCart} />
                 ))}
               </div>
 
