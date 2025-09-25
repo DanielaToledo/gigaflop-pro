@@ -14,14 +14,6 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
-pool.getConnection()
-  .then(connection => {
-    console.log(' Conectado a MySQL sistema_cotizacion correctamente');
-    connection.release(); // libera la conexión
-  })
-  .catch(err => {
-    console.error('Error al conectar a MySQL:', err.message);
-  });
 
 
 

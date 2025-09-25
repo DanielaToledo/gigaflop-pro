@@ -1,7 +1,10 @@
 import {
   buscarProductoPorPartNumber,
   buscarProductosPorColumna,
-  obtenerTodosLosProductos
+  obtenerTodosLosProductos,
+  obtenerProductosDesdeRemoto,
+  guardarProductoSincronizado,
+  obtenerFechaLocalDeProducto
 } from '../models/ProductosModels.js';
 
 // Buscar por part_number
@@ -38,7 +41,7 @@ export const obtenerProductosPorColumna = async (req, res) => {
   }
 };
 
-// Controlador para listar todos los productos
+// Listar todos los productos
 export const listarTodosLosProductos = async (req, res) => {
   try {
     const productos = await obtenerTodosLosProductos();
@@ -46,5 +49,40 @@ export const listarTodosLosProductos = async (req, res) => {
   } catch (error) {
     console.error('Error al obtener los productos:', error.message);
     res.status(500).json({ mensaje: 'Error al obtener los productos' });
+  }
+};
+
+// Sincronizar productos desde base remota con lógica inteligente
+export const sincronizarProductos = async (req, res) => {
+  try {
+    const productosExternos = await obtenerProductosDesdeRemoto();
+
+    let nuevos = 0;
+    let actualizados = 0;
+    let ignorados = 0;
+
+    for (const producto of productosExternos) {  // Itera sobre cada producto externo
+      // Verifica si el producto ya existe y compara fechas
+      const fechaLocal = await obtenerFechaLocalDeProducto(producto.part_number);
+      const fechaRemota = new Date(producto.ultima_actualizacion);
+
+      if (!fechaLocal || fechaRemota > new Date(fechaLocal)) { // Si no existe o es más reciente
+        await guardarProductoSincronizado(producto); // Guarda o actualiza el producto
+        if (!fechaLocal) nuevos++;
+        else actualizados++;
+      } else {
+        ignorados++;
+      }
+    }
+
+    res.status(200).json({  // Respuesta resumida
+      mensaje: 'Sincronización completada con lógica inteligente', // Mensaje general
+      nuevos,
+      actualizados,
+      ignorados
+    });
+  } catch (error) {
+    console.error('Error al sincronizar productos:', error.message);
+    res.status(500).json({ mensaje: 'Error al sincronizar productos' });
   }
 };
