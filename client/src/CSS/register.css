@@ -5,10 +5,10 @@
     flex-direction: column;
     justify-content: center; /* Esto alinea verticalmente el contenido del form-container */
     align-items: center; /* Esto centra horizontalmente el contenido del form-container */
-    background-image: linear-gradient(to right, white,white,white,rgb(214, 216, 221),#a7a7b19c,#7e7c7c,#464e5a,#162f58);
+    background: white;
     color: white;
     border-radius: 5px;
-    border: 1px solid #4285f4; /* Cambiado de 'border-color' a 'border' para aplicar el borde */
+    border: 2px solid #003281; /* Cambiado de 'border-color' a 'border' para aplicar el borde */
     padding: 20px;
     box-sizing: border-box;
     transition: background-color 1s ease; /* Añadido para una transición suave al cambiar el color de fondo */
@@ -134,9 +134,9 @@
 
 .register-modal-content {
     position: relative;
-    background-image: linear-gradient(to left, white,white,white,rgb(214, 216, 221),#a7a7b19c,#7e7c7c,#464e5a,#162f58);
+    background:#f7f7f7;
     border-radius: 3px;
-    border: 1px solid #4285f4;
+    border: 5px solid #003281;
     padding: 20px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     z-index: 1001;
@@ -167,18 +167,4 @@
 .register-modal-close:hover {
     color: #4285f4;
     
-}
-
-.mensaje-registro {
-  margin-top: 12px;
-  font-weight: bold;
-  text-align: center;
-}
-
-.mensaje-exito {
-  color: #4caf50;
-}
-
-.mensaje-error {
-  color: #f44336;
 }

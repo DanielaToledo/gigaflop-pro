@@ -1,10 +1,9 @@
 import React from 'react';
 import '../CSS/productos.css';
 
-const CardProductos = ({ item }) => {
+const CardProductos = ({ item, onAddToCart }) => {
   const estilosCard = {
     width: '300px',
-    
   };
 
   const estilosImg = {
@@ -24,16 +23,12 @@ const CardProductos = ({ item }) => {
         <div className="card-body">
           <h5 className="card-title text-primary">{item.title}</h5>
           <hr />
-          <p>
-            <span className='fw-bold'>Marca: </span>{item.brand}
-          </p>
-          <p>
-            <span className='fw-bold'>Categoría: </span>{item.category}
-          </p>
-          <p>
-            <span className='fw-bold'>Precio: . . . . . . </span>${item.price}
-          </p>
-          <button className="btn btn-primary">Agregar al carrito</button>
+          <p><span className='fw-bold'>Marca: </span>{item.brand}</p>
+          <p><span className='fw-bold'>Categoría: </span>{item.category}</p>
+          <p><span className='fw-bold'>Precio: </span>${item.price}</p>
+          <button className="btn btn-primary" onClick={() => onAddToCart(item)}>
+            Agregar al carrito
+          </button>
         </div>
       </div>
     </div>
