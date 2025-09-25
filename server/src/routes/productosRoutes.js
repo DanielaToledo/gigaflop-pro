@@ -1,17 +1,18 @@
 import { Router } from "express";
-import {
-  obtenerProductoPorPartNumber,
-  obtenerProductosPorColumna, listarTodosLosProductos
-} from '../controllers/productosControllers.js';
+import * as productosController from '../controllers/productosControllers.js';
 
 const router = Router();
 
 // Buscar por part_number
-router.get('/productos/buscar/part_number/:partNumber', obtenerProductoPorPartNumber);
+router.get('/productos/buscar/part_number/:partNumber', productosController.obtenerProductoPorPartNumber);
 
 // Buscar por cualquier columna válida
-router.get('/productos/buscar/:columna/:valor', obtenerProductosPorColumna);
+router.get('/productos/buscar/:columna/:valor', productosController.obtenerProductosPorColumna);
 
-router.get('/productos', listarTodosLosProductos);
+// Listar todos los productos
+router.get('/productos', productosController.listarTodosLosProductos);
+
+// Sincronizar productos desde API externa
+router.get('/sincronizar', productosController.sincronizarProductos);
 
 export default router;
