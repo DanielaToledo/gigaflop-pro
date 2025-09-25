@@ -78,12 +78,12 @@ const Menu = () => {
             <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label> 
           </div>
         </header>
-        <div className='option'>
-          <NavLink className='option-button2'>Cotizaciones</NavLink>
-          <NavLink className='option-button' to= "/clientes">Clientes</NavLink>
-          <NavLink className='option-button'>Catálogo</NavLink>
-          <NavLink className='option-button'>Configuración</NavLink>
-        </div>
+       <div className='option'>
+        <NavLink className='option-button2' to="/menu">Cotizaciones</NavLink>
+        <NavLink className='option-button' to="/clientes">Clientes</NavLink>
+        <NavLink className='option-button' to="/productos">Productos</NavLink>
+        <NavLink className='option-button' to="/configuracion">Configuración</NavLink>
+      </div>
         <div className="menubox">
           <div className='menu-superior'>
             <div className='cotizatitlecontainer'>

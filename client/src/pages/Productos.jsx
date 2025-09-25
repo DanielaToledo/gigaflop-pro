@@ -5,6 +5,7 @@ import '../CSS/productos.css';
 import Sidebar from '../components/Sidebar';
 import CardProductos from '../components/CardProductos';
 
+
 const Productos = () => {
   const [products, setProducts] = useState([]);
   const [skip, setSkip] = useState(0);
@@ -16,7 +17,7 @@ const Productos = () => {
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
   const navigate = useNavigate();
-
+console.log('🟢 Renderizando Productos');
   useEffect(() => {
     try {
       const storedCart = localStorage.getItem('gigaflop_cart');

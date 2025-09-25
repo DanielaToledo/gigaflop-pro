@@ -4,6 +4,9 @@ import Menu from "../pages/Menu";
 import Clientes from "../pages/Clientes";
 import RutaProtegida from '../components/RutaProtegida';
 import Home from "../pages/Home";
+import Productos from "../pages/Productos"; // asegurate de que la ruta sea correcta
+
+
 
 
 export const router = createBrowserRouter([
@@ -27,6 +30,10 @@ export const router = createBrowserRouter([
         path: '/clientes',
         element: <Clientes />,
       },
+      { path: '/productos',
+        element: <Productos />
+      },
+
     ],
   },
 ]);
