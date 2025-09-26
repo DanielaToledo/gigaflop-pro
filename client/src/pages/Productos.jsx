@@ -1,5 +1,6 @@
 // ...importaciones
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { NavLink, useNavigate } from 'react-router-dom';
 import '../CSS/productos.css';
 import Sidebar from '../components/Sidebar';
@@ -14,10 +15,10 @@ const Productos = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState([]); // Estado para el carrito que guarda los productos seleccionados
   const [showCart, setShowCart] = useState(false);
   const navigate = useNavigate();
-console.log('🟢 Renderizando Productos');
+
   useEffect(() => {
     try {
       const storedCart = localStorage.getItem('gigaflop_cart');
@@ -37,25 +38,29 @@ console.log('🟢 Renderizando Productos');
     localStorage.setItem('gigaflop_cart', JSON.stringify(cart));
   }, [cart]);
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const baseUrl = searchTerm
-        ? `https://dummyjson.com/products/search?q=${searchTerm}`
-        : `https://dummyjson.com/products?limit=${limit}&skip=${skip}`;
 
-      const res = await fetch(baseUrl);
-      const data = await res.json();
-      setProducts(data.products || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError('Error al cargar los productos.');
-      console.error('Error fetching products:', err);
-    } finally {
-      setLoading(false);
+const fetchProducts = async () => {
+  setLoading(true);
+  setError(null);
+
+  try {
+    let res;
+    if (searchTerm.trim()) {
+      res = await axios.get(`/api/productos/buscar/${searchTerm}`, { withCredentials: true });
+    } else {
+      res = await axios.get('/api/productos', { withCredentials: true });
     }
-  };
+
+    const data = res.data;
+    setProducts(data.productos || []);
+    setTotal(data.total || 0);
+  } catch (err) {
+    setError('Error al cargar los productos.');
+    console.error('Error al obtener productos:', err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchProducts();
@@ -71,6 +76,7 @@ console.log('🟢 Renderizando Productos');
     setSkip(prev => Math.max(prev - limit, 0));
   };
 
+  //metodo para agregar productos al carrito se ejecuta al hacer click en el boton agregar al carrito
   const handleAddToCart = (product) => {
     setCart(prevCart => {
       const exists = prevCart.find(item => item.id === product.id);
@@ -159,6 +165,8 @@ console.log('🟢 Renderizando Productos');
         </div>
       </div>
 
+
+      // Modal o sección del carrito
       {showCart && (
         <div className="cart-modal">
           <h5 className="cart-title">🧾 Tu Cotización</h5>

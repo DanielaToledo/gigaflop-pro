@@ -112,7 +112,7 @@ const Clientes = () => {
         <div className="option">
           <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
           <NavLink className="option-button2">Clientes</NavLink>
-          <NavLink className="option-button">Catálogo</NavLink>
+          <NavLink className="option-button">Productos</NavLink>
           <NavLink className="option-button">Configuración</NavLink>
         </div>
 

@@ -10,7 +10,7 @@ const CardProductos = ({ item, onAddToCart }) => {
     height: '220px',
     objectFit: 'cover',
   };
-
+console.log('Producto recibido:', item);
   return (
     <div className='row mb-4 justify-content-center d-flex'>
       <div className='card' style={estilosCard}>
@@ -20,18 +20,24 @@ const CardProductos = ({ item, onAddToCart }) => {
           src={item.thumbnail}
           alt={item.title}
         />
-        <div className="card-body">
-          <h5 className="card-title text-primary">{item.title}</h5>
-          <hr />
-          <p><span className='fw-bold'>Marca: </span>{item.brand}</p>
-          <p><span className='fw-bold'>Categoría: </span>{item.category}</p>
-          <p><span className='fw-bold'>Precio: </span>${item.price}</p>
-          <button className="btn btn-primary" onClick={() => onAddToCart(item)}>
-            Agregar al carrito
-          </button>
-        </div>
+       <div className="card-body">
+         <h5 className="card-title text-primary">{item.detalle}</h5>
+         <hr />
+        <p><span className='fw-bold'>Marca: </span>{item.marca}</p>
+        <p><span className='fw-bold'>Categoría: </span>{item.categoria}</p>
+        <p><span className='fw-bold'>Stock disponible: </span>{item.stock}</p>
+        <p>
+         <span className='fw-bold'>Precio: </span>
+          {Number.isFinite(Number(item.precio))
+            ? `$${Number(item.precio).toFixed(2)}`
+            : <span className="text-danger">No disponible</span>}
+        </p>
+        <button className="btn btn-primary" onClick={() => onAddToCart(item)}>
+          Agregar al carrito
+        </button>
       </div>
     </div>
+  </div>
   );
 };
 

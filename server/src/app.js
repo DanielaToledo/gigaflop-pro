@@ -28,5 +28,9 @@ app.use("/api/clientes", clientesRoutes);
 app.use("/api", productosRoutes); // Usa las rutas de productos
 app.use("/api/cotizaciones", cotizacionRoutes);
 
-
+// Middleware de manejo de errores
+app.use((err, req, res, next) => {
+  console.error(' Error no capturado:', err);
+  res.status(500).json({ error: 'Error interno del servidor' });
+});
 export default app;

@@ -63,3 +63,21 @@ export const obtenerProductosDesdeRemoto = async () => {
   const [rows] = await dbRemota.query('SELECT * FROM productos');
   return rows;
 };
+
+
+///  Función de búsqueda de productos por texto libre
+export const buscarProductosPorTextoLibre = async (valor) => {
+  const texto = valor.toLowerCase(); // ✅ primero definís "texto"
+
+  const [productos] = await pool.query(`
+    SELECT * FROM productos
+    WHERE LOWER(detalle) LIKE ? OR
+          LOWER(part_number) LIKE ? OR
+          LOWER(categoria) LIKE ? OR
+          LOWER(subcategoria) LIKE ? OR
+          LOWER(marca) LIKE ? OR
+          CAST(stock AS CHAR) LIKE ?
+  `, Array(6).fill(`%${texto}%`)); // ✅ ahora sí podés usarlo
+
+  return productos;
+};

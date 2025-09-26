@@ -1,32 +1,39 @@
-import React, { useState, useEffect } from 'react';
 
-const BuscadorProductos = ({ productos, carrito, setCarrito, query, setQuery, abrirModal }) => {
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const BuscadorProductos = ({ carrito, setCarrito, query, setQuery, abrirModal }) => {
   const [resultados, setResultados] = useState([]);
   const [mensaje, setMensaje] = useState('');
 
-  useEffect(() => {
+useEffect(() => {
+  const buscar = async () => {
     if (!query.trim()) {
       setResultados([]);
       setMensaje('');
       return;
     }
 
-    const q = query.toLowerCase();
-    const encontrados = productos.filter(
-      p =>
-        p.nombre?.toLowerCase().includes(q) ||
-        p.descripcion?.toLowerCase().includes(q) ||
-        p.codigo?.toLowerCase().includes(q)
-    );
+    try {
+      const res = await axios.get(`/api/productos/buscar/${query}`, { withCredentials: true });
+      const data = res.data;
 
-    if (encontrados.length === 0) {
-      setMensaje('No se encontraron productos con ese término.');
-    } else {
-      setMensaje('');
+      if (data.productos.length === 0) {
+        setMensaje('No se encontraron productos con ese término.');
+        setResultados([]);
+      } else {
+        setMensaje('');
+        setResultados(data.productos);
+      }
+    } catch (error) {
+      console.error('Error al buscar productos:', error);
+      setMensaje('Error al buscar productos.');
+      setResultados([]);
     }
+  };
 
-    setResultados(encontrados);
-  }, [query, productos]);
+  buscar();
+}, [query]);
 
   const agregarProducto = (prod) => {
     const existe = carrito.find(p => p.id === prod.id);
@@ -55,7 +62,7 @@ const BuscadorProductos = ({ productos, carrito, setCarrito, query, setQuery, ab
         <input
           className="form-control"
           style={{ maxWidth: '400px' }}
-          placeholder="Buscar producto por nombre, descripción o código"
+          placeholder="Buscar producto por nombre, marca, categoría, etc."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -66,6 +73,13 @@ const BuscadorProductos = ({ productos, carrito, setCarrito, query, setQuery, ab
           <i className="bi bi-x-circle"></i> Limpiar
         </button>
       </div>
+
+      {resultados.length > 0 && (
+    <div className="text-success small">
+      Se encontraron {resultados.length} producto{resultados.length > 1 ? 's' : ''}.
+    </div>
+  )}
+
 
       {mensaje && <div className="text-muted mt-1">{mensaje}</div>}
 
@@ -79,7 +93,7 @@ const BuscadorProductos = ({ productos, carrito, setCarrito, query, setQuery, ab
               onClick={() => agregarProducto(p)}
             >
               <div>
-                <strong>{p.codigo || p.nombre}</strong> · {p.descripcion}
+                <strong>{p.codigo || p.nombre || p.part_number}</strong> · {p.detalle}
                 <div className="small text-muted">
                   US$ {p.precio?.toFixed(2)} · Stock {p.stock}
                 </div>

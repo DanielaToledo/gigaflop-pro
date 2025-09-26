@@ -3,7 +3,7 @@ export const getMenuOptions = (req, res) => {
         const menuOptions = [
             {name: "Cotizacion", path: "/cotizacion"},
             {name: "Clientes", path: "/clientes"},
-            {name: "Catalogo", path: "/catalogo"},
+            {name: "productos ", path: "/productos"},
             {name: "Configuracion", path: "/configuracion"}
         ];
         res.status(200).json({menu: menuOptions});
