@@ -5,7 +5,7 @@ import Clientes from "../pages/Clientes";
 import RutaProtegida from '../components/RutaProtegida';
 import Home from "../pages/Home";
 import Productos from "../pages/Productos"; // asegurate de que la ruta sea correcta
-
+import NuevaCotizacion from "../pages/NuevaCotizacion";
 
 
 
@@ -33,6 +33,8 @@ export const router = createBrowserRouter([
       { path: '/productos',
         element: <Productos />
       },
+      { path: '/nuevacotizacion', element: <NuevaCotizacion /> },
+
 
     ],
   },

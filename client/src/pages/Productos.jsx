@@ -39,28 +39,28 @@ const Productos = () => {
   }, [cart]);
 
 
-const fetchProducts = async () => {
-  setLoading(true);
-  setError(null);
+  const fetchProducts = async () => {
+    setLoading(true);
+    setError(null);
 
-  try {
-    let res;
-    if (searchTerm.trim()) {
-      res = await axios.get(`/api/productos/buscar/${searchTerm}`, { withCredentials: true });
-    } else {
-      res = await axios.get('/api/productos', { withCredentials: true });
+    try {
+      let res;
+      if (searchTerm.trim()) {
+        res = await axios.get(`/api/productos/buscar/${searchTerm}`, { withCredentials: true });
+      } else {
+        res = await axios.get('/api/productos', { withCredentials: true });
+      }
+
+      const data = res.data;
+      setProducts(data.productos || []);
+      setTotal(data.total || 0);
+    } catch (err) {
+      setError('Error al cargar los productos.');
+      console.error('Error al obtener productos:', err);
+    } finally {
+      setLoading(false);
     }
-
-    const data = res.data;
-    setProducts(data.productos || []);
-    setTotal(data.total || 0);
-  } catch (err) {
-    setError('Error al cargar los productos.');
-    console.error('Error al obtener productos:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -110,6 +110,18 @@ const fetchProducts = async () => {
 
   const handleFinalizarCotizacion = () => {
     navigate('/nuevacotizacion');
+  };
+  const handleRemove = (id) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== id));
+  };
+
+  const [ocultarCart, setOcultarCart] = useState(false);
+  const cerrarCartConTransicion = () => {
+    setOcultarCart(true);
+    setTimeout(() => {
+      setShowCart(false);
+      setOcultarCart(false);
+    }, 300); // duración de la transición
   };
 
   return (
@@ -166,33 +178,52 @@ const fetchProducts = async () => {
       </div>
 
 
-      // Modal o sección del carrito
-      {showCart && (
-        <div className="cart-modal">
-          <h5 className="cart-title">🧾 Tu Cotización</h5>
-          {cart.length === 0 ? (
-            <p>No hay productos seleccionados.</p>
-          ) : (
-            <>
-              <ul className="cart-list">
-                {cart.map(item => (
-                  <li key={item.id} className="cart-item">
-                    <span>{item.title}</span>
-                    <div className="quantity-controls">
-                      <button onClick={() => handleDecrement(item.id)}>-</button>
-                      <span>{item.quantity}</span>
-                      <button onClick={() => handleIncrement(item.id)}>+</button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <button className="btn btn-success finalizar-btn" onClick={handleFinalizarCotizacion}>
-                Generar Cotización
-              </button>
-            </>
-          )}
-        </div>
-      )}
+    
+     <div
+  className={`cart-modal-wrapper ${
+    showCart ? 'fade-in' : ocultarCart ? 'fade-out' : 'd-none'
+  }`}
+>
+  <div className="cart-modal">
+    <button className="btn-close float-end" onClick={cerrarCartConTransicion}></button>
+    <h5 className="cart-title">🧾 Tu Cotización</h5>
+
+    {cart.length === 0 ? (
+      <p className="text-muted">No hay productos seleccionados.</p>
+    ) : (
+      <>
+        <ul className="cart-list">
+          {cart.map(item => (
+            <li key={item.id} className="cart-item">
+              <span className="fw-bold">{item.detalle}</span>
+              <div className="quantity-controls">
+                <button onClick={() => handleDecrement(item.id)}>-</button>
+                <span>{item.quantity}</span>
+                <button onClick={() => handleIncrement(item.id)}>+</button>
+                <button className="remove-btn" onClick={() => handleRemove(item.id)}>✕</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        <button
+          className="btn btn-success finalizar-btn"
+          onClick={() => navigate('/nuevacotizacion', { state: { carrito: cart } })}
+          disabled={cart.length === 0}
+        >
+          <i className="bi bi-file-earmark-plus me-2"></i> Generar cotización
+        </button>
+
+        <button
+          className="btn btn-outline-danger finalizar-btn mt-2"
+          onClick={() => setCart([])}
+        >
+          <i className="bi bi-trash me-2"></i> Cancelar carrito
+        </button>
+      </>
+    )}
+  </div>
+</div>
 
       <div className="menuboxprod">
         <div className="productos-container">

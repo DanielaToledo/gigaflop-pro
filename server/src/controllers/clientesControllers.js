@@ -1,5 +1,7 @@
 import pool from "../config/db.js";
-import { crearCliente, listarClientes, listarCliente, actualizarCliente, eliminarCliente} from "../models/ClientesModels.js";
+import { crearCliente, listarClientesPorTexto, listarClientes, listarCliente, actualizarCliente, eliminarCliente} from "../models/ClientesModels.js";
+import { obtenerCondicionesComerciales } from '../models/ClientesModels.js';
+
 
 //controlador para crear cliente pasando razon_social y cuit
 export const crearClienteController = async (req, res) => {
@@ -13,7 +15,26 @@ export const crearClienteController = async (req, res) => {
         res.status(500).json({error: "No se pudo crear el cliente"});
     }
 }
-      
+
+//controlador para buscar clientes por texto en razon_social o cuit
+export const buscarClientesPorTextoController = async (req, res) => {
+  const { query } = req.params;
+
+  if (!query || query.trim().length < 2) {
+    return res.status(400).json({ error: 'Consulta demasiado corta' });
+  }
+
+  try {
+    const clientes = await listarClientesPorTexto(query);
+    res.status(200).json(clientes);
+  } catch (error) {
+    console.error('Error al buscar clientes por texto:', error);
+    res.status(500).json({ error: 'No se pudo realizar la búsqueda' });
+  }
+};
+
+
+
 
 //controlador para listar a todos los clientes
 export const listarClientesController  = async (req, res) => {
@@ -28,7 +49,7 @@ export const listarClientesController  = async (req, res) => {
 
 //contolador para listar un cliente por razon social
 export const listarClienteController = async (req, res) => {
-  const { razon_social } = req.query;
+  const { razon_social } = req.params;
 
   try {
     const clientes = await listarCliente({ razon_social });
@@ -92,3 +113,20 @@ export const eliminarClienteController = async (req, res) => {
         res.status(500).json({ error: "No se pudo eliminar el cliente" });
     }
 };
+
+
+//controlador para obtener condiciones comerciales de un cliente por su id
+export const getCondicionesComerciales = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const condiciones = await obtenerCondicionesComerciales(id);
+    if (!condiciones) {
+      return res.status(404).json({ msg: 'No se encontraron condiciones comerciales para este cliente' });
+    }
+    res.json(condiciones);
+  } catch (err) {
+    console.error('Error al obtener condiciones comerciales:', err);
+    res.status(500).json({ msg: 'Error interno del servidor' });
+  }
+};
+

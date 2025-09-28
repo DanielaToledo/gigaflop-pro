@@ -12,7 +12,9 @@ const RutaProtegida = () => {
       .catch(() => setAutenticado(false));
   }, []);
 
-  if (autenticado === null) return null; // o un spinner cargando
+  if (autenticado === null) {
+  return <div className="spinner-container">Verificando sesión...</div>;
+}
 
   return autenticado ? <Outlet /> : <Navigate to="/" />;
 };

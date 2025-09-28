@@ -26,6 +26,7 @@ console.log('Producto recibido:', item);
         <p><span className='fw-bold'>Marca: </span>{item.marca}</p>
         <p><span className='fw-bold'>Categoría: </span>{item.categoria}</p>
         <p><span className='fw-bold'>Stock disponible: </span>{item.stock}</p>
+        <p className="card-text">IVA: {item.tasa_iva}%</p>
         <p>
          <span className='fw-bold'>Precio: </span>
           {Number.isFinite(Number(item.precio))

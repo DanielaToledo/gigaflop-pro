@@ -84,25 +84,32 @@ useEffect(() => {
       {mensaje && <div className="text-muted mt-1">{mensaje}</div>}
 
       {resultados.length > 0 && (
-        <ul className="list-group mt-2">
-          {resultados.map(p => (
-            <li
-              key={p.id}
-              className="list-group-item d-flex justify-content-between align-items-center"
-              style={{ cursor: 'pointer' }}
-              onClick={() => agregarProducto(p)}
-            >
-              <div>
-                <strong>{p.codigo || p.nombre || p.part_number}</strong> · {p.detalle}
-                <div className="small text-muted">
-                  US$ {p.precio?.toFixed(2)} · Stock {p.stock}
-                </div>
-              </div>
-              <button className="btn btn-sm btn-outline-primary">Agregar</button>
-            </li>
-          ))}
-        </ul>
-      )}
+  <ul className="list-group mt-2">
+    {resultados.map(p => (
+      <li
+        key={p.id}
+        className="list-group-item d-flex justify-content-between align-items-center"
+        style={{ cursor: 'default' }} // ya no hace falta que el <li> sea clickeable
+      >
+        <div>
+          <strong>{p.codigo || p.nombre || p.part_number}</strong> · {p.detalle}
+          <div className="small text-muted">
+            US$ {p.precio?.toFixed(2)} · Stock {p.stock}
+          </div>
+        </div>
+        <button
+          className="btn btn-sm btn-outline-primary"
+          onClick={() => agregarProducto(p)} // ✅ ahora el botón agrega el producto
+        >
+          Agregar
+        </button>
+      </li>
+    ))}
+  </ul>
+)}
+
+
+
     </div>
   );
 };

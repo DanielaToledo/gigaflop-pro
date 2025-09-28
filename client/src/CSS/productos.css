@@ -365,3 +365,37 @@ padding-top: 20vw;
 .cotizacion-icon:hover {
   color: #02022c;
 }
+
+
+.cart-modal {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.fade-out {
+  opacity: 0;
+}
+
+
+.cart-modal-wrapper {
+  position: absolute;
+  top: 60px;
+  right: 0;
+  z-index: 1000;
+  transition: opacity 0.3s ease;
+}
+
+.cart-modal-wrapper.fade-in {
+  opacity: 1;
+  display: block;
+}
+
+.cart-modal-wrapper.fade-out {
+  opacity: 0;
+  pointer-events: none;
+  display: block;
+}
+
+.cart-modal-wrapper.d-none {
+  display: none;
+}

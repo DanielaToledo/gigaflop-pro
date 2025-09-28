@@ -9,6 +9,23 @@ export const crearCliente = async ({razon_social,cuit}) => { //recibe un objeto 
     return result.insertId; // devuelve el id del cliente creado
 }
 
+
+export const listarClientesPorTexto = async (texto) => {
+  const query = texto.trim();
+
+  const [rows] = await pool.execute(
+    `SELECT id, razon_social, cuit 
+     FROM cliente 
+     WHERE razon_social LIKE ? OR cuit LIKE ? 
+     ORDER BY razon_social ASC 
+     LIMIT 10`,
+    [`%${query}%`, `%${query}%`]
+  );
+
+  return rows;
+};
+
+
 //modelo para listar clientes
 export const listarClientes = async () => {
     const [rows] = await pool.execute('SELECT * FROM cliente');// ejecuta la consulta para obtener todos los clientes
@@ -22,6 +39,16 @@ export const listarCliente = async ({ razon_social }) => {
   return rows;
   
 };
+
+
+export const obtenerCondicionesComerciales = async (idCliente) => {
+  const [rows] = await pool.query(
+    'SELECT forma_pago, tipo_cambio, dias_pago FROM condiciones_comerciales WHERE id_cliente = ?',
+    [idCliente]
+  );
+  return rows[0] || null;
+};
+
 
 
 //modelo para listar un cliente por razon social o cuit o id
