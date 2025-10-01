@@ -1,7 +1,7 @@
 import pool from "../config/db.js";
 import { crearCliente, listarClientesPorTexto, listarClientes, listarCliente, actualizarCliente, eliminarCliente} from "../models/ClientesModels.js";
 import { obtenerCondicionesComerciales } from '../models/ClientesModels.js';
-
+import { obtenerDiasPagoPorCliente } from '../models/ClientesModels.js';
 
 //controlador para crear cliente pasando razon_social y cuit
 export const crearClienteController = async (req, res) => {
@@ -130,3 +130,14 @@ export const getCondicionesComerciales = async (req, res) => {
   }
 };
 
+
+export const getDiasPagoPorCliente = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const dias = await obtenerDiasPagoPorCliente(id);
+    res.json(dias);
+  } catch (err) {
+  console.error('Error al obtener días de pago por cliente:', err.message);
+  res.status(500).json({ msg: 'Error interno del servidor' });
+}  
+};

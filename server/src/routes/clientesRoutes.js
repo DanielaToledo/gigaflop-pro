@@ -6,7 +6,7 @@ import {actualizarClienteController} from '../controllers/clientesControllers.js
 import {eliminarClienteController} from '../controllers/clientesControllers.js';
 import {buscarClientesPorTextoController} from '../controllers/clientesControllers.js';
 import { getCondicionesComerciales } from '../controllers/clientesControllers.js';
-
+import { getDiasPagoPorCliente } from '../controllers/clientesControllers.js';  
 
 const router = Router();
 
@@ -32,7 +32,8 @@ router.delete('/:cuit', eliminarClienteController);
 //ruta para obtener condiciones comerciales de un cliente por id
 router.get('/:id/condiciones', getCondicionesComerciales);
 
-
+//ruta para obtener dias de pago por cliente
+router.get('/:id/dias-pago', getDiasPagoPorCliente);
 
 export default router; 
 

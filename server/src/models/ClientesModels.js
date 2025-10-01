@@ -49,6 +49,21 @@ export const obtenerCondicionesComerciales = async (idCliente) => {
   return rows[0] || null;
 };
 
+//modelo para obtener dias de pago por cliente
+export const obtenerDiasPagoPorCliente = async (idCliente) => {
+  const [rows] = await pool.query(
+    `SELECT DISTINCT dias_pago
+     FROM condiciones_comerciales
+     WHERE id_cliente = ?`,
+    [idCliente]
+  );
+  return rows.map(r => String(r.dias_pago));
+};
+
+
+
+
+
 
 
 //modelo para listar un cliente por razon social o cuit o id

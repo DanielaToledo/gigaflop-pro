@@ -38,6 +38,8 @@ const NuevaCotizacion = () => {
   const [mostrarModal, setMostrarModal] = useState(false);
   const [seleccionModal, setSeleccionModal] = useState({});
   const [query, setQuery] = useState('');
+  const [condicionesComerciales, setCondicionesComerciales] = useState([]);
+  const [opcionesDiasPago, setOpcionesDiasPago] = useState([]);
 
 
 
@@ -55,7 +57,8 @@ const NuevaCotizacion = () => {
         cantidad: p.quantity || 1,
         markup: p.markup ?? 0,
         descuento: p.descuento ?? 0,
-        precio: num(p.precio) || 0 // Asegura que precio sea numérico
+        precio: num(p.precio) || 0,
+        tasa_iva: num(p.tasa_iva) || 21
       }));
       setCarrito(formateados);
     } else {
@@ -78,8 +81,8 @@ const NuevaCotizacion = () => {
     }
   }, [location.state]);
 
- 
- // Cargar productos disponibles para el buscador (mock)
+
+  // Cargar productos disponibles para el buscador (mock)
   useEffect(() => {
     axios.get('/api/productos')
       .then(({ data }) => setProductosDisponibles(data))
@@ -110,17 +113,17 @@ const NuevaCotizacion = () => {
   }, []);
 
   // Cargar contactos del cliente seleccionado
-const handleSeleccionCliente = async (id) => {
-  setCliente(id);
-  try {
-    const { data } = await axios.get(`/api/clientes/${id}/contactos`);
-    setContactosCliente(data);
-    setContacto('');
-    setClienteSeleccionado(id); // 🔥 Esto es lo que faltaba
-  } catch (err) {
-    console.error('Error al cargar contactos del cliente', err);
-  }
-};
+  const handleSeleccionCliente = async (id) => {
+    setCliente(id);
+    try {
+      const { data } = await axios.get(`/api/clientes/${id}/contactos`);
+      setContactosCliente(data);
+      setContacto('');
+      setClienteSeleccionado(id); // 🔥 Esto es lo que faltaba
+    } catch (err) {
+      console.error('Error al cargar contactos del cliente', err);
+    }
+  };
 
   // Buscar clientes a medida que se escribe
   useEffect(() => {
@@ -148,24 +151,50 @@ const handleSeleccionCliente = async (id) => {
     return () => clearTimeout(delay);
   }, [busquedaCliente]);
 
- const cargarCondiciones = async (idCliente) => {
-  try {
-    const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`);
-     console.log('Condiciones comerciales recibidas:', data);
 
-    setFormaPago(data.forma_pago || '');
-    setTipoCambio(data.tipo_cambio || '');
-    setDiasPago(data.dias_pago || '');
-  } catch (err) {
-    console.error('Error al cargar condiciones comerciales:', err);
-  }
-};
-  
-useEffect(() => {
-  if (clienteSeleccionado) {
-    cargarCondiciones(clienteSeleccionado);
-  }
-}, [clienteSeleccionado]);
+  // Cargar opciones de plazos de pago
+  useEffect(() => {
+    if (clienteSeleccionado) {
+      axios.get(`/api/clientes/${clienteSeleccionado}/dias-pago`)
+        .then(({ data }) => {
+          const opciones = data.map(String);
+          setOpcionesDiasPago(opciones);
+        })
+        .catch(err => console.error('Error al cargar días de pago del cliente', err));
+    }
+  }, [clienteSeleccionado]);
+
+
+  // Cargar condiciones comerciales al seleccionar cliente
+  const cargarCondiciones = async (idCliente) => {
+    try {
+      const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`);
+      setFormaPago(data.forma_pago || '');
+      setTipoCambio(data.tipo_cambio || '');
+
+      const dias = String(data.dias_pago || '');
+      if (opcionesDiasPago.includes(dias)) {
+        setDiasPago(dias);
+        setDiasPagoExtra('');
+      } else {
+        setDiasPago('');
+        setDiasPagoExtra(dias);
+      }
+    } catch (err) {
+      console.error('Error al cargar condiciones comerciales:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (clienteSeleccionado) {
+      cargarCondiciones(clienteSeleccionado);
+    }
+  }, [clienteSeleccionado]);
+
+
+
+
+
 
   const resumen = useMemo(() => {
     let base21 = 0, base105 = 0;
@@ -197,7 +226,7 @@ useEffect(() => {
   }, [carrito, costoEnvio]);
 
 
-console.log('Carrito actualizado:', carrito);
+  console.log('Carrito actualizado:', carrito);
 
 
 
@@ -339,7 +368,6 @@ console.log('Carrito actualizado:', carrito);
                   <select
                     className="form-select"
                     value={formaPago}
-                    disabled
                     onChange={(e) => setFormaPago(e.target.value)}
                   >
                     <option value="">Seleccioná...</option>
@@ -353,7 +381,6 @@ console.log('Carrito actualizado:', carrito);
                   <select
                     className="form-select"
                     value={tipoCambio}
-                    disabled
                     onChange={(e) => setTipoCambio(e.target.value)}
                   >
                     <option value="">Seleccioná...</option>
@@ -361,23 +388,22 @@ console.log('Carrito actualizado:', carrito);
                     <option>Billete</option>
                   </select>
                 </div>
+
                 <div className="col-md-4">
                   <label className="form-label">Plazo de pago</label>
                   <div className="input-group">
                     <select
                       className="form-select"
                       value={diasPago}
-                      disabled
                       onChange={(e) => setDiasPago(e.target.value)}
                     >
                       <option value="">Seleccioná...</option>
-                      <option>0/30/60</option>
-                      <option>0</option>
-                      <option>15</option>
-                      <option>20</option>
-                      <option>30</option>
-                      <option>60</option>
+                      {opcionesDiasPago.map((opcion, idx) => (
+                        <option key={idx} value={opcion}>{opcion}</option>
+                      ))}
                     </select>
+
+                    {/* Mostrar campo extra solo si el valor actual no está en el select */}
                     <input
                       type="number"
                       className="form-control"
@@ -392,123 +418,123 @@ console.log('Carrito actualizado:', carrito);
           </div>
 
           {/* Productos */}
-       <div className="card card-soft">
-  <div className="card-body">
-    <h5 className="section-title"><i className="bi bi-box-seam"></i> Productos</h5>
+          <div className="card card-soft">
+            <div className="card-body">
+              <h5 className="section-title"><i className="bi bi-box-seam"></i> Productos</h5>
 
-    <BuscadorProductos
-      productos={productosDisponibles}
-      carrito={carrito}
-      setCarrito={setCarrito}
-      query={query}
-      setQuery={setQuery}
-      abrirModal={() => setMostrarModal(true)}
-    />
+              <BuscadorProductos
+                productos={productosDisponibles}
+                carrito={carrito}
+                setCarrito={setCarrito}
+                query={query}
+                setQuery={setQuery}
+                abrirModal={() => setMostrarModal(true)}
+              />
 
-    <div className="table-responsive">
-      <table className="table table-sm align-middle">
-        <thead>
-          <tr>
-            <th>Part #</th>
-            <th>Detalle</th>
-            <th>Cant.</th>
-            <th>Precio</th>
-            <th>Mark-up %</th>
-            <th>Precio+MU</th>
-            <th>Desc. $</th>
-            <th>Base</th>
-            <th>IVA</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {carrito.map((p, i) => {
-            const precioFinal = num(p.precio) * (1 + num(p.markup) / 100);
-            const baseLinea = Math.max(0, (num(p.cantidad) || 1) * precioFinal - num(p.descuento));
+              <div className="table-responsive">
+                <table className="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Part #</th>
+                      <th>Detalle</th>
+                      <th>Cant.</th>
+                      <th>Precio</th>
+                      <th>Mark-up %</th>
+                      <th>Precio+MU</th>
+                      <th>Desc. $</th>
+                      <th>Base</th>
+                      <th>IVA</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {carrito.map((p, i) => {
+                      const precioFinal = num(p.precio) * (1 + num(p.markup) / 100);
+                      const baseLinea = Math.max(0, (num(p.cantidad) || 1) * precioFinal - num(p.descuento));
 
-            return (
-              <tr key={p.id}>
-                <td>{p.part_number}</td>
-                <td>{p.detalle}</td>
+                      return (
+                        <tr key={p.id}>
+                          <td>{p.part_number}</td>
+                          <td>{p.detalle}</td>
 
 
-                {/* Cantidad editable */}
-                <td>
-                  <input
-                    type="number"
-                    min="1"
-                    max={p.stock}
-                    value={p.cantidad}
-                    className="form-control form-control-sm"
-                    onChange={(e) => {
-                      const v = Math.min(Math.max(1, num(e.target.value)), p.stock);
-                      const nuevo = [...carrito];
-                      nuevo[i] = { ...nuevo[i], cantidad: v };
-                      setCarrito(nuevo);
-                    }}
-                  />
-                </td>
+                          {/* Cantidad editable */}
+                          <td>
+                            <input
+                              type="number"
+                              min="1"
+                              max={p.stock}
+                              value={p.cantidad}
+                              className="form-control form-control-sm"
+                              onChange={(e) => {
+                                const v = Math.min(Math.max(1, num(e.target.value)), p.stock);
+                                const nuevo = [...carrito];
+                                nuevo[i] = { ...nuevo[i], cantidad: v };
+                                setCarrito(nuevo);
+                              }}
+                            />
+                          </td>
 
-                {/* Precio NO editable */}
-                <td>{num(p.precio).toFixed(2)}</td>
+                          {/* Precio NO editable */}
+                          <td>{num(p.precio).toFixed(2)}</td>
 
-                {/* Margen editable */}
-                <td>
-                  <input
-                    type="number"
-                    min="0"
-                    value={p.markup}
-                    className="form-control form-control-sm"
-                    onChange={(e) => {
-                      const nuevo = [...carrito];
-                      nuevo[i] = { ...nuevo[i], markup: Math.max(0, num(e.target.value)) };
-                      setCarrito(nuevo);
-                    }}
-                  />
-                </td>
+                          {/* Margen editable */}
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              value={p.markup}
+                              className="form-control form-control-sm"
+                              onChange={(e) => {
+                                const nuevo = [...carrito];
+                                nuevo[i] = { ...nuevo[i], markup: Math.max(0, num(e.target.value)) };
+                                setCarrito(nuevo);
+                              }}
+                            />
+                          </td>
 
-                {/* Precio final */}
-                <td>{precioFinal.toFixed(2)}</td>
+                          {/* Precio final */}
+                          <td>{precioFinal.toFixed(2)}</td>
 
-                {/* Descuento editable */}
-                <td>
-                  <input
-                    type="number"
-                    min="0"
-                    value={p.descuento}
-                    className="form-control form-control-sm"
-                    onChange={(e) => {
-                      const nuevo = [...carrito];
-                      nuevo[i] = { ...nuevo[i], descuento: Math.max(0, num(e.target.value)) };
-                      setCarrito(nuevo);
-                    }}
-                  />
-                </td>
+                          {/* Descuento editable */}
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              value={p.descuento}
+                              className="form-control form-control-sm"
+                              onChange={(e) => {
+                                const nuevo = [...carrito];
+                                nuevo[i] = { ...nuevo[i], descuento: Math.max(0, num(e.target.value)) };
+                                setCarrito(nuevo);
+                              }}
+                            />
+                          </td>
 
-                {/* Base */}
-                <td>{baseLinea.toFixed(2)}</td>
+                          {/* Base */}
+                          <td>{baseLinea.toFixed(2)}</td>
 
-                {/* IVA NO editable */}
-                <td>{p.iva}%</td>
+                          {/* IVA NO editable */}
+                          <td>{p.iva}%</td>
 
-                {/* Eliminar */}
-                <td className="text-center">
-                  <button
-                    className="btn btn-sm btn-outline-danger"
-                    onClick={() => {
-                      if (window.confirm('¿Eliminar este ítem del carrito?')) {
-                        const nuevo = [...carrito];
-                        nuevo.splice(i, 1);
-                        setCarrito(nuevo);
-                      }
-                    }}
-                  >
-                    <i className="bi bi-trash"></i>
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
+                          {/* Eliminar */}
+                          <td className="text-center">
+                            <button
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={() => {
+                                if (window.confirm('¿Eliminar este ítem del carrito?')) {
+                                  const nuevo = [...carrito];
+                                  nuevo.splice(i, 1);
+                                  setCarrito(nuevo);
+                                }
+                              }}
+                            >
+                              <i className="bi bi-trash"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
 
 
 
@@ -533,7 +559,7 @@ console.log('Carrito actualizado:', carrito);
                 <div className="row"><div className="col-7">IVA 10.5%</div><div className="col-5 text-end"><strong>US$ {resumen.iva105.toFixed(2)}</strong></div></div>
                 <div className="row"><div className="col-7">Descuento total aplicado</div><div className="col-5 text-end"><strong>US$ {resumen.totalDescuentos.toFixed(2)}</strong></div>
                   <div className="row"><div className="col-7">Total</div><div className="col-5 text-end"><strong>US$ {resumen.total.toFixed(2)}</strong></div>
-                </div>
+                  </div>
                 </div>
               </div>
             </div>
