@@ -116,20 +116,27 @@ export const eliminarClienteController = async (req, res) => {
 
 
 //controlador para obtener condiciones comerciales de un cliente por su id
+// controlador para obtener condiciones comerciales de un cliente por su id
 export const getCondicionesComerciales = async (req, res) => {
   const { id } = req.params;
+
+  if (!id || isNaN(Number(id))) {
+    return res.status(400).json({ error: 'ID de cliente inválido' });
+  }
+
   try {
     const condiciones = await obtenerCondicionesComerciales(id);
-    if (!condiciones) {
-      return res.status(404).json({ msg: 'No se encontraron condiciones comerciales para este cliente' });
+
+    if (!condiciones || Object.values(condiciones).every(val => val === '')) {
+      return res.status(404).json({ error: 'No se encontraron condiciones comerciales para este cliente' });
     }
-    res.json(condiciones);
-  } catch (err) {
-    console.error('Error al obtener condiciones comerciales:', err);
-    res.status(500).json({ msg: 'Error interno del servidor' });
+
+    res.status(200).json(condiciones);
+  } catch (error) {
+    console.error('Error al obtener condiciones comerciales:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
-
 
 export const getDiasPagoPorCliente = async (req, res) => {
   const { id } = req.params;
@@ -141,3 +148,4 @@ export const getDiasPagoPorCliente = async (req, res) => {
   res.status(500).json({ msg: 'Error interno del servidor' });
 }  
 };
+

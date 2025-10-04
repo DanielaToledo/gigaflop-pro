@@ -42,11 +42,26 @@ export const listarCliente = async ({ razon_social }) => {
 
 
 export const obtenerCondicionesComerciales = async (idCliente) => {
+  if (!idCliente || isNaN(Number(idCliente))) {
+    throw new Error('ID de cliente inválido');
+  }
+
   const [rows] = await pool.query(
-    'SELECT forma_pago, tipo_cambio, dias_pago FROM condiciones_comerciales WHERE id_cliente = ?',
+    `SELECT forma_pago, tipo_cambio, dias_pago
+     FROM condiciones_comerciales
+     WHERE id_cliente = ?`,
     [idCliente]
   );
-  return rows[0] || null;
+
+  if (!rows.length) return null;
+
+  const { forma_pago, tipo_cambio, dias_pago } = rows[0];
+
+  return {
+    forma_pago: forma_pago || '',
+    tipo_cambio: tipo_cambio || '',
+    dias_pago: dias_pago || ''
+  };
 };
 
 //modelo para obtener dias de pago por cliente
@@ -59,8 +74,6 @@ export const obtenerDiasPagoPorCliente = async (idCliente) => {
   );
   return rows.map(r => String(r.dias_pago));
 };
-
-
 
 
 

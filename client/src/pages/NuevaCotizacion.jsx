@@ -43,6 +43,8 @@ const NuevaCotizacion = () => {
 
 
 
+
+
   //fecha de hoy para usar en la cotizacion
   useEffect(() => {
     setFechaHoy(new Date().toISOString().slice(0, 10));
@@ -166,25 +168,40 @@ const NuevaCotizacion = () => {
 
 
   // Cargar condiciones comerciales al seleccionar cliente
-  const cargarCondiciones = async (idCliente) => {
-    try {
-      const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`);
-      setFormaPago(data.forma_pago || '');
-      setTipoCambio(data.tipo_cambio || '');
-
-      const dias = String(data.dias_pago || '');
-      if (opcionesDiasPago.includes(dias)) {
-        setDiasPago(dias);
-        setDiasPagoExtra('');
-      } else {
-        setDiasPago('');
-        setDiasPagoExtra(dias);
+ const cargarCondiciones = async (idCliente) => {
+  try {
+    const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`, {
+      headers: {
+        'Cache-Control': 'no-cache'
       }
-    } catch (err) {
-      console.error('Error al cargar condiciones comerciales:', err);
-    }
-  };
+    });
 
+    const forma = (data.forma_pago || '').trim();
+    const cambio = (data.tipo_cambio || '').trim();
+    const dias = String(data.dias_pago || '').trim();
+
+    setFormaPago(forma);
+
+    setTipoCambio(''); // limpia primero
+    setTimeout(() => {
+      setTipoCambio(cambio); // actualiza después
+    }, 0);
+
+    if (opcionesDiasPago.includes(dias)) {
+      setDiasPago(dias);
+      setDiasPagoExtra('');
+    } else {
+      setDiasPago('');
+      setDiasPagoExtra(dias);
+    }
+
+    console.log('Tipo de cambio recibido:', cambio);
+    console.log('Forma de pago:', forma);
+    console.log('Días de pago:', dias);
+  } catch (err) {
+    console.error('Error al cargar condiciones comerciales:', err);
+  }
+};
   useEffect(() => {
     if (clienteSeleccionado) {
       cargarCondiciones(clienteSeleccionado);
@@ -376,18 +393,19 @@ const NuevaCotizacion = () => {
                     <option>Tarjeta de crédito</option>
                   </select>
                 </div>
-                <div className="col-md-4">
-                  <label className="form-label">Tipo de cambio</label>
-                  <select
-                    className="form-select"
-                    value={tipoCambio}
-                    onChange={(e) => setTipoCambio(e.target.value)}
-                  >
-                    <option value="">Seleccioná...</option>
-                    <option>Divisa</option>
-                    <option>Billete</option>
-                  </select>
-                </div>
+
+
+               <div className="col-md-4">
+  <label className="form-label">Tipo de cambio</label>
+  <input
+    type="text"
+    className="form-control"
+    value={tipoCambio}
+    readOnly
+    tabIndex={-1} // opcional: evita que el usuario lo enfoque con Tab
+  />
+</div>
+
 
                 <div className="col-md-4">
                   <label className="form-label">Plazo de pago</label>

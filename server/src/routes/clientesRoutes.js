@@ -8,6 +8,7 @@ import {buscarClientesPorTextoController} from '../controllers/clientesControlle
 import { getCondicionesComerciales } from '../controllers/clientesControllers.js';
 import { getDiasPagoPorCliente } from '../controllers/clientesControllers.js';  
 
+
 const router = Router();
 
 
