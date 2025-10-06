@@ -118,3 +118,22 @@ export const sincronizarProductos = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al sincronizar productos' });
   }
 };
+
+
+// Buscar productos con criterios flexibles
+export const buscarProductosFlexibles = async (req, res) => {
+  try {
+    const query = req.query.query?.trim().toLowerCase() || '';
+
+    if (!query) {
+      const productos = await obtenerTodosLosProductos();
+      return res.json({ productos, total: productos.length });
+    }
+
+    const productos = await buscarProductosPorTextoLibre(query);
+    res.json({ productos, total: productos.length });
+  } catch (error) {
+    console.error('Error en búsqueda flexible:', error.message);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+};

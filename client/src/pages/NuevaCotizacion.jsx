@@ -11,6 +11,7 @@ import { useLocation } from 'react-router-dom';
 const NuevaCotizacion = () => {
   const location = useLocation();
 
+  // Estados para la cotización seleccionar cliente y contacto
   const [vigencia, setVigencia] = useState('');
   const [cliente, setCliente] = useState('');
   const [contacto, setContacto] = useState('');
@@ -21,9 +22,14 @@ const NuevaCotizacion = () => {
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
 
 
+  // Estados para la entrega metododo de envio y direccion
   const [modalidadEntrega, setModalidadEntrega] = useState('Envío');
+  const [direccionesCliente, setDireccionesCliente] = useState([]);
   const [direccion, setDireccion] = useState('');
   const [costoEnvio, setCostoEnvio] = useState('');
+  const [bonificable, setBonificable] = useState(false);
+
+  // Estados para condiciones comerciales
   const [formaPago, setFormaPago] = useState('');
   const [tipoCambio, setTipoCambio] = useState('');
   const [diasPago, setDiasPago] = useState('');
@@ -33,17 +39,46 @@ const NuevaCotizacion = () => {
   const [errorGlobal, setErrorGlobal] = useState('');
   const [infoGlobal, setInfoGlobal] = useState('');
   const [fechaHoy, setFechaHoy] = useState('');
+
+  // Otros estados como mpstrar modal, año, productos, etc.
   const [yearActual, setYearActual] = useState(new Date().getFullYear());
   const [productosDisponibles, setProductosDisponibles] = useState([]);
-  const [mostrarModal, setMostrarModal] = useState(false);
   const [seleccionModal, setSeleccionModal] = useState({});
-  const [query, setQuery] = useState('');
+
   const [condicionesComerciales, setCondicionesComerciales] = useState([]);
   const [opcionesDiasPago, setOpcionesDiasPago] = useState([]);
 
+  // Estados para el buscador de productos(modal)
+  const [busquedaProducto, setBusquedaProducto] = useState('');
+  const [productosSeleccionados, setProductosSeleccionados] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
+  const [productosPorPagina] = useState(10);
+
+  //estados para el buscador de productos fuera del modal
+  const [filtroBusqueda, setFiltroBusqueda] = useState('');
+  const [productosFiltrados, setProductosFiltrados] = useState([]);
+  const [query, setQuery] = useState('');
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [paginaActual, setPaginaActual] = useState(1);
 
 
 
+
+// Función para manejar la búsqueda de productos fuera del modal
+const handleBuscar = async () => {
+  try {
+    const res = await axios.get(`/api/productos/buscar-flex?query=${query}`);
+    const productos = Array.isArray(res.data) ? res.data : res.data.productos || [];
+
+    setProductosFiltrados(productos);
+    setPaginaActual(1); // reinicia paginación
+    setMostrarModal(true);
+  } catch (err) {
+    console.error('❌ Error al buscar productos:', err.message);
+    setProductosFiltrados([]);
+    setMostrarModal(true);
+  }
+};
 
   //fecha de hoy para usar en la cotizacion
   useEffect(() => {
@@ -84,20 +119,81 @@ const NuevaCotizacion = () => {
   }, [location.state]);
 
 
-  // Cargar productos disponibles para el buscador (mock)
+  // Cargar productos disponibles para el buscador (modal)
   useEffect(() => {
     axios.get('/api/productos')
-      .then(({ data }) => setProductosDisponibles(data))
-      .catch(err => console.error('Error al cargar productos', err));
+      .then(({ data }) => {
+        console.log('Respuesta completa:', data);
+        if (Array.isArray(data.productos)) {
+          setProductosDisponibles(data.productos);
+        } else {
+          console.error('La respuesta no contiene un array de productos:', data);
+          setProductosDisponibles([]);
+        }
+      })
+      .catch(err => {
+        console.error('Error al cargar productos', err);
+        setProductosDisponibles([]);
+      });
+
+
   }, []);
 
 
-  // Contacto seleccionado
-  const contactoSeleccionado = contactosCliente.find(c => c.id === parseInt(contacto));
-  const num = (v) => (isNaN(parseFloat(v)) ? 0 : parseFloat(v));
-  const showGlobalError = (msg) => setErrorGlobal(msg);
-  const showGlobalInfo = (msg) => setInfoGlobal(msg);
+  // Filtrar productos según búsqueda para el modal
+  useEffect(() => {
+    const texto = busqueda.toLowerCase();
+    const filtrados = productosDisponibles.filter(p =>
+      p.detalle?.toLowerCase().includes(texto) ||
+      p.part_number?.toLowerCase().includes(texto) ||
+      p.marca?.toLowerCase().includes(texto) ||
+      p.categoria?.toLowerCase().includes(texto)
+    );
+    console.log('Filtrados:', filtrados);
 
+    setProductosFiltrados(filtrados);
+    setPaginaActual(1); // reiniciar paginación al buscar
+  }, [busqueda, productosDisponibles]);
+
+  // Dentro del componente, después de los useState y useEffect para filtrar productos y manejar la paginación
+  const indexInicio = (paginaActual - 1) * productosPorPagina;
+  const indexFin = indexInicio + productosPorPagina;
+  const productosPagina = productosFiltrados.slice(indexInicio, indexFin);
+
+  const agregarAlCarritoDesdeModal = (producto) => {
+    const nuevo = {
+      ...producto,
+      cantidad: 1,
+      markup: 0,
+      descuento: 0,
+      precio: num(producto.precio) || 0,
+      tasa_iva: num(producto.tasa_iva) || 21
+    };
+
+    setCarrito(prev => { // Evita duplicados
+      const yaExiste = prev.some(p => p.part_number === nuevo.part_number);
+      return yaExiste ? prev : [...prev, nuevo];
+    });
+  };
+
+
+  const agregarProductosAlCarrito = () => { // Agrega los productos seleccionados al carrito
+    const nuevos = productosSeleccionados.map(p => ({
+      ...p,
+      cantidad: 1,
+      markup: 0,
+      descuento: 0,
+      precio: num(p.precio) || 0,
+      tasa_iva: num(p.tasa_iva) || 21
+    }));
+
+    setCarrito(prev => [...prev, ...nuevos]);
+    cerrarModalConTransicion();
+    setProductosSeleccionados([]);
+    setBusquedaProducto('');
+  };
+
+  // Manejo de apertura/cierre del modal con transición
   const [ocultarModal, setOcultarModal] = useState(false);
   const cerrarModalConTransicion = () => {
     setOcultarModal(true);
@@ -106,6 +202,16 @@ const NuevaCotizacion = () => {
       setOcultarModal(false);
     }, 300); // duración de la transición
   };
+
+ 
+
+  // Contacto seleccionado
+  const contactoSeleccionado = contactosCliente.find(c => c.id === parseInt(contacto));
+  const num = (v) => (isNaN(parseFloat(v)) ? 0 : parseFloat(v));
+  const showGlobalError = (msg) => setErrorGlobal(msg);
+  const showGlobalInfo = (msg) => setInfoGlobal(msg);
+
+
 
   // Cargar clientes disponibles (mock)
   useEffect(() => {
@@ -129,7 +235,6 @@ const NuevaCotizacion = () => {
 
   // Buscar clientes a medida que se escribe
   useEffect(() => {
-
     console.log('Buscando cliente:', busquedaCliente); // ✅
     const buscarClientes = async () => {
       if (busquedaCliente.trim().length < 2) {
@@ -168,47 +273,91 @@ const NuevaCotizacion = () => {
 
 
   // Cargar condiciones comerciales al seleccionar cliente
- const cargarCondiciones = async (idCliente) => {
-  try {
-    const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`, {
-      headers: {
-        'Cache-Control': 'no-cache'
+  const cargarCondiciones = async (idCliente) => {
+    try {
+      const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`, {
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
+
+      const forma = (data.forma_pago || '').trim();
+      const cambio = (data.tipo_cambio || '').trim();
+      const dias = String(data.dias_pago || '').trim();
+
+      setFormaPago(forma);
+
+      setTipoCambio(''); // limpia primero
+      setTimeout(() => {
+        setTipoCambio(cambio); // actualiza después
+      }, 0);
+
+      if (opcionesDiasPago.includes(dias)) {
+        setDiasPago(dias);
+        setDiasPagoExtra('');
+      } else {
+        setDiasPago('');
+        setDiasPagoExtra(dias);
       }
-    });
 
-    const forma = (data.forma_pago || '').trim();
-    const cambio = (data.tipo_cambio || '').trim();
-    const dias = String(data.dias_pago || '').trim();
-
-    setFormaPago(forma);
-
-    setTipoCambio(''); // limpia primero
-    setTimeout(() => {
-      setTipoCambio(cambio); // actualiza después
-    }, 0);
-
-    if (opcionesDiasPago.includes(dias)) {
-      setDiasPago(dias);
-      setDiasPagoExtra('');
-    } else {
-      setDiasPago('');
-      setDiasPagoExtra(dias);
+      console.log('Tipo de cambio recibido:', cambio);
+      console.log('Forma de pago:', forma);
+      console.log('Días de pago:', dias);
+    } catch (err) {
+      console.error('Error al cargar condiciones comerciales:', err);
     }
-
-    console.log('Tipo de cambio recibido:', cambio);
-    console.log('Forma de pago:', forma);
-    console.log('Días de pago:', dias);
-  } catch (err) {
-    console.error('Error al cargar condiciones comerciales:', err);
-  }
-};
+  };
   useEffect(() => {
     if (clienteSeleccionado) {
       cargarCondiciones(clienteSeleccionado);
     }
   }, [clienteSeleccionado]);
 
+  useEffect(() => {
+    if (!clienteSeleccionado) return;
 
+    axios.get(`/api/clientes/${clienteSeleccionado}/direcciones`)
+      .then(({ data }) => {
+        if (Array.isArray(data)) {
+          setDireccionesCliente(data); // cada item tiene locacion + direccion
+        } else {
+          console.error('La respuesta de direcciones no es un array:', data);
+          setDireccionesCliente([]);
+        }
+      })
+      .catch(err => {
+        console.error('Error al cargar direcciones del cliente', err);
+        setDireccionesCliente([]);
+      });
+  }, [clienteSeleccionado]);
+
+  useEffect(() => {
+    if (modalidadEntrega === 'Envío') {
+      const direccionPrincipal = direccionesCliente.find(d => d.locacion === 'principal');
+      const direccionDeposito = direccionesCliente.find(d => d.locacion === 'deposito');
+
+      // Elegí cuál querés priorizar. Ejemplo: primero depósito, si no hay, principal
+      const direccionFinal = direccionDeposito?.direccion || direccionPrincipal?.direccion || '';
+      setDireccion(direccionFinal);
+    }
+  }, [modalidadEntrega, direccionesCliente]);
+
+
+
+
+  // Cargar direcciones del cliente seleccionado
+  useEffect(() => {
+    if (!clienteSeleccionado) return;
+
+    axios.get(`/api/clientes/${clienteSeleccionado}/direcciones`)
+      .then(({ data }) => {
+        setDireccionesCliente(data || []);
+      })
+      .catch(err => {
+        console.error('Error al cargar direcciones del cliente', err);
+        setDireccionesCliente([]);
+      });
+  }, [clienteSeleccionado]);
 
 
 
@@ -248,6 +397,7 @@ const NuevaCotizacion = () => {
 
 
   return (
+
     <div className="bg-light d-flex flex-column min-vh-100">
 
 
@@ -262,118 +412,157 @@ const NuevaCotizacion = () => {
               <i className="bi bi-arrow-left me-2"></i> Volver a mis cotizaciones
             </button>
           </div>
+        </div>
 
-          {/* Cliente */}
-          <div className="card card-soft mb-3">
-            <div className="card-body">
-              <h5 className="section-title"><i className="bi bi-person-badge"></i> Cliente</h5>
-              <div className="row g-3">
-                {/* Input de búsqueda */}
-                <div className="col-md-6 buscador-cliente-container">
-                  <label className="form-label">Cliente / CUIT</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Buscar cliente por nombre o CUIT"
-                    value={busquedaCliente}
-                    onChange={(e) => setBusquedaCliente(e.target.value)}
-                  />
+        {/* Cliente */}
+        <div className="card card-soft mb-3">
+          <div className="card-body p-3">
+            <h5 className="section-title"><i className="bi bi-person-badge"></i> Cliente</h5>
+            <div className="row g-3">
+              {/* Input de búsqueda */}
+              <div className="col-md-6 buscador-cliente-container">
+                <label className="form-label">Cliente / CUIT</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Buscar cliente por nombre o CUIT"
+                  value={busquedaCliente}
+                  onChange={(e) => setBusquedaCliente(e.target.value)}
+                />
 
-
-
-
-                  {sugerencias.length > 0 && (
-                    <ul className="sugerencias-lista">
-                      {sugerencias.map((c) => (
-                        <li
-                          key={c.id}
-                          className="sugerencia-item"
-                          onClick={() => {
-                            setClienteSeleccionado(c);
-                            setCliente(c.id); // para backend
-                            handleSeleccionCliente(c.id); // ✅ carga contactos
-                            setBusquedaCliente(c.razon_social); // mostrar en input
-                            setSugerencias([]);
-                          }}
-                        >
-                          {c.razon_social} – CUIT: {c.cuit}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {/* Contacto */}
-                <div className="col-md-6">
-                  <label className="form-label">Contacto</label>
-                  <select
-                    className="form-select"
-                    value={contacto}
-                    onChange={(e) => setContacto(e.target.value)}
-                    disabled={contactosCliente.length === 0}
-                  >
-                    <option value="">Seleccionar contacto...</option>
-                    {contactosCliente.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre_contacto} {c.apellido}
-                      </option>
+                {sugerencias.length > 0 && (
+                  <ul className="sugerencias-lista">
+                    {sugerencias.map((c) => (
+                      <li
+                        key={c.id}
+                        className="sugerencia-item"
+                        onClick={() => {
+                          setClienteSeleccionado(c);
+                          setCliente(c.id); // para backend
+                          handleSeleccionCliente(c.id); // ✅ carga contactos
+                          setBusquedaCliente(c.razon_social); // mostrar en input
+                          setSugerencias([]);
+                        }}
+                      >
+                        {c.razon_social} – CUIT: {c.cuit}
+                      </li>
                     ))}
-                  </select>
-                </div>
+                  </ul>
+                )}
               </div>
 
-
-              {/* modalidad de emtrega */}
-              <div className="row g-3 mt-1">
-                <div className="col-md-3">
-                  <label className="form-label">Modalidad</label>
-                  <select
-                    className="form-select"
-                    value={modalidadEntrega}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setModalidadEntrega(value);
-                      if (value === 'Retiro') {
-                        setDireccion('');
-                        setCostoEnvio('0');
-                      }
-                    }}
-                  >
-                    <option>Envío</option>
-                    <option>Retiro</option>
-                  </select>
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label">Dirección</label>
-                  <select
-                    className="form-select"
-                    value={direccion}
-                    onChange={(e) => setDireccion(e.target.value)}
-                    disabled={modalidadEntrega === 'Retiro'}
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="1">Sucursal Centro</option>
-                    <option value="2">Depósito</option>
-                  </select>
-                </div>
-                <div className="col-md-3">
-                  <label className="form-label">Costo de envío</label>
-                  <select
-                    className="form-select"
-                    value={costoEnvio}
-                    onChange={(e) => setCostoEnvio(e.target.value)}
-                    disabled={modalidadEntrega === 'Retiro'}
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="20">CABA - US$ 20</option>
-                    <option value="35">GBA - US$ 35</option>
-                    <option value="50">Interior - US$ 50</option>
-                    <option value="0">Bonificado</option>
-                  </select>
-                </div>
+              {/* Contacto */}
+              <div className="col-md-6">
+                <label className="form-label">Contacto</label>
+                <select
+                  className="form-select"
+                  value={contacto}
+                  onChange={(e) => setContacto(e.target.value)}
+                  disabled={contactosCliente.length === 0}
+                >
+                  <option value="">Seleccionar contacto...</option>
+                  {contactosCliente.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre_contacto} {c.apellido}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
+
+
+
+
+
+          {/* modalidad de emtrega */}
+          <div className="row g-3 mt-3 align-items-end">
+            <div className="col-md-3">
+              <label className="form-label">Modalidad</label>
+              <select
+                className="form-select"
+                value={modalidadEntrega}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setModalidadEntrega(value);
+                  if (value === 'Retiro') {
+                    setDireccion('');
+                    setCostoEnvio('0');
+                  }
+                }}
+              >
+                <option>Envío</option>
+                <option>Retiro</option>
+              </select>
+            </div>
+
+
+
+
+
+
+
+            <div className="col-md-3">
+              <label className="form-label">Dirección</label>
+              <select
+                className="form-select"
+                value={direccion}
+                onChange={(e) => setDireccion(e.target.value)}
+                disabled={modalidadEntrega === 'Retiro'}
+              >
+                <option value="">Seleccionar...</option>
+                {direccionesCliente.map(d => (
+                  <option key={d.id} value={d.direccion}>
+                    {d.locacion === 'deposito' ? 'Depósito' : 'Principal'} – {d.direccion}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+
+
+
+
+            <div className="col-md-4">
+              <label className="form-label">Costo de envío</label>
+              <select
+                className="form-select"
+                value={costoEnvio}
+                onChange={(e) => setCostoEnvio(e.target.value)}
+                disabled={modalidadEntrega === 'Retiro'}
+              >
+                <option value="">Seleccionar...</option>
+                <option value="20">CABA - US$ 20</option>
+                <option value="35">GBA - US$ 35</option>
+                <option value="50">Interior - US$ 50</option>
+                <option value="0">Bonificado</option>
+              </select>
+            </div>
+
+
+
+
+            <div className="col-md-2">
+              <div className="form-check mt-4">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id="bonificableCheck"
+                  checked={bonificable}
+                  onChange={(e) => setBonificable(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="bonificableCheck">
+                  Bonificable
+                </label>
+              </div>
+            </div>
+          </div>
+
+
+
+
+
+
 
           {/* Condiciones Comerciales */}
           <div className="card card-soft mb-3">
@@ -394,17 +583,16 @@ const NuevaCotizacion = () => {
                   </select>
                 </div>
 
-
-               <div className="col-md-4">
-  <label className="form-label">Tipo de cambio</label>
-  <input
-    type="text"
-    className="form-control"
-    value={tipoCambio}
-    readOnly
-    tabIndex={-1} // opcional: evita que el usuario lo enfoque con Tab
-  />
-</div>
+                <div className="col-md-4">
+                  <label className="form-label">Tipo de cambio</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={tipoCambio}
+                    readOnly
+                    tabIndex={-1} // opcional: evita que el usuario lo enfoque con Tab
+                  />
+                </div>
 
 
                 <div className="col-md-4">
@@ -440,14 +628,35 @@ const NuevaCotizacion = () => {
             <div className="card-body">
               <h5 className="section-title"><i className="bi bi-box-seam"></i> Productos</h5>
 
-              <BuscadorProductos
-                productos={productosDisponibles}
-                carrito={carrito}
-                setCarrito={setCarrito}
-                query={query}
-                setQuery={setQuery}
-                abrirModal={() => setMostrarModal(true)}
-              />
+              <div className="d-flex gap-2 mb-3">
+                {/* 🔍 Input de búsqueda */}
+                <input
+                  type="text"
+                  className="form-control"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar producto por nombre, marca, categoría..."
+                />
+
+                {/* 🔎 Botón Buscar */}
+                <button className="btn btn-primary" onClick={handleBuscar}>
+                  Buscar
+                </button>
+
+                {/* 📦 Botón Productos */}
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setProductosFiltrados([]);
+                    setPaginaActual(1);
+                    setMostrarModal(true);
+                  }}
+                >
+                  Productos
+                </button>
+              </div>
+
+
 
               <div className="table-responsive">
                 <table className="table table-sm align-middle">
@@ -466,6 +675,8 @@ const NuevaCotizacion = () => {
                     </tr>
                   </thead>
                   <tbody>
+
+
                     {carrito.map((p, i) => {
                       const precioFinal = num(p.precio) * (1 + num(p.markup) / 100);
                       const baseLinea = Math.max(0, (num(p.cantidad) || 1) * precioFinal - num(p.descuento));
@@ -596,7 +807,6 @@ const NuevaCotizacion = () => {
             </button>
           </div>
 
-
         </div>
 
       </main>
@@ -611,11 +821,64 @@ const NuevaCotizacion = () => {
                 <h5 className="modal-title"><i className="bi bi-box"></i> Selección de productos</h5>
                 <button className="btn-close" onClick={cerrarModalConTransicion}></button>
               </div>
+
+
               <div className="modal-body">
-                <p className="text-muted">Acá van los productos más adelante...</p>
+                {productosFiltrados.length === 0 && productosDisponibles.length === 0 ? (
+                  <div className="alert alert-warning text-center">
+                    No se encontraron productos para mostrar.
+                  </div>
+                ) : (
+                  <div className="list-group">
+                    {(productosFiltrados.length > 0 ? productosFiltrados : productosDisponibles)
+                      .slice(indexInicio, indexFin)
+                      .map(p => (
+                        <div key={p.id} className="list-group-item">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <div>
+                              <strong>{p.detalle}</strong><br />
+                              <small className="text-muted">
+                                {p.part_number} · {p.marca} · ${p.precio}
+                              </small>
+                            </div>
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={() => agregarAlCarritoDesdeModal(p)}
+                            >
+                              Seleccionar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {/* Paginación */}
+                <div className="d-flex justify-content-center mt-3">
+                  <button
+                    className="btn btn-outline-secondary me-2"
+                    disabled={paginaActual === 1}
+                    onClick={() => setPaginaActual(p => p - 1)}
+                  >
+                    ←
+                  </button>
+                  <span>Página {paginaActual}</span>
+                  <button
+                    className="btn btn-outline-secondary ms-2"
+                    disabled={
+                      (productosFiltrados.length > 0 ? productosFiltrados.length : productosDisponibles.length) <= indexFin
+                    }
+                    onClick={() => setPaginaActual(p => p + 1)}
+                  >
+                    →
+                  </button>
+                </div>
               </div>
+
+
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={cerrarModalConTransicion}>Cerrar</button>
+
               </div>
             </div>
           </div>
@@ -625,5 +888,7 @@ const NuevaCotizacion = () => {
     </div>
   );
 };
+
+
 
 export default NuevaCotizacion;

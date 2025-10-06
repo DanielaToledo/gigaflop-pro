@@ -18,4 +18,7 @@ router.get('/productos/buscar/:valor', productosController.buscarProductos);
 // Sincronizar productos desde API externa
 router.get('/sincronizar', productosController.sincronizarProductos);
 
+// Búsqueda flexible por múltiples columnas
+router.get('/productos/buscar-flex', productosController.buscarProductosFlexibles);
+
 export default router;

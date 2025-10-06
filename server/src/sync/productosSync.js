@@ -13,12 +13,11 @@ const obtenerFechaUltimaActualizacionLocal = async () => {
 
 
 // Obtener productos actualizados desde la base remota
-const obtenerProductosActualizadosRemotos = async (fechaReferencia) => {
+const obtenerProductosActualizadosRemotos = async () => {//modificado temporalmente nomas para modo completo
   const [rows] = await poolRemota.query(`
-    SELECT part_number, detalle, precio, tasa_iva, stock, categoria, subcategoria, id_proveedor, ultima_actualizacion
+    SELECT part_number, detalle, precio, tasa_iva, stock, categoria, subcategoria, marca, id_proveedor, ultima_actualizacion
     FROM productos
-    WHERE ultima_actualizacion > ?
-  `, [fechaReferencia]);
+  `);
   return rows;
 };
 
@@ -27,7 +26,7 @@ const obtenerProductosActualizadosRemotos = async (fechaReferencia) => {
 export const sincronizarProductosActualizados = async () => {
   try {
     const fechaLocal = await obtenerFechaUltimaActualizacionLocal();
-    const productos = await obtenerProductosActualizadosRemotos(fechaLocal);
+    const productos = await obtenerProductosActualizadosRemotos();
 
     for (const p of productos) {
       const [existe] = await poolLocal.query(
@@ -38,14 +37,14 @@ export const sincronizarProductosActualizados = async () => {
       if (existe.length > 0) {
         await poolLocal.query(`
         UPDATE productos SET
-        detalle = ?, precio = ?, tasa_iva = ?, stock = ?, categoria = ?, subcategoria = ?, id_proveedor = ?, ultima_actualizacion = ?
+        detalle = ?, precio = ?, tasa_iva = ?, stock = ?, categoria = ?, subcategoria = ?, marca = ?,  id_proveedor = ?, ultima_actualizacion = ?
         WHERE part_number = ?
-          `, [p.detalle, p.precio, p.tasa_iva, p.stock, p.categoria, p.subcategoria, p.id_proveedor, p.ultima_actualizacion, p.part_number]);
+          `, [p.detalle, p.precio, p.tasa_iva, p.stock, p.categoria, p.subcategoria, p.marca, p.id_proveedor, p.ultima_actualizacion, p.part_number]);
       } else {
         await poolLocal.query(`
-        INSERT INTO productos (part_number, detalle, precio, tasa_iva, stock, categoria, subcategoria, id_proveedor, ultima_actualizacion)
+        INSERT INTO productos (part_number, detalle, precio, tasa_iva, stock, categoria, subcategoria, marca, id_proveedor, ultima_actualizacion)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [p.part_number, p.detalle, p.precio, p.tasa_iva, p.stock, p.categoria, p.subcategoria, p.id_proveedor, p.ultima_actualizacion]);
+          `, [p.part_number, p.detalle, p.precio, p.tasa_iva, p.stock, p.categoria, p.subcategoria, p.marca, p.id_proveedor, p.ultima_actualizacion]);
       }
     }
 

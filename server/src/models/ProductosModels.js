@@ -67,7 +67,7 @@ export const obtenerProductosDesdeRemoto = async () => {
 
 ///  Función de búsqueda de productos por texto libre
 export const buscarProductosPorTextoLibre = async (valor) => {
-  const texto = valor.toLowerCase(); // ✅ primero definís "texto"
+  const texto = valor.toLowerCase();
 
   const [productos] = await pool.query(`
     SELECT * FROM productos
@@ -76,8 +76,10 @@ export const buscarProductosPorTextoLibre = async (valor) => {
           LOWER(categoria) LIKE ? OR
           LOWER(subcategoria) LIKE ? OR
           LOWER(marca) LIKE ? OR
-          CAST(stock AS CHAR) LIKE ?
-  `, Array(6).fill(`%${texto}%`)); // ✅ ahora sí podés usarlo
+          CAST(stock AS CHAR) LIKE ? OR
+          CAST(precio AS CHAR) LIKE ? OR
+          CAST(tasa_iva AS CHAR) LIKE ?
+  `, Array(8).fill(`%${texto}%`));
 
   return productos;
 };
