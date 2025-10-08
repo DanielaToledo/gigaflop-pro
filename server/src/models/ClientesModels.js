@@ -119,3 +119,44 @@ export const eliminarCliente = async (cuit) => {
     const [result] = await pool.execute(query, [cuit]); // ejecuta la consulta con el cuit proporcionado
     return result.affectedRows; // devuelve el número de filas afectadas por la eliminación
 };
+
+//modelo para obtener direcciones de un cliente por su id junto con el nombre de la zona de envio
+export const obtenerDireccionesConZona = async (idCliente) => {
+  const [rows] = await pool.query(`
+    SELECT id AS id_direccion, locacion, calle, numeracion, localidad, provincia, zona_envio, codigo_postal
+    FROM direccion_cliente
+    WHERE id_cliente = ?
+  `, [idCliente]);
+
+  return rows;
+};
+
+
+//modelo para obtener costo de envio por zona
+export const obtenerCostoEnvioPorZona = async (zona) => {
+  const [rows] = await pool.query(`
+    SELECT costo_base, tasa_iva, bonificable FROM costos_envio WHERE zona_envio = ?
+  `, [zona]);
+
+  return rows.length ? rows[0].costo_base : null;
+};
+
+//modelo para obtener zona por id de direccion
+export const obtenerZonaPorDireccion = async (id_direccion) => {
+  const [rows] = await pool.query(`
+    SELECT zona_envio FROM direccion_cliente WHERE id = ?
+  `, [id_direccion]);
+
+  return rows.length ? rows[0].zona_envio : null;
+};
+
+
+
+
+//modelo para listar todas las zonas con su costo
+export const listarZonasConCosto = async () => {
+  const [rows] = await pool.query(`
+    SELECT zona_envio, costo_base FROM costos_envio
+  `);
+  return rows;
+};

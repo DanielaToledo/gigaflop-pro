@@ -26,8 +26,20 @@ const NuevaCotizacion = () => {
   const [modalidadEntrega, setModalidadEntrega] = useState('Envío');
   const [direccionesCliente, setDireccionesCliente] = useState([]);
   const [direccion, setDireccion] = useState('');
-  const [costoEnvio, setCostoEnvio] = useState('');
+  const [direcciones, setDirecciones] = useState([]);
+  const [locacionSeleccionada, setLocacionSeleccionada] = useState('');
+  const [zonaEnvio, setZonaEnvio] = useState('');
   const [bonificable, setBonificable] = useState(false);
+  const [direccionIdSeleccionada, setDireccionIdSeleccionada] = useState('');
+  const [clienteObjeto, setClienteObjeto] = useState(null); // nuevo: objeto completo
+  const [zonasEnvio, setZonasEnvio] = useState([]);
+  const [costoEnvio, setCostoEnvio] = useState(null);
+
+
+
+
+
+
 
   // Estados para condiciones comerciales
   const [formaPago, setFormaPago] = useState('');
@@ -44,7 +56,6 @@ const NuevaCotizacion = () => {
   const [yearActual, setYearActual] = useState(new Date().getFullYear());
   const [productosDisponibles, setProductosDisponibles] = useState([]);
   const [seleccionModal, setSeleccionModal] = useState({});
-
   const [condicionesComerciales, setCondicionesComerciales] = useState([]);
   const [opcionesDiasPago, setOpcionesDiasPago] = useState([]);
 
@@ -64,21 +75,23 @@ const NuevaCotizacion = () => {
 
 
 
-// Función para manejar la búsqueda de productos fuera del modal
-const handleBuscar = async () => {
-  try {
-    const res = await axios.get(`/api/productos/buscar-flex?query=${query}`);
-    const productos = Array.isArray(res.data) ? res.data : res.data.productos || [];
 
-    setProductosFiltrados(productos);
-    setPaginaActual(1); // reinicia paginación
-    setMostrarModal(true);
-  } catch (err) {
-    console.error('❌ Error al buscar productos:', err.message);
-    setProductosFiltrados([]);
-    setMostrarModal(true);
-  }
-};
+
+  // Función para manejar la búsqueda de productos fuera del modal
+  const handleBuscar = async () => {
+    try {
+      const res = await axios.get(`/api/productos/buscar-flex?query=${query}`);
+      const productos = Array.isArray(res.data) ? res.data : res.data.productos || [];
+
+      setProductosFiltrados(productos);
+      setPaginaActual(1); // reinicia paginación
+      setMostrarModal(true);
+    } catch (err) {
+      console.error('❌ Error al buscar productos:', err.message);
+      setProductosFiltrados([]);
+      setMostrarModal(true);
+    }
+  };
 
   //fecha de hoy para usar en la cotizacion
   useEffect(() => {
@@ -176,7 +189,7 @@ const handleBuscar = async () => {
     });
   };
 
-
+  // Agregar productos seleccionados al carrito desde el modal
   const agregarProductosAlCarrito = () => { // Agrega los productos seleccionados al carrito
     const nuevos = productosSeleccionados.map(p => ({
       ...p,
@@ -203,7 +216,7 @@ const handleBuscar = async () => {
     }, 300); // duración de la transición
   };
 
- 
+
 
   // Contacto seleccionado
   const contactoSeleccionado = contactosCliente.find(c => c.id === parseInt(contacto));
@@ -220,18 +233,22 @@ const handleBuscar = async () => {
       .catch(err => console.error('Error al cargar clientes', err));
   }, []);
 
-  // Cargar contactos del cliente seleccionado
+
   const handleSeleccionCliente = async (id) => {
     setCliente(id);
+    setClienteSeleccionado(id); // solo el número
+
     try {
       const { data } = await axios.get(`/api/clientes/${id}/contactos`);
-      setContactosCliente(data);
+      setContactosCliente(Array.isArray(data) ? data : []);
       setContacto('');
-      setClienteSeleccionado(id); // 🔥 Esto es lo que faltaba
     } catch (err) {
       console.error('Error al cargar contactos del cliente', err);
+      setContactosCliente([]);
     }
   };
+
+
 
   // Buscar clientes a medida que se escribe
   useEffect(() => {
@@ -259,18 +276,85 @@ const handleBuscar = async () => {
   }, [busquedaCliente]);
 
 
-  // Cargar opciones de plazos de pago
+  // Cargar direcciones del cliente seleccionado
+  useEffect(() => {
+    if (!cliente) return;
+
+    axios.get(`/api/clientes/${cliente}/direcciones`)
+
+
+      .then(({ data }) => {
+        console.log('Direcciones recibidas:', data);
+
+        setDireccionesCliente(Array.isArray(data) ? data : []);
+      })
+      .catch(err => {
+        console.error('Error al cargar direcciones del cliente', err);
+        setDireccionesCliente([]);
+      });
+  }, [cliente]);
+
+
+  // Actualizar costo de envío al cambiar dirección o modalidad
+  useEffect(() => {
+    if (!direccionIdSeleccionada || modalidadEntrega !== 'Envío') return;
+
+    axios.get(`/api/clientes/envios/costo?id_direccion=${direccionIdSeleccionada}`)
+      .then(({ data }) => {
+        setCostoEnvio(data.costo);
+        setZonaEnvio(data.zona_envio);
+      })
+      .catch(err => {
+        console.error('Error al obtener costo de envío:', err);
+        setCostoEnvio(null);
+        setZonaEnvio('');
+      });
+  }, [direccionIdSeleccionada, modalidadEntrega]);
+
+
+
+
+  // Cargar todas las zonas de envío con su costo al montar el componente
+  useEffect(() => {
+    fetch('http://localhost:4000/api/clientes/envios/zonas')
+      .then((res) => res.json())
+      .then((data) => {
+        console.log('Zonas recibidas:', data);
+        setZonasEnvio(data);
+      })
+      .catch((err) => console.error('Error al cargar zonas de envío:', err));
+  }, []);
+
+
+
+
+  // Actualizar costo de envío al cambiar dirección
+  useEffect(() => {
+    if (!direccionIdSeleccionada) return;
+
+    fetch(`http://localhost:4000/api/clientes/envios/costo?id_direccion=${direccionIdSeleccionada}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setCostoEnvio(data.costo);
+        setZonaEnvio(data.zona_envio);
+      })
+      .catch((err) => {
+        console.error('Error al obtener costo de envío:', err);
+        setCostoEnvio(null);
+        setZonaEnvio('');
+      });
+  }, [direccionIdSeleccionada]);
+
+
+
+
+
+  // Cargar condiciones comerciales al cambiar cliente
   useEffect(() => {
     if (clienteSeleccionado) {
-      axios.get(`/api/clientes/${clienteSeleccionado}/dias-pago`)
-        .then(({ data }) => {
-          const opciones = data.map(String);
-          setOpcionesDiasPago(opciones);
-        })
-        .catch(err => console.error('Error al cargar días de pago del cliente', err));
+      cargarCondiciones(clienteSeleccionado);
     }
   }, [clienteSeleccionado]);
-
 
   // Cargar condiciones comerciales al seleccionar cliente
   const cargarCondiciones = async (idCliente) => {
@@ -307,61 +391,21 @@ const handleBuscar = async () => {
       console.error('Error al cargar condiciones comerciales:', err);
     }
   };
+
+  // Cargar opciones de plazos de pago
   useEffect(() => {
     if (clienteSeleccionado) {
-      cargarCondiciones(clienteSeleccionado);
+      axios.get(`/api/clientes/${clienteSeleccionado}/dias-pago`)
+        .then(({ data }) => {
+          const opciones = data.map(String);
+          setOpcionesDiasPago(opciones);
+        })
+        .catch(err => console.error('Error al cargar días de pago del cliente', err));
     }
   }, [clienteSeleccionado]);
 
-  useEffect(() => {
-    if (!clienteSeleccionado) return;
 
-    axios.get(`/api/clientes/${clienteSeleccionado}/direcciones`)
-      .then(({ data }) => {
-        if (Array.isArray(data)) {
-          setDireccionesCliente(data); // cada item tiene locacion + direccion
-        } else {
-          console.error('La respuesta de direcciones no es un array:', data);
-          setDireccionesCliente([]);
-        }
-      })
-      .catch(err => {
-        console.error('Error al cargar direcciones del cliente', err);
-        setDireccionesCliente([]);
-      });
-  }, [clienteSeleccionado]);
-
-  useEffect(() => {
-    if (modalidadEntrega === 'Envío') {
-      const direccionPrincipal = direccionesCliente.find(d => d.locacion === 'principal');
-      const direccionDeposito = direccionesCliente.find(d => d.locacion === 'deposito');
-
-      // Elegí cuál querés priorizar. Ejemplo: primero depósito, si no hay, principal
-      const direccionFinal = direccionDeposito?.direccion || direccionPrincipal?.direccion || '';
-      setDireccion(direccionFinal);
-    }
-  }, [modalidadEntrega, direccionesCliente]);
-
-
-
-
-  // Cargar direcciones del cliente seleccionado
-  useEffect(() => {
-    if (!clienteSeleccionado) return;
-
-    axios.get(`/api/clientes/${clienteSeleccionado}/direcciones`)
-      .then(({ data }) => {
-        setDireccionesCliente(data || []);
-      })
-      .catch(err => {
-        console.error('Error al cargar direcciones del cliente', err);
-        setDireccionesCliente([]);
-      });
-  }, [clienteSeleccionado]);
-
-
-
-
+  // Resumen de la cotización: totales, IVA, descuentos, etc.
   const resumen = useMemo(() => {
     let base21 = 0, base105 = 0;
     let totalDescuentos = 0;
@@ -381,16 +425,31 @@ const handleBuscar = async () => {
       else base21 += base;
     });
 
-    const envio = isNaN(parseFloat(costoEnvio)) ? 0 : parseFloat(costoEnvio);
-    const iva21 = (base21 + envio) * 0.21;
-    const iva105 = base105 * 0.105;
     const baseProd = base21 + base105;
-    const baseImp = baseProd + envio;
+
+    // Costo de envío original
+    const envio = isNaN(parseFloat(costoEnvio)) ? 0 : parseFloat(costoEnvio);
+
+    // Bonificación si el total supera 1500
+    const envioBonificado = baseProd >= 1500;
+    const envioFinal = envioBonificado ? 0 : envio;
+
+    const iva21 = (base21 + envioFinal) * 0.21;
+    const iva105 = base105 * 0.105;
+    const baseImp = baseProd + envioFinal;
     const total = baseImp + iva21 + iva105;
 
-    return { baseProd, envio, baseImp, iva21, iva105, total, totalDescuentos };
+    return {
+      baseProd,
+      envio: envioFinal,
+      envioBonificado,
+      baseImp,
+      iva21,
+      iva105,
+      total,
+      totalDescuentos
+    };
   }, [carrito, costoEnvio]);
-
 
   console.log('Carrito actualizado:', carrito);
 
@@ -437,10 +496,11 @@ const handleBuscar = async () => {
                         key={c.id}
                         className="sugerencia-item"
                         onClick={() => {
-                          setClienteSeleccionado(c);
-                          setCliente(c.id); // para backend
-                          handleSeleccionCliente(c.id); // ✅ carga contactos
-                          setBusquedaCliente(c.razon_social); // mostrar en input
+                          setClienteSeleccionado(c.id);
+                          setCliente(c.id);
+                          setClienteObjeto(c); // guarda el objeto completo
+                          handleSeleccionCliente(c.id);
+                          setBusquedaCliente(c.razon_social);
                           setSugerencias([]);
                         }}
                       >
@@ -486,34 +546,31 @@ const handleBuscar = async () => {
                   const value = e.target.value;
                   setModalidadEntrega(value);
                   if (value === 'Retiro') {
-                    setDireccion('');
+                    setDireccionIdSeleccionada('');
                     setCostoEnvio('0');
                   }
                 }}
               >
-                <option>Envío</option>
-                <option>Retiro</option>
+                <option value="Envío">Envío</option>
+                <option value="Retiro">Retiro</option>
               </select>
             </div>
 
 
 
-
-
-
-
+            {/* Dirección */}
             <div className="col-md-3">
               <label className="form-label">Dirección</label>
               <select
                 className="form-select"
-                value={direccion}
-                onChange={(e) => setDireccion(e.target.value)}
+                value={direccionIdSeleccionada}
+                onChange={(e) => setDireccionIdSeleccionada(e.target.value)}
                 disabled={modalidadEntrega === 'Retiro'}
               >
                 <option value="">Seleccionar...</option>
                 {direccionesCliente.map(d => (
-                  <option key={d.id} value={d.direccion}>
-                    {d.locacion === 'deposito' ? 'Depósito' : 'Principal'} – {d.direccion}
+                  <option key={d.id_direccion} value={d.id_direccion}>
+                    {d.locacion} – {d.localidad}, {d.provincia}
                   </option>
                 ))}
               </select>
@@ -522,40 +579,39 @@ const handleBuscar = async () => {
 
 
 
-
+            {/* Costo de envío */}
             <div className="col-md-4">
               <label className="form-label">Costo de envío</label>
-              <select
-                className="form-select"
-                value={costoEnvio}
-                onChange={(e) => setCostoEnvio(e.target.value)}
-                disabled={modalidadEntrega === 'Retiro'}
-              >
-                <option value="">Seleccionar...</option>
-                <option value="20">CABA - US$ 20</option>
-                <option value="35">GBA - US$ 35</option>
-                <option value="50">Interior - US$ 50</option>
-                <option value="0">Bonificado</option>
-              </select>
+              <input
+                type="text"
+                className="form-control"
+                value={costoEnvio !== null
+                  ? `${zonaEnvio} - US$ ${costoEnvio}`
+                  : 'No disponible'
+                }
+                disabled
+              />
             </div>
 
 
 
-
+            {/* Bonificable */}
             <div className="col-md-2">
               <div className="form-check mt-4">
                 <input
                   type="checkbox"
                   className="form-check-input"
                   id="bonificableCheck"
-                  checked={bonificable}
-                  onChange={(e) => setBonificable(e.target.checked)}
+                  checked={resumen.envioBonificado}
+                  disabled
                 />
                 <label className="form-check-label" htmlFor="bonificableCheck">
                   Bonificable
                 </label>
               </div>
             </div>
+
+
           </div>
 
 
@@ -744,7 +800,7 @@ const handleBuscar = async () => {
                           <td>{baseLinea.toFixed(2)}</td>
 
                           {/* IVA NO editable */}
-                          <td>{p.iva}%</td>
+                          <td>{p.tasa_iva}%</td>
 
                           {/* Eliminar */}
                           <td className="text-center">
@@ -783,6 +839,12 @@ const handleBuscar = async () => {
               <div className="totales-table">
                 <div className="row"><div className="col-7">Subtotal productos</div><div className="col-5 text-end"><strong>US$ {resumen.baseProd.toFixed(2)}</strong></div></div>
                 <div className="row"><div className="col-7">Costo de envío</div><div className="col-5 text-end"><strong>US$ {resumen.envio.toFixed(2)}</strong></div></div>
+                {resumen.envioBonificado && (
+                  <div className="alert alert-success text-end py-1 mb-2">
+                    ¡Envío bonificado por superar los US$ 1500!
+                  </div>
+                )}
+
                 <div className="row"><div className="col-7">Base imponible</div><div className="col-5 text-end"><strong>US$ {resumen.baseImp.toFixed(2)}</strong></div></div>
                 <div className="row"><div className="col-7">IVA 21% (incluye envío)</div><div className="col-5 text-end"><strong>US$ {resumen.iva21.toFixed(2)}</strong></div></div>
                 <div className="row"><div className="col-7">IVA 10.5%</div><div className="col-5 text-end"><strong>US$ {resumen.iva105.toFixed(2)}</strong></div></div>
@@ -838,7 +900,7 @@ const handleBuscar = async () => {
                             <div>
                               <strong>{p.detalle}</strong><br />
                               <small className="text-muted">
-                                {p.part_number} · {p.marca} · ${p.precio}
+                                {p.part_number} · {p.marca} · ${p.precio}  · IVA {p.tasa_iva}%
                               </small>
                             </div>
                             <button

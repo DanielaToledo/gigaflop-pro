@@ -7,6 +7,11 @@ import {eliminarClienteController} from '../controllers/clientesControllers.js';
 import {buscarClientesPorTextoController} from '../controllers/clientesControllers.js';
 import { getCondicionesComerciales } from '../controllers/clientesControllers.js';
 import { getDiasPagoPorCliente } from '../controllers/clientesControllers.js';  
+import { traerDireccionesCliente } from '../controllers/clientesControllers.js';
+import { obtenerCostoEnvioPorDireccion } from '../controllers/clientesControllers.js';
+import { listarZonasConCostoController } from '../controllers/clientesControllers.js';
+
+
 
 
 const router = Router();
@@ -35,6 +40,17 @@ router.get('/:id/condiciones', getCondicionesComerciales);
 
 //ruta para obtener dias de pago por cliente
 router.get('/:id/dias-pago', getDiasPagoPorCliente);
+
+//modelo para obtener direcciones de un cliente con su zona
+router.get('/:id/direcciones', traerDireccionesCliente);
+
+//ruta para obtener direcciones de un cliente con su zona
+router.get('/envios/costo', obtenerCostoEnvioPorDireccion);
+
+//ruta para obtener todas las zonas con su costo
+router.get('/envios/zonas', listarZonasConCostoController);
+
+
 
 export default router; 
 

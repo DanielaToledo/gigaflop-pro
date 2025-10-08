@@ -35,4 +35,14 @@ git clone https://github.com/DanielaToledo/gigaflop-pro.git
 cd gigaflop-pro
 
 
-dependencias morgan, nodemon, cors
+dependencias "bcryptjs": "^3.0.2",
+    "body-parser": "^2.2.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.1",
+    "mysql2": "^3.14.1",
+    "nodemon": "^3.1.10"

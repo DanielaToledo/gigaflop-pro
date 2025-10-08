@@ -2,6 +2,14 @@ import pool from "../config/db.js";
 import { crearCliente, listarClientesPorTexto, listarClientes, listarCliente, actualizarCliente, eliminarCliente} from "../models/ClientesModels.js";
 import { obtenerCondicionesComerciales } from '../models/ClientesModels.js';
 import { obtenerDiasPagoPorCliente } from '../models/ClientesModels.js';
+import { obtenerDireccionesConZona } from '../models/ClientesModels.js';
+import { obtenerZonaPorDireccion, obtenerCostoEnvioPorZona } from '../models/ClientesModels.js';
+import { listarZonasConCosto } from '../models/ClientesModels.js';
+
+
+
+
+
 
 //controlador para crear cliente pasando razon_social y cuit
 export const crearClienteController = async (req, res) => {
@@ -149,3 +157,57 @@ export const getDiasPagoPorCliente = async (req, res) => {
 }  
 };
 
+//controlador para obtener direccion de un cliente por su id
+export const traerDireccionesCliente = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const direcciones = await obtenerDireccionesConZona(id);
+
+    res.json(direcciones);
+  } catch (error) {
+    console.error('Error al obtener direcciones:', error.message);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+};
+
+
+
+export const obtenerCostoEnvioPorDireccion = async (req, res) => {
+  try {
+    const { id_direccion } = req.query;
+
+    if (!id_direccion) {
+      return res.status(400).json({ mensaje: 'Falta el parámetro id_direccion' });
+    }
+
+    const zona_envio = await obtenerZonaPorDireccion(id_direccion);
+
+    if (!zona_envio) {
+      return res.status(404).json({ mensaje: 'Dirección no encontrada o sin zona asignada' });
+    }
+
+    const costo = await obtenerCostoEnvioPorZona(zona_envio);
+
+    if (costo === null) {
+      return res.status(404).json({ mensaje: 'Zona no encontrada en tabla de costos' });
+    }
+
+    res.json({ zona_envio, costo });
+  } catch (error) {
+    console.error('Error al calcular costo de envío:', error.message);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+};
+
+
+
+//controlador para listar todas las zonas con su costo
+export const listarZonasConCostoController = async (req, res) => {
+  try {
+    const zonas = await listarZonasConCosto();
+    res.json(zonas);
+  } catch (error) {
+    console.error('Error al listar zonas de envío:', error.message);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+};
