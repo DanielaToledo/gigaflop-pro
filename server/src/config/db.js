@@ -1,4 +1,4 @@
-//CONEXION A BD LOCAL
+//CONEXION A BD
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
@@ -14,6 +14,14 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+pool.getConnection()
+  .then(connection => {
+    console.log(' Conectado a MySQL sistema_cotizacion correctamente');
+    connection.release(); // libera la conexión
+  })
+  .catch(err => {
+    console.error('Error al conectar a MySQL:', err.message);
+  });
 
 
 

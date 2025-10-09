@@ -1,85 +1,27 @@
-import pool from '../config/db.js'; // conexión local
-import dbRemota from '../config/dbRemota.js'; // conexión remota
+import pool from '../config/db.js'; // Importa la conexión a la base de datos
 
-//  Funciones sobre base local
-export const buscarProductoPorPartNumber = async (partNumber) => {
+
+// Buscar producto por part_number 
+export const buscarProductoPorPartNumber = async (partNumber) => { 
   const [rows] = await pool.query(
-    'SELECT * FROM productos WHERE LOWER(TRIM(part_number)) = LOWER(TRIM(?))',
+    'SELECT * FROM productos WHERE LOWER(TRIM(part_number)) = LOWER(TRIM(?))', // Utiliza TRIM y LOWER para normalizar la búsqueda
     [partNumber]
   );
-  return rows[0];
+  return rows[0]; // Devuelve uno
 };
 
+// Buscar productos por columna y valor
 export const buscarProductosPorColumna = async (columna, valor) => {
-  const columnasPermitidas = ['part_number', 'detalle', 'marca', 'categoria'];
+  const columnasPermitidas = ['part_number', 'detalle', 'marca', 'categoria']; // Agrega columnas seguras
   if (!columnasPermitidas.includes(columna)) throw new Error('Columna no válida');
 
-  const query = `SELECT * FROM productos WHERE LOWER(TRIM(${columna})) LIKE ?`;
+  let query = `SELECT * FROM productos WHERE LOWER(TRIM(${columna})) LIKE ?`;
   const [rows] = await pool.query(query, [`%${valor.trim().toLowerCase()}%`]);
   return rows;
 };
 
+//obtener todos los productos
 export const obtenerTodosLosProductos = async () => {
   const [rows] = await pool.query('SELECT * FROM productos');
   return rows;
-};
-
-export const guardarProductoSincronizado = async (producto) => {
-  const {
-    part_number,
-    detalle,
-    categoria,
-    subcategoria,
-    marca,
-    stock,
-    precio,
-    tasa_iva,
-    ultima_actualizacion,
-    id_proveedor
-  } = producto;
-
-  await pool.query(
-    `REPLACE INTO productos (
-      part_number, detalle, categoria, subcategoria, marca,
-      stock, precio, tasa_iva, ultima_actualizacion, id_proveedor
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      part_number, detalle, categoria, subcategoria, marca,
-      stock, precio, tasa_iva, ultima_actualizacion, id_proveedor
-    ]
-  );
-};
-
-export const obtenerFechaLocalDeProducto = async (partNumber) => {
-  const [rows] = await pool.query(
-    'SELECT ultima_actualizacion FROM productos WHERE part_number = ?',
-    [partNumber]
-  );
-  return rows.length ? rows[0].ultima_actualizacion : null;
-};
-
-//  Función sobre base remota
-export const obtenerProductosDesdeRemoto = async () => {
-  const [rows] = await dbRemota.query('SELECT * FROM productos');
-  return rows;
-};
-
-
-///  Función de búsqueda de productos por texto libre
-export const buscarProductosPorTextoLibre = async (valor) => {
-  const texto = valor.toLowerCase();
-
-  const [productos] = await pool.query(`
-    SELECT * FROM productos
-    WHERE LOWER(detalle) LIKE ? OR
-          LOWER(part_number) LIKE ? OR
-          LOWER(categoria) LIKE ? OR
-          LOWER(subcategoria) LIKE ? OR
-          LOWER(marca) LIKE ? OR
-          CAST(stock AS CHAR) LIKE ? OR
-          CAST(precio AS CHAR) LIKE ? OR
-          CAST(tasa_iva AS CHAR) LIKE ?
-  `, Array(8).fill(`%${texto}%`));
-
-  return productos;
 };

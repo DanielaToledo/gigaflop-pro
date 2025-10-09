@@ -17,11 +17,6 @@
   },
   "scripts": {
     "dev": "nodemon --inspect src/index.js",
-    "start": "node src/index.js",
-    "test-db-local": "cross-env NODE_ENV=local node src/config/test-dbSelector.js",
-    "test-db-remoto": "cross-env NODE_ENV=remoto node src/config/test-dbSelector.js"
-  },
-  "devDependencies": {
-    "cross-env": "^10.0.0"
+    "start": "node src/index.js"
   }
 }

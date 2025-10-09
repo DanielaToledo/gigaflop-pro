@@ -5,7 +5,6 @@ import { RouterProvider } from 'react-router-dom';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import { UserProvider } from './context/UserContext.jsx'; // Asegúrate de que el contexto esté correctamente definido y exportado
 // Asegurate de exportarlo desde donde definís tus rutas
-import 'bootstrap/dist/css/bootstrap.min.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

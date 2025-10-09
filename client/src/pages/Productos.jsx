@@ -1,11 +1,8 @@
-// ...importaciones
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import '../CSS/productos.css';
 import Sidebar from '../components/Sidebar';
 import CardProductos from '../components/CardProductos';
-
 
 const Productos = () => {
   const [products, setProducts] = useState([]);
@@ -15,56 +12,33 @@ const Productos = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [cart, setCart] = useState([]); // Estado para el carrito que guarda los productos seleccionados
-  const [showCart, setShowCart] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    try {
-      const storedCart = localStorage.getItem('gigaflop_cart');
-      if (storedCart) {
-        const parsed = JSON.parse(storedCart);
-        if (Array.isArray(parsed)) {
-          setCart(parsed);
-        }
-      }
-    } catch (error) {
-      console.error('Error al cargar el carrito desde localStorage:', error);
-      localStorage.removeItem('gigaflop_cart');
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('gigaflop_cart', JSON.stringify(cart));
-  }, [cart]);
 
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    setError(null);
+const fetchProducts = async () => {
+  setLoading(true);
+  setError(null);
+  try {
+    const baseUrl = searchTerm
+      ? `https://dummyjson.com/products/search?q=${searchTerm}`
+      : `https://dummyjson.com/products?limit=${limit}&skip=${skip}`;
 
-    try {
-      let res;
-      if (searchTerm.trim()) {
-        res = await axios.get(`/api/productos/buscar/${searchTerm}`, { withCredentials: true });
-      } else {
-        res = await axios.get('/api/productos', { withCredentials: true });
-      }
+    const res = await fetch(baseUrl);
+    const data = await res.json();
+    setProducts(data.products || []);
+    setTotal(data.total || 0);
+  } catch (err) {
+    setError('Error al cargar los productos.');
+    console.error('Error fetching products:', err);
+  } finally {
+    setLoading(false);
+  }
+};
 
-      const data = res.data;
-      setProducts(data.productos || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError('Error al cargar los productos.');
-      console.error('Error al obtener productos:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchProducts();
-  }, [skip, searchTerm]);
+useEffect(() => {
+  fetchProducts();
+}, [skip, searchTerm]);
+
 
   const onSiguiente = () => {
     if (skip + limit < total) {
@@ -76,156 +50,56 @@ const Productos = () => {
     setSkip(prev => Math.max(prev - limit, 0));
   };
 
-  //metodo para agregar productos al carrito se ejecuta al hacer click en el boton agregar al carrito
-  const handleAddToCart = (product) => {
-    setCart(prevCart => {
-      const exists = prevCart.find(item => item.id === product.id);
-      if (exists) {
-        return prevCart.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      } else {
-        return [...prevCart, { ...product, quantity: 1 }];
-      }
-    });
-  };
 
-  const handleIncrement = (id) => {
-    setCart(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
-      )
-    );
-  };
-
-  const handleDecrement = (id) => {
-    setCart(prev =>
-      prev
-        .map(item =>
-          item.id === id ? { ...item, quantity: item.quantity - 1 } : item
-        )
-        .filter(item => item.quantity > 0)
-    );
-  };
-
-  const handleFinalizarCotizacion = () => {
-    navigate('/nuevacotizacion');
-  };
-  const handleRemove = (id) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== id));
-  };
-
-  const [ocultarCart, setOcultarCart] = useState(false);
-  const cerrarCartConTransicion = () => {
-    setOcultarCart(true);
-    setTimeout(() => {
-      setShowCart(false);
-      setOcultarCart(false);
-    }, 300); // duración de la transición
-  };
 
   return (
     <>
       <Sidebar />
       <div className="encabezado-fijo">
-        <div className="background-container-prod">
-          <header className="headerprod">
-            <div className='container-header'>
-              <div className="title-container">
-                <h2 className="title-menu">GIGAFLOP</h2>
-              </div>
-            </div>
-            <div className='container-icon'>
-              <div
-                className="cotizacion-icon-container"
-                title="Tu cotización"
-                onClick={() => setShowCart(!showCart)}
-              >
-                <span className="cotizacion-icon">C</span>
-                {cart.length > 0 && (
-                  <span className="cart-badge">
-                    {cart.reduce((acc, item) => acc + item.quantity, 0)}
-                  </span>
-                )}
-              </div>
-            </div>
-          </header>
-          <div className='optionprod'>
-            <NavLink className='option-button' to='/menu'>Cotizaciones</NavLink>
-            <NavLink className='option-button' to="/clientes">Clientes</NavLink>
-            <NavLink className='option-button2' to='/productos'>Productos</NavLink>
-            <NavLink className='option-button' to='/configuracion'>Configuración</NavLink>
-          </div>
-        </div>
+      <div className="background-container-prod">
 
-        <div className='menu-superior-prod'>
-          <div className='cotizatitlecontainer'>
-            <h3 className='cotizatitle'>Productos</h3>
+        <header className="headerprod">
+          <div className='container-header'>
+            <div className="title-container">
+              <h2 className="title-menu">GIGAFLOP</h2>
+            </div>
           </div>
-          <div className="buscador-container">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Buscar productos por nombre..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSkip(0);
-                setSearchTerm(e.target.value);
-              }}
-            />
+          <div className='container-icon'>
+            <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
           </div>
+        </header>
+        <div className='optionprod'>
+          <NavLink className='option-button' to='/menu'>Cotizaciones</NavLink>
+          <NavLink className='option-button' to="/clientes">Clientes</NavLink>
+          <NavLink className='option-button2' to='/productos'>Productos</NavLink>
+          <NavLink className='option-button' to='/configuracion'>Configuración</NavLink>
         </div>
       </div>
-
-
-    
-     <div
-  className={`cart-modal-wrapper ${
-    showCart ? 'fade-in' : ocultarCart ? 'fade-out' : 'd-none'
-  }`}
->
-  <div className="cart-modal">
-    <button className="btn-close float-end" onClick={cerrarCartConTransicion}></button>
-    <h5 className="cart-title">🧾 Tu Cotización</h5>
-
-    {cart.length === 0 ? (
-      <p className="text-muted">No hay productos seleccionados.</p>
-    ) : (
-      <>
-        <ul className="cart-list">
-          {cart.map(item => (
-            <li key={item.id} className="cart-item">
-              <span className="fw-bold">{item.detalle}</span>
-              <div className="quantity-controls">
-                <button onClick={() => handleDecrement(item.id)}>-</button>
-                <span>{item.quantity}</span>
-                <button onClick={() => handleIncrement(item.id)}>+</button>
-                <button className="remove-btn" onClick={() => handleRemove(item.id)}>✕</button>
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        <button
-          className="btn btn-success finalizar-btn"
-          onClick={() => navigate('/nuevacotizacion', { state: { carrito: cart } })}
-          disabled={cart.length === 0}
-        >
-          <i className="bi bi-file-earmark-plus me-2"></i> Generar cotización
-        </button>
-
-        <button
-          className="btn btn-outline-danger finalizar-btn mt-2"
-          onClick={() => setCart([])}
-        >
-          <i className="bi bi-trash me-2"></i> Cancelar carrito
-        </button>
-      </>
-    )}
-  </div>
+      <div className='menu-superior-prod'>
+          <div className='cotizatitlecontainer'>
+            <h3 className='cotizatitle'>Productos</h3>
+            
+          </div>
+          <div className="buscador-container">
+  <input
+    type="text"
+    className="form-control"
+    placeholder="Buscar productos por nombre..."
+    value={searchTerm}
+    onChange={(e) => {
+      setSkip(0); // reinicia paginación al buscar
+      setSearchTerm(e.target.value);
+    }}
+  />
 </div>
+        </div>
+        
+
+      </div>
 
       <div className="menuboxprod">
+        
+
         <div className="productos-container">
           {loading ? (
             <p className="text-center">Cargando productos...</p>
@@ -235,7 +109,7 @@ const Productos = () => {
             <>
               <div className='productos-box'>
                 {products.map((item) => (
-                  <CardProductos key={item.id} item={item} onAddToCart={handleAddToCart} />
+                  <CardProductos key={item.id} item={item} />
                 ))}
               </div>
 
