@@ -21,4 +21,13 @@ router.get('/sincronizar', productosController.sincronizarProductos);
 // Búsqueda flexible por múltiples columnas
 router.get('/productos/buscar-flex', productosController.buscarProductosFlexibles);
 
+// Listar productos que tienen imagen
+router.get('/productos-con-imagen', productosController.listarProductosConImagen);
+
+// Obtener imagen proxy
+router.get('/imagen/:nombre', productosController.obtenerImagenProxy);
+
+
+
+
 export default router;

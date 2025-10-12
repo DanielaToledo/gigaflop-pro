@@ -1,3 +1,4 @@
+import fetch from 'node-fetch';
 import {
   buscarProductoPorPartNumber,
   buscarProductosPorColumna,
@@ -6,6 +7,8 @@ import {
   guardarProductoSincronizado,
   obtenerFechaLocalDeProducto, buscarProductosPorTextoLibre
 } from '../models/ProductosModels.js';
+import { obtenerProductosConImagen } from '../models/ProductosModels.js';
+
 
 // Buscar por part_number
 export const obtenerProductoPorPartNumber = async (req, res) => {
@@ -137,3 +140,41 @@ export const buscarProductosFlexibles = async (req, res) => {
     res.status(500).json({ mensaje: 'Error del servidor' });
   }
 };
+
+// Listar productos que tienen imagen
+export const listarProductosConImagen = async (req, res) => {
+  try {
+    const productos = await obtenerProductosConImagen();
+    res.json({ productos, total: productos.length });
+  } catch (error) {
+    console.error('Error al obtener productos con imagen:', error.message);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+};
+
+
+// Proxy para obtener imágenes desde servidor remoto
+export const obtenerImagenProxy = async (req, res) => {
+  try {
+    const rawUrl = decodeURIComponent(req.params.nombre); // decodifica la URL completa
+    const remoteUrl = rawUrl.startsWith('http') ? rawUrl : `http://74.50.84.165:8000/${rawUrl}`;
+
+    const response = await fetch(remoteUrl);
+
+    if (!response.ok) {
+      return res.status(404).send('Imagen no encontrada');
+    }
+
+    const contentType = response.headers.get('content-type');
+    const buffer = await response.arrayBuffer();
+
+    res.set('Content-Type', contentType);
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Error al obtener imagen remota:', error.message);
+    res.status(500).send('Error al cargar la imagen');
+  }
+};
+
+
+

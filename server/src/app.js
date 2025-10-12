@@ -23,6 +23,7 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
 
+app.use('/images', express.static('public/images'));
 
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api", menuRoutes);

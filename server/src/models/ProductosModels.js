@@ -20,7 +20,24 @@ export const buscarProductosPorColumna = async (columna, valor) => {
 };
 
 export const obtenerTodosLosProductos = async () => {
-  const [rows] = await pool.query('SELECT * FROM productos');
+  const [rows] = await pool.query(`
+    SELECT 
+      p.id,
+      p.part_number,
+      p.detalle,
+      p.categoria,
+      p.subcategoria,
+      p.marca,
+      p.stock,
+      p.precio,
+      p.tasa_iva,
+      p.ultima_actualizacion,
+      p.id_proveedor,
+      i.imagen_url
+    FROM productos p
+    LEFT JOIN imagenes_productos i 
+      ON i.id_producto = p.id AND i.es_principal = 1
+  `);
   return rows;
 };
 
@@ -82,4 +99,27 @@ export const buscarProductosPorTextoLibre = async (valor) => {
   `, Array(8).fill(`%${texto}%`));
 
   return productos;
+};
+
+///  Función para obtener productos junto con su imagen principal
+export const obtenerProductosConImagen = async () => {
+  const [rows] = await pool.query(`
+    SELECT 
+      p.id,
+      p.part_number,
+      p.detalle,
+      p.categoria,
+      p.subcategoria,
+      p.marca,
+      p.stock,
+      p.precio,
+      p.tasa_iva,
+      p.ultima_actualizacion,
+      p.id_proveedor,
+      i.imagen_url
+    FROM productos p
+    LEFT JOIN imagenes_productos i 
+      ON i.id_producto = p.id AND i.es_principal = 1
+  `);
+  return rows;
 };

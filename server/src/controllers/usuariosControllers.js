@@ -4,7 +4,7 @@ import { findUserByEmail, createUser, findUserById } from '../models/UsuariosMod
 
 // Registrar usuario
 export const register = async (req, res) => {
-  const { usuario, email, password, rol = 'Vendedor' } = req.body;
+  const { usuario, email, password, rol = 'Vendedor', apellido= '' } = req.body;
 
   try {
     const existingUser = await findUserByEmail(email);
@@ -13,7 +13,10 @@ export const register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userId = await createUser(usuario, email, hashedPassword, rol);
+    const rolesPermitidos = ['vendedor', 'administrador', 'gerente'];
+    const rolFinal = rolesPermitidos.includes(rol?.toLowerCase()) ? rol.toLowerCase() : 'vendedor';
+    // 🔁 Delegás todo al modelo
+    const userId = await createUser(usuario, email, hashedPassword, rolFinal, apellido);
 
     res.status(201).json({ message: 'Usuario registrado con éxito', userId });
   } catch (error) {
