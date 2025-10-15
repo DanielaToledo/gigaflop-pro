@@ -1,41 +1,45 @@
-.buscador{
-    width: 40%;
-    height: 2.5vw;
-    border-radius: 5px;
+.buscador {
+  width: 40%;
+  height: 2.5vw;
+  border-radius: 5px;
 
-    
-  
-}
-.filtros{
-    margin-left: 20px ;
-    height: 3vw;
-    display: flex;
-    justify-content: start;
-    align-content: center;
-    align-items: center;
-}
-.botonlimpiar{
-    height: 2.5vw;
-    width: 10%;
-    border-radius: 5px;
-    background-color: #e53935;
-    color: white;
-    font-weight: bold;
-    border: none;
-    cursor: pointer;
+
+
 }
 
-.nc-cliente{
- border-radius: 3px;
-  background-image: linear-gradient(to right,#4285f4, blue,#4285f4);
+.filtros {
+  margin-left: 20px;
+  height: 3vw;
+  display: flex;
+  justify-content: start;
+  align-content: center;
+  align-items: center;
+}
+
+
+
+.nc-cliente {
+  border-radius: 3px;
+  background-image: linear-gradient(to right, #4285f4, blue, #4285f4);
   color: white;
   border-color: #4285f4;
   box-shadow: 0px 0px 10px rgba(202, 189, 189, 0.7);
 }
-.nc-cliente:hover{
+
+.nc-cliente:hover {
   background: #000000;
   border-color: black;
   box-shadow: 2px 2px #c0c0c0;
   transform: translateY(-2px);
   transition: all 0.3s ease;
+}
+
+.btn-close {
+  font-size: 0.8rem;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.btn-close:hover {
+  opacity: 1;
 }

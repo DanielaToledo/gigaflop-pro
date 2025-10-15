@@ -10,6 +10,9 @@ import { getDiasPagoPorCliente } from '../controllers/clientesControllers.js';
 import { traerDireccionesCliente } from '../controllers/clientesControllers.js';
 import { obtenerCostoEnvioPorDireccion } from '../controllers/clientesControllers.js';
 import { listarZonasConCostoController } from '../controllers/clientesControllers.js';
+import { crearClienteCompletoController } from '../controllers/clientesControllers.js';
+import { obtenerClienteCompletoPorCuit } from '../controllers/clientesControllers.js';
+import { actualizarDireccionesCliente } from '../controllers/clientesControllers.js';
 
 
 
@@ -50,7 +53,15 @@ router.get('/envios/costo', obtenerCostoEnvioPorDireccion);
 //ruta para obtener todas las zonas con su costo
 router.get('/envios/zonas', listarZonasConCostoController);
 
+//controlador para crear un cliente completo con todos sus datos (razon_social, cuit, email, direcciones y contactos)
+router.post('/completo', crearClienteCompletoController);
 
+
+//controlador para obtener un cliente completo por su cuit
+router.get('/completo/:cuit', obtenerClienteCompletoPorCuit);
+
+//controlador para actualizar las direcciones de un cliente por su cuit
+router.put('/direcciones/:cuit', actualizarDireccionesCliente);
 
 export default router; 
 

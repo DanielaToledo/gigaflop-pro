@@ -160,3 +160,61 @@ export const listarZonasConCosto = async () => {
   `);
   return rows;
 };
+
+
+
+
+
+//modelos necesarias para crear un cliente completo con todos sus datos (razon_social, cuit, email, direcciones y contactos)
+// 🔍 Verifica si ya existe un cliente completo por CUIT
+export const existeClienteCompletoPorCuit = async (cuit) => {
+  const [rows] = await pool.execute('SELECT id FROM cliente WHERE cuit = ?', [cuit]);
+  return rows.length > 0;
+};
+
+// 🧾 Crea un cliente completo (razón social, CUIT, email)
+export const crearClienteCompleto = async ({ razon_social, cuit }) => {
+  const query = 'INSERT INTO cliente (razon_social, cuit) VALUES (?, ?)';
+  const [result] = await pool.execute(query, [razon_social, cuit]);
+  return result.insertId;
+};
+
+// 📍 Inserta una dirección asociada al cliente completo
+export const insertarDireccionClienteCompleto = async (id_cliente, dir) => {
+  const query = `
+    INSERT INTO direccion_cliente 
+    (id_cliente, calle, numeracion, localidad, provincia, codigo_postal) 
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  await pool.execute(query, [
+    id_cliente,
+    dir.calle,
+    dir.numeracion,
+    dir.localidad,
+    dir.provincia,
+    dir.codigo_postal
+  ]);
+};
+
+// 📞 Inserta un contacto asociado al cliente completo
+export const insertarContactoClienteCompleto = async (id_cliente, contacto) => {
+  const query = `
+    INSERT INTO contactos 
+    (id_cliente, nombre_contacto,apellido, telefono, email) 
+    VALUES (?, ?, ?, ?, ?)
+  `;
+  await pool.execute(query, [ 
+    id_cliente, 
+    contacto.nombre_contacto,
+    contacto.apellido,
+    contacto.telefono, 
+    contacto.email ]
+);
+};
+
+
+
+
+export const eliminarDireccionesPorCliente = async (id_cliente) => {
+  await pool.query('DELETE FROM direccion_cliente WHERE id_cliente = ?', [id_cliente]);
+};

@@ -87,15 +87,30 @@ export const buscarProductosPorTextoLibre = async (valor) => {
   const texto = valor.toLowerCase();
 
   const [productos] = await pool.query(`
-    SELECT * FROM productos
-    WHERE LOWER(detalle) LIKE ? OR
-          LOWER(part_number) LIKE ? OR
-          LOWER(categoria) LIKE ? OR
-          LOWER(subcategoria) LIKE ? OR
-          LOWER(marca) LIKE ? OR
-          CAST(stock AS CHAR) LIKE ? OR
-          CAST(precio AS CHAR) LIKE ? OR
-          CAST(tasa_iva AS CHAR) LIKE ?
+    SELECT 
+      p.id,
+      p.part_number,
+      p.detalle,
+      p.categoria,
+      p.subcategoria,
+      p.marca,
+      p.stock,
+      p.precio,
+      p.tasa_iva,
+      p.ultima_actualizacion,
+      p.id_proveedor,
+      i.imagen_url
+    FROM productos p
+    LEFT JOIN imagenes_productos i 
+      ON i.id_producto = p.id AND i.es_principal = 1
+    WHERE LOWER(p.detalle) LIKE ? OR
+          LOWER(p.part_number) LIKE ? OR
+          LOWER(p.categoria) LIKE ? OR
+          LOWER(p.subcategoria) LIKE ? OR
+          LOWER(p.marca) LIKE ? OR
+          CAST(p.stock AS CHAR) LIKE ? OR
+          CAST(p.precio AS CHAR) LIKE ? OR
+          CAST(p.tasa_iva AS CHAR) LIKE ?
   `, Array(8).fill(`%${texto}%`));
 
   return productos;

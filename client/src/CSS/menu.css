@@ -1,29 +1,3 @@
-.custom-icon {
-  color: rgb(255, 255, 255);
-  font-size: 3.5vw;
-  line-height: 70px;
-  cursor: pointer;
-  
-}
-
-.custom-icon:hover {
-  color: #000000;
-  font-size: 3.7vw;
-  transition: all 0.3s ease;
-}
-
-
-
-
-
-.btn-menu {
-  display: none;
-}
-
-#btn-menu {
-  display: none;
-}
-
 .container-menu {
   position: fixed;
   background: rgba(0, 0, 0, 0.5);
@@ -38,9 +12,12 @@
   
 }
 
-#btn-menu:checked ~ .container-menu {
-  opacity: 1;
-  visibility: visible;
+.menu-matriz{
+  margin-top: 20px;
+  width: 100%;
+  height: 33vw;
+  padding: 10px;
+  
 }
 
 .cont-menu {
@@ -195,10 +172,10 @@
 }
 .reporte{
   border-radius: 3px;
-  background-image: linear-gradient(to right,#8282859c,#7e7c7c,black);
+  background-image: linear-gradient(to right,#4747499c,black);
   color: white;
   margin: 3px;
-  border-color: white;
+  border-color: rgb(31, 30, 30);
   box-shadow: 0px 0px 10px rgba(202, 189, 189, 0.7);
   
 }
@@ -216,6 +193,8 @@
   color: white;
   border-color: #4285f4;
   box-shadow: 0px 0px 10px rgba(202, 189, 189, 0.7);
+  
+  text-decoration: none;
 }
 .nc:hover{
   
@@ -225,174 +204,127 @@
   transform: translateY(-2px);
   transition: all 0.3s ease;
 }
-.menu-matriz{
-  margin-top: 20px;
+
+
+
+
+
+.tabla-cotizaciones {
   width: 100%;
-  height: 33vw;
-  padding: 10px;
-}
-.filtros{
-  display: flex;
-  justify-content: space-around;
-  
-}
-.filtros-box{
-  margin-right: 70px;
+  font-size: 0.95rem;
+  border-collapse: collapse;
 }
 
-.matriz {
-  border: 1px solid #e9e6f3;
-  height: 80%;
-  margin-top: 30px;
-  border-radius: 3px;
-  overflow-y: auto; /* Asegurar scroll vertical */
-  box-shadow: 0px 0px 15px #dadada;
-  scroll-snap-type: y mandatory; /* Activa el desplazamiento escalonado */
-  overflow-y: scroll;
-  
+.tabla-cotizaciones th,
+.tabla-cotizaciones td {
+  padding: 0.65rem 0.75rem;
+  vertical-align: middle;
+  box-sizing: border-box;
+  border-bottom: 1px solid #d0e0f0;
 }
 
-.aprobada {
-  color: green;
+.tabla-cotizaciones th {
+  background-color: #f8f9fa;
+  font-weight: 600;
 }
 
-.pendiente {
-  color: yellow;
+.fila-cotizacion {
+  transition: background-color 0.2s ease;
+
 }
 
-.rechazada {
-  color: red;
-}
-.table-trdatos:hover td {
-  background: #ebf2fc;
+.fila-cotizacion:hover {
+  background-color: #4e91d4;
   cursor: pointer;
-  color: #4285f4;
-      
-  height: 5vw;
-  transition: background-color 0.3s ease, color 0.3s ease;
-
-}
-/*encabezado de la tabla*/
-.table-tr th {
-  /*background-color: #ebf2fc;*/
-  position: sticky;
-  height: 2vw;
-  top: 0;
-  z-index: 10;
-background: #f5f4f7;
-
 }
 
-.table-thead{
-  
+.btn-cuadro {
+  border: none;
+  padding: 6px;
+  margin-left: 4px;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
-
-thead { /*lineas debajo del encabezado*/
-  position: sticky;
-  top: 0;
-  background-color: #d6d6d6;
-  z-index: 100;
-  outline: 0.5px solid #e9e6f3;
-  padding-bottom: 0;
-  height: 40px; /* Ajusta según el tamaño del encabezado */
-  
-}
-thead::after {
-  content: "";
-  display: block;
-  height: 2px; /* Grosor del borde */
-  background-color: #e9e6f3;
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-}
-/* Contenedor de la tabla */
-.table-trdatos {
-  overflow-y: auto; /* Scroll vertical */
-  max-height: 500px; /* Ajusta según necesites */
-  scroll-snap-type: y mandatory; /* Activamos el scroll escalonado en eje Y */
-  
+.btn-editar {
+  background-color: #e0f0ff;
+  color: #007bff;
 }
 
-/* Filas de la tabla */
-tr {
-  scroll-snap-align: start; /* Cada fila se alinea al inicio */
+.btn-descargar {
+  background-color: #e6f4ea;
+  color: #28a745;
 }
 
-.table{
-
-  margin-top: 130px;
-  
-}
-/*lineas de filas*/
-.table-trdatos {
-  border-bottom: 1px solid #e7e7e7;
-}
-/* Estilos generales para los iconos */
-.bi-pencil-fill,
-.bi-file-earmark-arrow-down-fill,
-.bi-trash3-fill,
-.bi-eye-fill {
-    background-color: transparent !important;
-    margin: 5px;
-    display: none;
-    color: black; /* Color inicial */
+.btn-eliminar {
+  background-color: #fdecea;
+  color: #dc3545;
 }
 
-/* Mostrar los iconos solo cuando el mouse está sobre la fila */
-tr:hover .bi-pencil-fill,
-tr:hover .bi-file-earmark-arrow-down-fill,
-tr:hover .bi-trash3-fill,
-tr:hover .bi-eye-fill {
-    display: inline-block; /* O el tipo de display que prefieras */
+.btn-cuadro:hover {
+  filter: brightness(0.95);
 }
-
-/* Cambiar color solo cuando el usuario pasa sobre el icono */
-.bi-pencil-fill:hover,
-.bi-file-earmark-arrow-down-fill:hover,
-.bi-trash3-fill:hover,
-.bi-eye-fill:hover {
-    cursor: pointer;
-    color: #4285f4; /* Color al hacer hover */
-}
-.table-datostotal{
-  
+.botonescontainer{
   display: flex;
-  justify-content: space-around;
+ width: 30%;
+ height: 3vw;
+
   align-items: center;
-  width: 80%;
-  height: 5vw;
-  border-bottom: transparent;
 }
-.crud-icons{
-  
- 
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #0d6efd;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 500;
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(53, 49, 49, 0.2); /* grisáceo con opacidad */
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 3vw;
-  width: 50%;
-  background-color: transparent !important;
-}
-
-.crud-icons_hover {
-  background-color: transparent !important;
-  color: white !important;
-}
-.table-datos,
-.table-header {
-  text-align: center; /* Asegura que todo el texto esté centrado */
-  vertical-align: middle; /* Centra verticalmente el contenido */             
-}
-
-tbody {
-  margin-top: 40px; /* Da espacio debajo del encabezado */
+  z-index: 999;
   
 }
-.table-header-total{
-  width: 22%;
-  margin-bottom: 20px;
+
+.modal-formulario {
+  background: white;
+  border-radius: 8px;
+  width: 600px;
+  max-width: 90%;
+  padding: 1rem;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 1rem;
+  
+}
+
+.modal-body {
+  min-height: 200px;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
 }
 

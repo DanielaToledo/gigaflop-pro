@@ -10,18 +10,23 @@ const CardProductos = ({ item, onAddToCart }) => {
     height: '220px',
     objectFit: 'cover',
   };
-  console.log('Producto recibido:', item);
+
+  // Usar la propiedad correcta según el origen
+  const imagenSrc = item.image
+    ? item.image // URL completa desde Cloudinary
+    : item.imagen_url
+      ? `/api/imagen/${encodeURIComponent(item.imagen_url)}`
+      : '/images/default.jpg'; // Fallback local
+
   return (
     <div className='row mb-4 justify-content-center d-flex'>
       <div className='card' style={estilosCard}>
         <img
           className="card-img"
           style={estilosImg}
-          src={`/api/imagen/${encodeURIComponent(item.imagen_url)}`}
+          src={imagenSrc}
           alt={item.detalle}
           onError={(e) => { e.target.src = '/images/default.jpg'; }}
-
-
         />
         <div className="card-body">
           <h5 className="card-title text-primary">{item.detalle}</h5>

@@ -5,6 +5,15 @@ import { obtenerDiasPagoPorCliente } from '../models/ClientesModels.js';
 import { obtenerDireccionesConZona } from '../models/ClientesModels.js';
 import { obtenerZonaPorDireccion, obtenerCostoEnvioPorZona } from '../models/ClientesModels.js';
 import { listarZonasConCosto } from '../models/ClientesModels.js';
+import {
+  existeClienteCompletoPorCuit,
+  crearClienteCompleto,
+  eliminarDireccionesPorCliente,
+  insertarDireccionClienteCompleto,
+  insertarContactoClienteCompleto
+} from '../models/ClientesModels.js';
+
+
 
 
 
@@ -209,5 +218,92 @@ export const listarZonasConCostoController = async (req, res) => {
   } catch (error) {
     console.error('Error al listar zonas de envío:', error.message);
     res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+};
+
+
+
+//funcion para crear un cliente completo con todos sus datos (razon_social, cuit, email, direcciones y contactos)
+
+export const crearClienteCompletoController = async (req, res) => {
+  const { razon_social, cuit, direcciones, contactos } = req.body;
+
+  try {
+    if (await existeClienteCompletoPorCuit(cuit)) {
+      return res.status(409).json({ error: 'El CUIT ya está registrado' });
+    }
+
+    const id_cliente = await crearClienteCompleto({ razon_social, cuit});
+
+    for (const dir of direcciones) {
+      await insertarDireccionClienteCompleto(id_cliente, dir);
+    }
+
+    for (const c of contactos) {
+      await insertarContactoClienteCompleto(id_cliente, c);
+    }
+
+    res.status(201).json({ mensaje: 'Cliente completo creado con éxito', id_cliente });
+  } catch (error) {
+    console.error('Error al crear cliente completo:', error);
+    res.status(500).json({ error: 'No se pudo crear el cliente completo' });
+  }
+};
+
+
+
+
+
+//controlador para obtener un cliente completo por su cuit incluyendo sus direcciones con zona
+//lo usamos para editar un cliente completo
+export const obtenerClienteCompletoPorCuit = async (req, res) => {
+  const { cuit } = req.params;
+
+  try {
+    const [clienteRows] = await pool.query('SELECT * FROM cliente WHERE cuit = ?', [cuit]);
+
+    if (!clienteRows.length) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+
+    const cliente = clienteRows[0];
+    const direcciones = await obtenerDireccionesConZona(cliente.id);
+
+    res.status(200).json({
+      ...cliente,
+      direcciones
+    });
+  } catch (error) {
+    console.error('Error al obtener cliente completo:', error.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+
+
+//controlador para actualizar las direcciones de un cliente completo por su cuit
+export const actualizarDireccionesCliente = async (req, res) => {
+  const { cuit } = req.params;
+  const { direcciones } = req.body;
+
+  try {
+    const [clienteRows] = await pool.query('SELECT id FROM cliente WHERE cuit = ?', [cuit]);
+
+    if (!clienteRows.length) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+
+    const id_cliente = clienteRows[0].id;
+
+    await eliminarDireccionesPorCliente(id_cliente);
+
+    for (const dir of direcciones) {
+      await insertarDireccionClienteCompleto(id_cliente, dir);
+    }
+
+    res.status(200).json({ mensaje: 'Direcciones actualizadas con éxito' });
+  } catch (error) {
+    console.error('Error al actualizar direcciones:', error.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 };

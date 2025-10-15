@@ -5,42 +5,45 @@ import Sidebar from '../components/Sidebar';
 import Register from '../components/Register';
 import MensajeAlerta from '../components/MensajeAlerta';
 import '../CSS/menu.css';
+import '../CSS/clientes.css';
 
 const Clientes = () => {
-  const [clientes, setClientes] = useState([]); //almacena la lista de clientes obtenida del servidor.
-  const [busqueda, setBusqueda] = useState(''); //maneja el término de búsqueda introducido por el usuario.
-  const [mensajeError, setMensajeError] = useState(''); //guarda mensajes de error en caso de fallas en las solicitudes.
-  const [showRegisterForm, setShowRegisterForm] = useState(false); //controla la visibilidad del formulario de registro.
-  const [clienteAEliminar, setClienteAEliminar] = useState(null); //almacena el cliente que el usuario seleccionó para eliminar.
-  const [clienteAEditar, setClienteAEditar] = useState(null); //almacena el cliente que el usuario seleccionó para editar.
+  const [clientes, setClientes] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
+  const [mensajeError, setMensajeError] = useState('');
+  const [showRegisterForm, setShowRegisterForm] = useState(false);
+  const [clienteAEliminar, setClienteAEliminar] = useState(null);
+  const [clienteAEditar, setClienteAEditar] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
-  const obtenerClientes = () => { //recupera la lista de clientes desde el servidor.
+  const obtenerClientes = () => {
     axios.get('http://localhost:4000/api/clientes')
       .then((res) => {
-        setClientes(res.data); // actualiza el estado con la lista de clientes obtenida.
+        setClientes(res.data);
         setMensajeError('');
       })
       .catch(() => {
-        setClientes([]); // limpia la lista de clientes en caso de error.
+        setClientes([]);
         setMensajeError('Error al recuperar la lista de clientes');
       });
   };
 
-  useEffect(() => { //uando el componente se monta por primera vez, se llama a la función obtenerClientes para cargar la lista de clientes.
+  useEffect(() => {
     obtenerClientes();
   }, []);
 
-  // Restauramos la búsqueda con debounce
-  useEffect(() => { // cada vez que el usuario escribe en el campo de búsqueda, se ejecuta este efecto.
-    if (busqueda.trim().length < 1) { 
+  useEffect(() => {
+    if (busqueda.trim().length < 1) {
       obtenerClientes();
       return;
     }
 
-    const delay = setTimeout(() => { // implementamos un retraso para evitar solicitudes excesivas al servidor.
-      axios.get('http://localhost:4000/api/clientes/buscar', { params: { razon_social: busqueda } })
+    const delay = setTimeout(() => {
+      axios.get(`http://localhost:4000/api/clientes/buscar/${encodeURIComponent(busqueda)}`)
         .then((res) => {
-          setClientes(Array.isArray(res.data) ? res.data : []);
+          const data = res.data;
+          const lista = Array.isArray(data) ? data : [data];
+          setClientes(lista);
           setMensajeError('');
         })
         .catch(() => {
@@ -52,7 +55,7 @@ const Clientes = () => {
     return () => clearTimeout(delay);
   }, [busqueda]);
 
-  const handleEliminar = (cliente) => { //recibe un cliente y establece el estado clienteAEliminar con el cliente seleccionado.
+  const handleEliminar = (cliente) => {
     setClienteAEliminar(cliente);
   };
 
@@ -72,25 +75,58 @@ const Clientes = () => {
     setClienteAEliminar(null);
   };
 
-  const handleEditar = (cliente) => {
-    setClienteAEditar(cliente);
-  };
 
-  const confirmarEdicion = async (e, nuevaRazonSocial, nuevoCuit) => {
-    e.preventDefault();
+  //editar cliente
+  const handleEditar = async (cliente) => {
     try {
-      await axios.put(`http://localhost:4000/api/clientes/${clienteAEditar.cuit}`, {// esta haciendo una solicitud PUT al servidor para actualizar el cliente.
-        razon_social: nuevaRazonSocial,
-        cuit: nuevoCuit,
-      });
-      obtenerClientes();
-      setClienteAEditar(null);
+      const res = await axios.get(`http://localhost:4000/api/clientes/completo/${cliente.cuit}`);
+      setClienteAEditar(res.data);
+      setModalVisible(true);
     } catch (error) {
-      console.error('Error al editar cliente:', error);
-      setMensajeError('Error al actualizar cliente');
-      setClienteAEditar(null);
+      console.error('Error al obtener cliente completo:', error);
+      setMensajeError('No se pudo cargar la información del cliente');
     }
   };
+  useEffect(() => {
+    if (modalVisible) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+  }, [modalVisible]);
+
+ const confirmarEdicion = async (e) => {
+  e.preventDefault();
+
+  if (!clienteAEditar.razon_social || !clienteAEditar.cuit || !clienteAEditar.direccion_cliente) {
+    setMensajeError('Todos los campos son obligatorios');
+    return;
+  }
+
+  try {
+    // 🧾 Actualizar datos básicos del cliente
+    await axios.put(`http://localhost:4000/api/clientes/${clienteAEditar.cuit}`, {
+      razon_social: clienteAEditar.razon_social,
+      cuit: clienteAEditar.cuit,
+      direccion_cliente: clienteAEditar.direccion_cliente
+    });
+
+    // 📍 Actualizar direcciones del cliente
+    await axios.put(`http://localhost:4000/api/clientes/direcciones/${clienteAEditar.cuit}`, {
+      direcciones: clienteAEditar.direcciones || []
+    });
+
+    obtenerClientes(); // refresca la lista
+    setClienteAEditar(null);
+    setModalVisible(false);
+    setMensajeError('');
+  } catch (error) {
+    console.error('Error al editar cliente:', error);
+    setMensajeError('Error al actualizar cliente');
+    setClienteAEditar(null);
+    setModalVisible(false);
+  }
+};
 
   return (
     <>
@@ -103,9 +139,7 @@ const Clientes = () => {
             </div>
           </div>
           <div className="container-icon">
-            <label htmlFor="btn-menu">
-              <i className="bi bi-person-circle custom-icon"></i>
-            </label>
+            <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
           </div>
         </header>
 
@@ -129,46 +163,54 @@ const Clientes = () => {
             <div className="cotizatitlecontainer">
               <h3 className="cotizatitle">Clientes</h3>
             </div>
-            <div>
+            <div className="buscador-container">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Buscar por Razón Social..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+              <button className="botonlimpiar" onClick={() => { setBusqueda(''); setMensajeError(''); }}>Limpiar</button>
+              {mensajeError && <p className="mensaje-error">{mensajeError}</p>}
+            </div>
+            <div className="botonescontainer">
               <button className="reporte">Reporte</button>
               <button className="nc" onClick={() => setShowRegisterForm(true)}>+ Nuevo Cliente</button>
             </div>
           </div>
 
           <div className="menu-matriz">
-            {/* Buscador restaurado */}
-            <div className="filtros">
-              <input
-                className="buscador"
-                placeholder="Buscar por Razón Social"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-              />
-              <button className='botonlimpiar' onClick={() => { setBusqueda(''); setMensajeError(''); }}>Limpiar</button>
-              {mensajeError && <p className="mensaje-error">{mensajeError}</p>}
-            </div>
-
-            <div className="matriz">
-              <table className="table">
-                <thead className="table-thead">
-                  <tr className="table-tr">
-                    <th className="table-header">ID</th>
-                    <th className="table-header">Razón Social</th>
-                    <th className="table-header">CUIT</th>
-                    <th className="table-header">Acciones</th>
+            <div className="table-responsive px-2">
+              <table className="table tabla-cotizaciones align-middle">
+                <thead className="table-primary">
+                  <tr>
+                    <th>ID</th>
+                    <th>Razón Social</th>
+                    <th>CUIT</th>
+                    <th className="text-end">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="table">
+                <tbody>
                   {clientes.map((cliente, index) => (
-                    <tr key={index} className="table-trdatos">
-                      <td className="table-datos">{cliente.id}</td>
-                      <td className="table-datos">{cliente.razon_social}</td>
-                      <td className="table-datos">{cliente.cuit}</td>
-                      <td className="table-datostotal">
-                        <div className="crud-icons">
-                          <i className="bi bi-pencil-fill" onClick={() => handleEditar(cliente)}></i>
-                          <i className="bi bi-trash3-fill" onClick={() => handleEliminar(cliente)}></i>
-                        </div>
+                    <tr key={index} className="fila-cotizacion">
+                      <td>
+                        <button className="btn-link" onClick={() => setModalVisible(true)}>
+                          {cliente.id}
+                        </button>
+                      </td>
+                      <td>{cliente.razon_social}</td>
+                      <td>{cliente.cuit}</td>
+                      <td className="text-end">
+                        <button className="btn-cuadro btn-descargar" title="Descargar PDF">
+                          <i className="bi bi-file-earmark-arrow-down-fill"></i>
+                        </button>
+                        <button className="btn-cuadro btn-editar" title="Editar" onClick={() => handleEditar(cliente)}>
+                          <i className="bi bi-pencil-fill"></i>
+                        </button>
+                        <button className="btn-cuadro btn-eliminar" title="Eliminar" onClick={() => handleEliminar(cliente)}>
+                          <i className="bi bi-trash3-fill"></i>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -177,25 +219,184 @@ const Clientes = () => {
             </div>
           </div>
         </div>
+        {modalVisible && clienteAEditar && (
+          <div
+            className="modal-backdrop"
+            style={{
+              backgroundColor: 'rgba(11, 88, 240, 0.3)', // celeste translúcido
+              backdropFilter: 'blur(0px)', // opcional: suaviza el fondo
+            }}
+          >
 
-        {clienteAEliminar && (
-          <MensajeAlerta
-            tipo="eliminar"
-            mensaje={`¿Seguro que querés eliminar a ${clienteAEliminar.razon_social}?`}
-            onConfirmar={confirmarEliminacion}
-            onCancelar={cancelarEliminacion}
-          />
+            <div className="modal-formulario" style={{
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '20px',
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              maxWidth: '1000px',       // ✅ más ancho
+              width: '90%',             // ✅ ocupa más del viewport
+              margin: '40px auto'       // ✅ centrado vertical y horizontal
+            }}>
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title">
+                  <i className="bi bi-pencil-square me-2"></i> Editar cliente: {clienteAEditar.razon_social}
+                </h5>
+                <button className="btn-close" onClick={() => setModalVisible(false)}></button>
+              </div>
+
+              <div className="modal-body">
+                <div className="card mb-3">
+                  <div className="card-body">
+                    <p><strong>CUIT:</strong> {clienteAEditar.cuit}</p>
+                    <p><strong>Estado:</strong> {clienteAEditar.activo ? 'Activo' : 'Inactivo'}</p>
+                    <p><strong>Última modificación:</strong> {clienteAEditar.fecha_modificacion || 'Sin registro'}</p>
+                  </div>
+                </div>
+
+                <form onSubmit={confirmarEdicion}>
+                  <div className="mb-3">
+                    <label className="form-label">Razón Social</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={clienteAEditar.razon_social}
+                      onChange={(e) =>
+                        setClienteAEditar({ ...clienteAEditar, razon_social: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">CUIT</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={clienteAEditar.cuit}
+                      onChange={(e) =>
+                        setClienteAEditar({ ...clienteAEditar, cuit: e.target.value })
+                      }
+                    />
+                  </div>
+
+
+                  {/* Direcciones  */}
+                  <div className="mb-3">
+                    <label className="form-label">Dirección</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={clienteAEditar.direccion_cliente || ''}
+                      onChange={(e) =>
+                        setClienteAEditar({ ...clienteAEditar, direccion_cliente: e.target.value })
+                      }
+                    />
+                  </div>
+                  {/* Otras  Direcciones  */}
+
+                  <h6 className="mt-4">Otras direcciones</h6>
+                  {clienteAEditar.direcciones?.map((dir, index) => (
+                    <div key={index} className="card mb-2 p-3">
+                      <div className="row g-2">
+                        <div className="col-md-3">
+                          <label className="form-label">Calle</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={dir.calle}
+                            onChange={(e) => {
+                              const nuevas = [...clienteAEditar.direcciones];
+                              nuevas[index].calle = e.target.value;
+                              setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+                            }}
+                          />
+                        </div>
+
+                      
+
+                        <div className="col-md-2">
+                          <label className="form-label">Número</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={dir.numeracion}
+                            onChange={(e) => {
+                              const nuevas = [...clienteAEditar.direcciones];
+                              nuevas[index].numeracion = e.target.value;
+                              setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+                            }}
+                          />
+                        </div>
+
+                        <div className="col-md-3">
+                          <label className="form-label">Localidad</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={dir.localidad}
+                            onChange={(e) => {
+                              const nuevas = [...clienteAEditar.direcciones];
+                              nuevas[index].localidad = e.target.value;
+                              setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+                            }}
+                          />
+                        </div>
+
+                      </div>
+                      <div className="text-end mt-2">
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => {
+                            const nuevas = clienteAEditar.direcciones.filter((_, i) => i !== index);
+                            setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+                          }}
+                        >
+                          Eliminar dirección
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="text-start mb-3">
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => {
+                        const nuevas = [...(clienteAEditar.direcciones || []), {
+                          tipo: '',
+                          calle: '',
+                          numero: '',
+                          localidad: ''
+                        }];
+                        setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+                      }}
+                    >
+                      + Agregar dirección
+                    </button>
+                  </div>
+
+
+
+
+
+
+                  {/* Podés agregar más campos aquí si lo necesitás */}
+
+                  <div className="modal-footer">
+                    <button type="submit" className="btn btn-success">
+                      <i className="bi bi-save me-2"></i> Guardar cambios
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => setModalVisible(false)}>
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
         )}
 
-        {clienteAEditar && (
-          <MensajeAlerta
-            tipo="editar"
-            mensaje={`Editando cliente: ${clienteAEditar.razon_social}`}
-            cliente={clienteAEditar}
-            onConfirmar={confirmarEdicion}
-            onCancelar={() => setClienteAEditar(null)}
-          />
-        )}
       </div>
     </>
   );

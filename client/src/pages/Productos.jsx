@@ -19,7 +19,7 @@ const Productos = () => {
   const [showCart, setShowCart] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  useEffect(() => {  // Cargar el carrito desde localStorage al montar el componente
     try {
       const storedCart = localStorage.getItem('gigaflop_cart');
       if (storedCart) {
@@ -38,29 +38,43 @@ const Productos = () => {
     localStorage.setItem('gigaflop_cart', JSON.stringify(cart));
   }, [cart]);
 
+const fetchProducts = async () => {
+  setLoading(true);
+  setError(null);
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    setError(null);
+  try {
+    let res;
 
-    try {
-      let res;
-      if (searchTerm.trim()) {
-        res = await axios.get(`/api/productos/buscar/${searchTerm}`, { withCredentials: true });
-      } else {
-        res = await axios.get('/api/productos', { withCredentials: true });
-      }
-
-      const data = res.data;
-      setProducts(data.productos || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError('Error al cargar los productos.');
-      console.error('Error al obtener productos:', err);
-    } finally {
-      setLoading(false);
+    if (searchTerm.trim()) {
+      console.log('🔍 Buscando productos con término:', searchTerm);
+      res = await axios.get(`/api/productos/buscar/${searchTerm}`, { withCredentials: true });
+    } else {
+      console.log('📦 Cargando todos los productos');
+      res = await axios.get('/api/productos', { withCredentials: true });
     }
-  };
+
+    const data = res.data;
+
+    console.log('📥 Respuesta del backend:', data);
+
+    const productosNormalizados = (data.productos || []).map(p => ({
+      ...p,
+      imagen_url: p.image || p.imagen_url || 'default.jpg',
+      _id: p._id || p.id // para asegurar clave única
+    }));
+
+    console.log('✅ Productos normalizados:', productosNormalizados);
+
+    setProducts(productosNormalizados);
+    setTotal(data.total || productosNormalizados.length);
+  } catch (err) {
+    setError('Error al cargar los productos.');
+    console.error('❌ Error al obtener productos:', err);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchProducts();
