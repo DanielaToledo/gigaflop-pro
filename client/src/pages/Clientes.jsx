@@ -98,10 +98,15 @@ const Clientes = () => {
  const confirmarEdicion = async (e) => {
   e.preventDefault();
 
-  if (!clienteAEditar.razon_social || !clienteAEditar.cuit || !clienteAEditar.direccion_cliente) {
-    setMensajeError('Todos los campos son obligatorios');
-    return;
-  }
+ if (
+  !clienteAEditar.razon_social.trim() ||
+  !clienteAEditar.cuit.trim() ||
+  !Array.isArray(clienteAEditar.direcciones) ||
+  clienteAEditar.direcciones.length === 0
+) {
+  setMensajeError('Todos los campos son obligatorios');
+  return;
+}
 
   try {
     // 🧾 Actualizar datos básicos del cliente
@@ -256,7 +261,7 @@ const Clientes = () => {
 
                 <form onSubmit={confirmarEdicion}>
                   <div className="mb-3">
-                    <label className="form-label">Razón Social</label>
+                    <label className="form-label"><strong> Razón Social </strong></label>
                     <input
                       type="text"
                       className="form-control"
@@ -268,7 +273,7 @@ const Clientes = () => {
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label">CUIT</label>
+                    <label className="form-label"> <strong> CUIT </strong> </label>
                     <input
                       type="text"
                       className="form-control"
@@ -281,20 +286,9 @@ const Clientes = () => {
 
 
                   {/* Direcciones  */}
-                  <div className="mb-3">
-                    <label className="form-label">Dirección</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={clienteAEditar.direccion_cliente || ''}
-                      onChange={(e) =>
-                        setClienteAEditar({ ...clienteAEditar, direccion_cliente: e.target.value })
-                      }
-                    />
-                  </div>
                   {/* Otras  Direcciones  */}
 
-                  <h6 className="mt-4">Otras direcciones</h6>
+                  <h6 className="mt-4"> <strong> Direcciones </strong></h6>
                   {clienteAEditar.direcciones?.map((dir, index) => (
                     <div key={index} className="card mb-2 p-3">
                       <div className="row g-2">
