@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-
+//buscador de productos por nombre, marca, categoria, etc.
 const BuscadorProductos = ({ carrito, setCarrito, query, setQuery, abrirModal }) => {
   const [resultados, setResultados] = useState([]);
   const [mensaje, setMensaje] = useState('');

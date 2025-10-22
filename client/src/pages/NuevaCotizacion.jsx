@@ -6,8 +6,9 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import '../CSS/nuevaCotizacion.css';
 import { useLocation } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 
-
+// Página para crear una nueva cotización
 const NuevaCotizacion = () => {
   const location = useLocation();
 
@@ -20,6 +21,16 @@ const NuevaCotizacion = () => {
   const [busquedaCliente, setBusquedaCliente] = useState('');
   const [sugerencias, setSugerencias] = useState([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+
+// Estados para la cotización: id, número, estado, mensajes
+  const [mensajeError, setMensajeError] = useState('');
+const [mensajeExito, setMensajeExito] = useState('');
+const [idCotizacion, setIdCotizacion] = useState(null);
+const [numeroCotizacion, setNumeroCotizacion] = useState('');
+const [estadoCotizacion, setEstadoCotizacion] = useState('');
+
+
+
 
 
   // Estados para la entrega metododo de envio y direccion
@@ -73,7 +84,9 @@ const NuevaCotizacion = () => {
   const [paginaActual, setPaginaActual] = useState(1);
 
 
-
+// Obtener el usuario actual desde el contexto
+const { usuario: usuarioActual } = useUser();
+const idVendedor = usuarioActual.id_vendedor;
 
 
 
@@ -247,6 +260,46 @@ const NuevaCotizacion = () => {
       setContactosCliente([]);
     }
   };
+
+
+  // Guardar cotización como borrador
+const handleGuardarBorrador = async () => {
+  if (!clienteSeleccionado) {
+    setMensajeError('Debés seleccionar un cliente antes de guardar la cotización');
+    setMensajeExito('');
+    return;
+  }
+
+  if (!usuarioActual?.id_vendedor) {
+    setMensajeError('No se pudo identificar al vendedor');
+    setMensajeExito('');
+    return;
+  }
+
+  console.log('Guardando borrador con:', {
+    cliente: clienteSeleccionado,
+    vendedor: usuarioActual.id_vendedor
+  });
+
+  try {
+    const res = await axios.post('/api/cotizaciones/iniciar', {
+      id_cliente: clienteSeleccionado,
+      id_vendedor: usuarioActual.id_vendedor
+    });
+
+    console.log('Cotización creada:', res.data);
+
+    setIdCotizacion(res.data.id_cotizacion);
+    setNumeroCotizacion(res.data.numero_cotizacion);
+    setEstadoCotizacion(res.data.estado);
+    setMensajeExito('Cotización guardada como borrador');
+    setMensajeError('');
+  } catch (error) {
+    console.error('Error al guardar borrador:', error.response?.data || error.message || error);
+    setMensajeError('No se pudo guardar la cotización');
+    setMensajeExito('');
+  }
+};
 
 
 
@@ -859,11 +912,26 @@ const NuevaCotizacion = () => {
 
 
 
-          {/* Acciones */}
+          {/* Acciones / Guardar Borrador*/}
           <div className="d-flex justify-content-center gap-2 my-3">
-            <button className="btn btn-outline-secondary" onClick={() => showGlobalInfo('Borrador guardado (mock).')}>
-              Guardar borrador
+            <button className="btn btn-outline-secondary" onClick={handleGuardarBorrador}>
+              <i className="bi bi-save me-2"></i> Guardar como borrador
             </button>
+{mensajeExito && (
+  <div className="alert alert-success mt-3">
+    <i className="bi bi-check-circle-fill me-2"></i>
+    {mensajeExito}
+  </div>
+)}
+{mensajeError && (
+  <div className="alert alert-danger mt-3">
+    <i className="bi bi-exclamation-triangle-fill me-2"></i>
+    {mensajeError}
+  </div>
+)}
+
+
+
             <button className="btn btn-success" onClick={() => showGlobalInfo('Enviada (mock).')}>
               Enviar por correo
             </button>

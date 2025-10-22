@@ -123,7 +123,17 @@ export const eliminarCliente = async (cuit) => {
 //modelo para obtener direcciones de un cliente por su id junto con el nombre de la zona de envio
 export const obtenerDireccionesConZona = async (idCliente) => {
   const [rows] = await pool.query(`
-    SELECT id AS id_direccion, locacion, calle, numeracion, localidad, provincia, zona_envio, codigo_postal
+    SELECT 
+      id AS id_direccion,
+      calle,
+      numeracion,
+      piso,
+      depto,
+      locacion,
+      localidad,
+      provincia,
+      codigo_postal,
+      zona_envio
     FROM direccion_cliente
     WHERE id_cliente = ?
   `, [idCliente]);
@@ -183,16 +193,20 @@ export const crearClienteCompleto = async ({ razon_social, cuit }) => {
 export const insertarDireccionClienteCompleto = async (id_cliente, dir) => {
   const query = `
     INSERT INTO direccion_cliente 
-    (id_cliente, calle, numeracion, localidad, provincia, codigo_postal) 
-    VALUES (?, ?, ?, ?, ?, ?)
+    (id_cliente, calle, numeracion, piso, depto, locacion, localidad, provincia, codigo_postal, zona_envio) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   await pool.execute(query, [
     id_cliente,
     dir.calle,
     dir.numeracion,
+    dir.piso,
+    dir.depto,
+    dir.locacion,
     dir.localidad,
     dir.provincia,
-    dir.codigo_postal
+    dir.codigo_postal,
+    dir.zona_envio
   ]);
 };
 
@@ -200,15 +214,16 @@ export const insertarDireccionClienteCompleto = async (id_cliente, dir) => {
 export const insertarContactoClienteCompleto = async (id_cliente, contacto) => {
   const query = `
     INSERT INTO contactos 
-    (id_cliente, nombre_contacto,apellido, telefono, email) 
-    VALUES (?, ?, ?, ?, ?)
+    (id_cliente, nombre_contacto,apellido, telefono, email, area_contacto ) 
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
   await pool.execute(query, [ 
     id_cliente, 
     contacto.nombre_contacto,
     contacto.apellido,
     contacto.telefono, 
-    contacto.email ]
+    contacto.email,
+    contacto.area_contacto]
 );
 };
 

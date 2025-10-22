@@ -78,7 +78,9 @@ export const profile = async (req, res) => {
     }
 
     res.status(200).json({
-      usuario: { id: usuario.id, nombre: usuario.usuario, email: usuario.email, rol: usuario.rol }
+      usuario: { id: usuario.id, nombre: usuario.usuario, email: usuario.email, rol: usuario.rol, id_vendedor: usuario.id_vendedor // 👈 nuevo campo
+
+ }
     });
     // Cambiado "user" por "usuario"
   } catch (error) {

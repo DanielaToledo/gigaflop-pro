@@ -79,13 +79,21 @@ export class Cotizacion {   //
   }
 }
 
-  async obtenerBorradoresPorVendedor(id_vendedor) {  // Obtiene todas las cotizaciones en estado 'borrador' para un vendedor específico
-    const [rows] = await this.db.query(
-      `SELECT * FROM cotizaciones WHERE estado = 'borrador' AND id_vendedor = ?`,
-      [id_vendedor]
-    );
-    return rows;
-  }
+// Método para obtener las cotizaciones en estado 'borrador' de un vendedor específico
+async obtenerBorradoresPorVendedor(id_vendedor) {
+  const [rows] = await this.db.query(`
+    SELECT c.id, c.numero_cotizacion, c.fecha, c.estado,
+           cl.razon_social AS cliente_nombre,
+           v.nombre AS vendedor_nombre
+    FROM cotizaciones c
+    JOIN cliente cl ON c.id_cliente = cl.id
+    JOIN vendedores v ON c.id_vendedor = v.id
+    WHERE c.estado = 'borrador' AND c.id_vendedor = ?
+    ORDER BY c.fecha DESC
+  `, [id_vendedor]);
+
+  return rows;
+}
 
 async obtenerCotizacionCompleta(idCotizacion) {
   const [cabecera] = await this.db.query(`

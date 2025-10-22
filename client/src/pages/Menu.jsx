@@ -1,17 +1,46 @@
 
-import React, { useState } from 'react';
+import axios from 'axios';
 import { NavLink } from 'react-router-dom';
 import '../CSS/menu.css';
 import "bootstrap-icons/font/bootstrap-icons.css";
 import Sidebar from '../components/Sidebar';
+import React, { useState, useEffect } from 'react';
+import { useUser } from '../context/UserContext';
+
+
 
 const Menu = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [cotizaciones, setCotizaciones] = useState([
-    { id: '482193', fecha: '01/01/2023', vendedor: 'Juan Perez', estado: 'Aprobada', cliente: 'YPF', total: 'u$s1,250' },
-    { id: '729384', fecha: '02/01/2023', vendedor: 'Ana Gómez', estado: 'Pendiente', cliente: 'Mercado Libre', total: 'u$s2,340' }
-  ]);
+  const { usuario } = useUser();
+  const [cotizaciones, setCotizaciones] = useState([]);
 
+ // Cargar cotizaciones en estado 'borrador' para el vendedor actual
+  useEffect(() => {
+  if (!usuario?.id_vendedor) return;
+
+  const cargarCotizaciones = async () => {
+    try {
+      const res = await axios.get(`/api/cotizaciones/borrador/${usuario.id_vendedor}`);
+      console.log('Cotizaciones recibidas:', res.data);
+
+      const transformadas = res.data.map(c => ({
+        id: c.numero_cotizacion,
+        fecha: new Date(c.fecha).toLocaleDateString(),
+        vendedor: c.vendedor_nombre || '—',
+        estado: c.estado,
+        cliente: c.cliente_nombre || '—',
+        total: '—' // o calculalo más adelante si tenés detalle
+      }));
+
+      setCotizaciones(transformadas);
+    } catch (error) {
+      console.error('Error al cargar cotizaciones:', error);
+    }
+  };
+
+  cargarCotizaciones();
+}, [usuario?.id_vendedor]);
+
+ const [searchTerm, setSearchTerm] = useState(''); 
   const [modalVisible, setModalVisible] = useState(false);
   const [deletedCotizacion, setDeletedCotizacion] = useState(null);
   const [undoTimer, setUndoTimer] = useState(null);

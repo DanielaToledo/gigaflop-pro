@@ -36,7 +36,10 @@ if (rolSeguro === 'vendedor') {
 // Buscar usuario por ID
 export const findUserById = async (id) => {
   const [rows] = await pool.query(
-    'SELECT id, usuario, email, rol FROM usuarios WHERE id = ?',
+    `SELECT u.id, u.usuario, u.email, u.rol, v.id AS id_vendedor
+     FROM usuarios u
+     LEFT JOIN vendedores v ON v.id_usuario = u.id
+     WHERE u.id = ?`,
     [id]
   );
   return rows[0];

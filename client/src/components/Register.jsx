@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+// Componente para registrar un nuevo cliente
 const Register = ({ onClose }) => {
   const [razonSocial, setRazonSocial] = useState('');
   const [cuit, setCuit] = useState('');
@@ -8,36 +9,48 @@ const Register = ({ onClose }) => {
   const [direccionEditando, setDireccionEditando] = useState(null);
 
 
+  // Estado para la dirección actual en el formulario
   const [direccionActual, setDireccionActual] = useState({
     calle: '',
     numeracion: '',
+    piso: '',
+    depto: '',
+    locacion: '',
     localidad: '',
     provincia: '',
-    codigo_postal: ''
+    codigo_postal: '',
+    zona_envio: ''
   }); 
 
-
+  // Estado para la gestión de contactos
   const [contactoEditando, setContactoEditando] = useState(null);
   const [contactos, setContactos] = useState([]);
   const [contactoActual, setContactoActual] = useState({
     nombre_contacto: '',
     apellido: '',
     telefono: '',
-    email: ''
+    email: '',
+    area_contacto: ''
   });
 
-
+// Estados para mensajes de error e información
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
 
+  
+  // Funciones para manejar la adición y actualización de direcciones y contactos
   const handleAgregarDireccion = () => {
   setDirecciones([...direcciones, direccionActual]);
   setDireccionActual({
     calle: '',
     numeracion: '',
+    piso: '',
+    depto: '',
+    locacion: '',
     localidad: '',
     provincia: '',
-    codigo_postal: ''
+    codigo_postal: '',
+    zona_envio: ''
   });
 };
 
@@ -47,7 +60,8 @@ const Register = ({ onClose }) => {
     nombre_contacto: '',
     apellido: '',
     telefono: '',
-    email: ''
+    email: '',
+    area_contacto: ''
   });
 };
 
@@ -59,7 +73,8 @@ const Register = ({ onClose }) => {
     nombre_contacto: '',
     apellido: '',
     telefono: '',
-    email: ''
+    email: '',
+    area_contacto: ''
   });
   setContactoEditando(null);
 };
@@ -70,7 +85,17 @@ const Register = ({ onClose }) => {
     const nuevas = [...direcciones];
     nuevas[direccionEditando] = direccionActual;
     setDirecciones(nuevas);
-    setDireccionActual({ calle: '', numero: '', localidad: '', provincia: '', cp: '' });
+    setDireccionActual({ 
+      calle: '', 
+      numeracion: '', 
+      piso: '',
+      depto: '',
+      locacion: '',
+      localidad: '', 
+      provincia: '',
+      codigo_postal: '',
+      zona_envio: ''
+      });
     setDireccionEditando(null);
   };
 
@@ -97,7 +122,7 @@ const Register = ({ onClose }) => {
   };
 
 
-
+  // Función para cancelar y limpiar el formulario
   const handleCancelar = () => {
   setRazonSocial('');
   setCuit('');
@@ -113,7 +138,8 @@ const Register = ({ onClose }) => {
     nombre_contacto: '',
     apellido: '',
     telefono: '',
-    email: ''
+    email: '',
+    area_contacto: ''
   });
   setContactos([]);
   setError('');
@@ -133,7 +159,7 @@ const Register = ({ onClose }) => {
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title">
-              <i className="bi bi-person-plus"></i> Registrar Nuevo Cliente
+              <i className="bi bi-person-plus"></i> <stronge>Registrar Nuevo Cliente</stronge>
             </h5>
             <button type="button" className="btn-close" onClick={handleCancelar}></button>
           </div>
@@ -171,33 +197,99 @@ const Register = ({ onClose }) => {
             </div>
 
             {/* Direcciones */}
-            <h5 className="mb-3"><i className="bi bi-geo-alt"></i> Direcciones</h5>
+            <h5 className="mb-3"><i className="bi bi-geo-alt"></i> <strong>Direcciones</strong> 
+
+            </h5>
             <div className="row g-3 mb-3">
               <div className="col-md-4">
                 <label className="form-label">Calle</label>
                 <input type="text" className="form-control" value={direccionActual.calle} onChange={(e) => setDireccionActual({ ...direccionActual, calle: e.target.value })} />
               </div>
+
               <div className="col-md-2">
                 <label className="form-label">Número</label>
-                <input type="text" className="form-control" value={direccionActual.numero} onChange={(e) => setDireccionActual({ ...direccionActual, numero: e.target.value })} />
+                <input type="text" className="form-control" value={direccionActual.numeracion} onChange={(e) => setDireccionActual({ ...direccionActual, numeracion: e.target.value })} />
               </div>
+
               <div className="col-md-3">
                 <label className="form-label">Localidad</label>
                 <input type="text" className="form-control" value={direccionActual.localidad} onChange={(e) => setDireccionActual({ ...direccionActual, localidad: e.target.value })} />
               </div>
+
               <div className="col-md-2">
                 <label className="form-label">Provincia</label>
                 <input type="text" className="form-control" value={direccionActual.provincia} onChange={(e) => setDireccionActual({ ...direccionActual, provincia: e.target.value })} />
               </div>
+
               <div className="col-md-1">
                 <label className="form-label">CP</label>
-                <input type="text" className="form-control" value={direccionActual.cp} onChange={(e) => setDireccionActual({ ...direccionActual, cp: e.target.value })} />
+                <input type="text" className="form-control" value={direccionActual.codigo_postal} onChange={(e) => setDireccionActual({ ...direccionActual, codigo_postal: e.target.value })} />
               </div>
-              <div className="col-12">
-                <button className="btn btn-outline-primary" onClick={handleAgregarDireccion}>
-                  <i className="bi bi-plus-circle"></i> Agregar Dirección
-                </button>
-              </div>
+
+ <div className="col-md-3">
+    <label className="form-label">Piso</label>
+    <input
+      type="text"
+      className="form-control"
+      value={direccionActual.piso}
+      onChange={(e) => setDireccionActual({ ...direccionActual, piso: e.target.value })}
+    />
+  </div>
+
+  <div className="col-md-3">
+    <label className="form-label">Depto</label>
+    <input
+      type="text"
+      className="form-control"
+      value={direccionActual.depto}
+      onChange={(e) => setDireccionActual({ ...direccionActual, depto: e.target.value })}
+    />
+  </div>
+
+  <div className="col-md-3">
+    <label className="form-label">Locación</label>
+    <input
+      type="text"
+      className="form-control"
+      value={direccionActual.locacion}
+      onChange={(e) => setDireccionActual({ ...direccionActual, locacion: e.target.value })}
+    />
+  </div>
+
+  <div className="col-md-3">
+    <label className="form-label">Zona de envío</label>
+    <select
+      className="form-select"
+      value={direccionActual.zona_envio}
+      onChange={(e) => setDireccionActual({ ...direccionActual, zona_envio: e.target.value })}
+    >
+      <option value="">Seleccionar zona</option>
+      <option value="CABA">CABA</option>
+      <option value="GBA">GBA</option>
+      <option value="INTERIOR">INTERIOR</option>
+    </select>
+  </div>
+
+
+
+
+
+
+
+           <div className="col-12">
+  {direccionEditando !== null ? (
+    <button className="btn btn-success" onClick={handleActualizarDireccion}>
+      <i className="bi bi-check-circle"></i> Actualizar Dirección
+    </button>
+  ) : (
+    <button className="btn btn-outline-primary" onClick={handleAgregarDireccion}>
+      <i className="bi bi-plus-circle"></i> Agregar Dirección
+    </button>
+  )}
+</div> 
+
+
+              
               {direcciones.length > 0 && (
                 <div className="mt-3">
                   <h6>Direcciones agregadas:</h6>
@@ -206,7 +298,7 @@ const Register = ({ onClose }) => {
                       <li key={index} className="list-group-item">
                         <div className="row align-items-center">
                           <div className="col-md-9">
-                            {`${dir.calle} ${dir.numero}, ${dir.localidad}, ${dir.provincia} (${dir.cp})`}
+                            {`${dir.calle} ${dir.numeracion}, ${dir.localidad}, ${dir.provincia} (${dir.codigo_postal})`}
                           </div>
                           <div className="col-md-3 text-end">
                             <button
@@ -226,6 +318,7 @@ const Register = ({ onClose }) => {
                                 setDirecciones(nuevas);
                               }}
                             >
+                              
                               <i className="bi bi-trash"></i>
                             </button>
                           </div>
@@ -239,51 +332,58 @@ const Register = ({ onClose }) => {
 
             {/* Contactos */}
             {/* Contactos */}
-            <h5 className="mb-3"><i className="bi bi-person-lines-fill"></i> Contactos</h5>
+            <h5 className="mb-3"><i className="bi bi-person-lines-fill"></i> <strong> Contactos</strong> </h5>
             <div className="row g-3 mb-3">
               <div className="col-md-4">
-                <label className="form-label">Nombre</label>
+                <label className="form-label"> Nombre </label>
                 <input
                   type="text"
                   className="form-control"
-                  value={contactoActual.nombre}
-                  onChange={(e) => setContactoActual({ ...contactoActual, nombre: e.target.value })}
+                  value={contactoActual.nombre_contacto}
+                  onChange={(e) => setContactoActual({ ...contactoActual, nombre_contacto: e.target.value })}
                 />
               </div>
 
               <div className="col-md-3">
-                <label className="form-label">Apellido</label>
+                <label className="form-label">Apellido </label>
                 <input type="text" className="form-control" value={contactoActual.apellido} onChange={(e) => setContactoActual({ ...contactoActual, apellido: e.target.value })}
                 />
               </div>
 
+<div className="row">
+  <div className="col-md-4">
+    <label className="form-label">Área de contacto</label>
+    <input
+      type="text"
+      className="form-control"
+      value={contactoActual.area_contacto}
+      onChange={(e) => setContactoActual({ ...contactoActual, area_contacto: e.target.value })}
+    />
+  </div>
+
+  <div className="col-md-4">
+    <label className="form-label">Teléfono</label>
+    <input
+      type="text"
+      className="form-control"
+      value={contactoActual.telefono}
+      onChange={(e) => setContactoActual({ ...contactoActual, telefono: e.target.value })}
+    />
+  </div>
+
+  <div className="col-md-4">
+    <label className="form-label">Email</label>
+    <input
+      type="email"
+      className="form-control"
+      value={contactoActual.email}
+      onChange={(e) => setContactoActual({ ...contactoActual, email: e.target.value })}
+    />
+  </div>
+</div>
 
 
 
-
-
-
-              <div className="col-md-4">
-                <label className="form-label">Teléfono</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={contactoActual.telefono}
-                  onChange={(e) => setContactoActual({ ...contactoActual, telefono: e.target.value })}
-                />
-              </div>
-
-
-
-              <div className="col-md-4">
-                <label className="form-label">Email</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={contactoActual.email}
-                  onChange={(e) => setContactoActual({ ...contactoActual, email: e.target.value })}
-                />
-              </div>
 
 
 
