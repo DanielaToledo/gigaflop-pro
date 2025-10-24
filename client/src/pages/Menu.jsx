@@ -1,6 +1,6 @@
 
 import axios from 'axios';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import '../CSS/menu.css';
 import "bootstrap-icons/font/bootstrap-icons.css";
 import Sidebar from '../components/Sidebar';
@@ -11,26 +11,30 @@ import { useUser } from '../context/UserContext';
 
 const Menu = () => {
   const { usuario } = useUser();
+  const navigate = useNavigate();
   const [cotizaciones, setCotizaciones] = useState([]);
+
+
+
 
  // Cargar cotizaciones en estado 'borrador' para el vendedor actual
   useEffect(() => {
   if (!usuario?.id_vendedor) return;
 
-  const cargarCotizaciones = async () => {
-    try {
-      const res = await axios.get(`/api/cotizaciones/borrador/${usuario.id_vendedor}`);
-      console.log('Cotizaciones recibidas:', res.data);
+    const cargarCotizaciones = async () => {
+      try {
+        const res = await axios.get(`/api/cotizaciones/borrador/${usuario.id_vendedor}`);
+        console.log('Cotizaciones recibidas:', res.data);
 
-      const transformadas = res.data.map(c => ({
-        id: c.numero_cotizacion,
-        fecha: new Date(c.fecha).toLocaleDateString(),
-        vendedor: c.vendedor_nombre || '—',
-        estado: c.estado,
-        cliente: c.cliente_nombre || '—',
-        total: '—' // o calculalo más adelante si tenés detalle
-      }));
-
+        const transformadas = res.data.map(c => ({
+          id: c.id, // ✅ ahora usás el ID numérico real
+          numero: c.numero_cotizacion, // opcional si querés mostrarlo
+          fecha: new Date(c.fecha).toLocaleDateString(),
+          vendedor: c.vendedor_nombre || '—',
+          estado: c.estado,
+          cliente: c.cliente_nombre || '—',
+          total: '—'
+        }));
       setCotizaciones(transformadas);
     } catch (error) {
       console.error('Error al cargar cotizaciones:', error);
@@ -40,16 +44,21 @@ const Menu = () => {
   cargarCotizaciones();
 }, [usuario?.id_vendedor]);
 
- const [searchTerm, setSearchTerm] = useState(''); 
+
+
+
+  const [searchTerm, setSearchTerm] = useState(''); 
   const [modalVisible, setModalVisible] = useState(false);
   const [deletedCotizacion, setDeletedCotizacion] = useState(null);
   const [undoTimer, setUndoTimer] = useState(null);
 
+
   const filteredCotizaciones = cotizaciones.filter(cotizacion =>
-    cotizacion.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cotizacion.vendedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cotizacion.cliente.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  cotizacion.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  String(cotizacion.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
+  cotizacion.vendedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  cotizacion.cliente.toLowerCase().includes(searchTerm.toLowerCase())
+);
 
   const getColor = (estado) => {
     switch (estado.toLowerCase()) {
@@ -118,10 +127,21 @@ const Menu = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className='botonescontainer'>
-              <button className='reporte'>Reporte</button>
-              <NavLink  to='/nuevacotizacion'><button className='nc'>+ Nueva Cotización</button></NavLink>
-            </div>
+
+<button
+  className='nc'
+  onClick={() => {
+    localStorage.removeItem('idCotizacionActual');
+    navigate('/nuevacotizacion');
+  }}
+>
+  + Nueva Cotización
+</button>
+
+
+            
+
+
           </div>
 
           <div className="menu-matriz">
@@ -143,7 +163,7 @@ const Menu = () => {
                     <tr key={index} className="fila-cotizacion">
                       <td>
                         <button className="btn-link" onClick={() => setModalVisible(true)}>
-                          {cotizacion.id}
+                          {cotizacion.numero}
                         </button>
                       </td>
                       <td>{cotizacion.fecha}</td>
@@ -152,6 +172,19 @@ const Menu = () => {
                       <td>{cotizacion.cliente}</td>
                       <td>{cotizacion.total}</td>
                       <td className="text-end">
+
+<button
+  className="btn-cuadro btn-retomar"
+  title="Retomar cotización"
+  onClick={() => {
+    localStorage.setItem('idCotizacionActual', cotizacion.id); // ✅ guarda el ID
+    navigate('/nuevacotizacion', { state: { retomar: true } }); // ✅ indica que debe retomarse
+  }}
+>
+  <i className="bi bi-arrow-repeat"></i>
+</button>
+
+                   
                         <button className="btn-cuadro btn-descargar" title="Descargar PDF">
                           <i className="bi bi-file-earmark-arrow-down-fill"></i>
                         </button>

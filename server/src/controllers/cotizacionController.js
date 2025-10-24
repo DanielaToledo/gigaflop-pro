@@ -5,11 +5,11 @@ import { Cotizacion } from '../models/CotizacionModels.js';
 //iniciar una nueva cotizacion Crea una nueva cotización en estado  con número autogenerado 'borrador'
 export async function iniciarCotizacion(req, res) {
   const db = req.app.get('db');
-  const { id_vendedor, id_cliente } = req.body; // extrae id_vendedor e id_cliente del cuerpo de la solicitud
+  const { id_vendedor, id_cliente, id_contacto, productos = [] } = req.body;
   const cotizacionModel = new Cotizacion(db);
 
   try {
-    const numero = await cotizacionModel.generarNumeroCotizacion(); // Genera un nuevo número de cotización
+    const numero = await cotizacionModel.generarNumeroCotizacion();
     const fecha = new Date();
 
     const idCotizacion = await cotizacionModel.crearCabecera({
@@ -17,8 +17,14 @@ export async function iniciarCotizacion(req, res) {
       fecha,
       estado: 'borrador',
       id_vendedor,
-      id_cliente
+      id_cliente,
+      id_contacto // ✅ asegurate que esto se use en el modelo
     });
+
+    // ✅ Guardar productos si vienen en el payload
+    if (Array.isArray(productos) && productos.length > 0) {
+      await cotizacionModel.reemplazarProductos(idCotizacion, productos);
+    }
 
     res.status(201).json({
       id_cotizacion: idCotizacion,
@@ -26,10 +32,10 @@ export async function iniciarCotizacion(req, res) {
       estado: 'borrador'
     });
   } catch (err) {
-  console.error("Error al iniciar cotización:", err); // 👈 Esto te muestra el error real
-  res.status(500).json({ error: 'Error al iniciar cotización' });
-}
+    console.error("Error al iniciar cotización:", err);
+    res.status(500).json({ error: 'Error al iniciar cotización' });
   }
+}
 
 // Obtener cotizaciones en estado 'borrador' para un vendedor específico
 export async function obtenerCotizacionesBorrador(req, res) {
@@ -51,28 +57,40 @@ export async function finalizarCotizacion(req, res) {
   const cotizacionId = req.params.id;
   const cotizacionModel = new Cotizacion(db);
 
-  // Datos esperados en el cuerpo de la solicitud
   const {
-    id_cliente, id_contacto, id_condicion,
-    vigencia_hasta, observaciones, plazo_entrega,
-    costo_envio, productos
+    id_cliente,
+    id_contacto,
+    id_condicion,
+    vigencia_hasta,
+    observaciones,
+    plazo_entrega,
+    costo_envio,
+    productos
   } = req.body;
 
   try {
-    await cotizacionModel.actualizarCabecera(cotizacionId, {  
-      id_cliente, id_contacto, id_condicion,
-      vigencia_hasta, observaciones, plazo_entrega,
-      costo_envio, estado: 'pendiente'
+    if (!Array.isArray(productos) || productos.length === 0) {
+      return res.status(400).json({ error: 'La cotización debe tener al menos un producto' });
+    }
+
+    await cotizacionModel.actualizarCabecera(cotizacionId, {
+      id_cliente,
+      id_contacto,
+      id_condicion,
+      vigencia_hasta,
+      observaciones,
+      plazo_entrega,
+      costo_envio,
+      estado: 'pendiente',
+      fecha_envio: new Date()
     });
 
-    await cotizacionModel.agregarDetalle(cotizacionId, productos);  // Agrega los detalles de los productos a la cotización
+    await cotizacionModel.reemplazarProductos(cotizacionId, productos);
 
-    res.json({ mensaje: 'Cotización finalizada y enviada al cliente' }); // Respuesta exitosa
-
+    res.json({ mensaje: 'Cotización finalizada y enviada al cliente' });
   } catch (err) {
-  console.error("Error al finalizar cotización:", err);
-  res.status(500).json({ error: 'Error al finalizar cotización' });
-
+    console.error("❌ Error al finalizar cotización:", err);
+    res.status(500).json({ error: 'Error al finalizar cotización' });
   }
 }
 
@@ -90,3 +108,56 @@ export async function verCotizacionCompleta(req, res) {
   res.status(500).json({ error: 'Error al obtener detalle de la cotización' });
 }
   }
+
+// Obtener una cotización en estado 'borrador' por su ID para edición
+export async function obtenerCotizacionBorradorPorId(req, res) {
+  const db = req.app.get('db');
+  const cotizacionModel = new Cotizacion(db);
+  const { id } = req.params;
+
+  try {
+    const cotizacion = await cotizacionModel.obtenerCotizacionParaEdicion(id);
+    res.json(cotizacion);
+    console.log('Cotización recuperada:', cotizacion);
+
+
+  } catch (err) {
+    console.error("Error al obtener borrador:", err);
+    res.status(500).json({ error: 'Error al obtener borrador' });
+  }
+}
+
+
+// Actualiza una cotización en estado 'borrador' (cabecera y productos)
+export async function actualizarCotizacionBorrador(req, res) {
+  const db = req.app.get('db');
+  const cotizacionModel = new Cotizacion(db);
+  const { id } = req.params;
+  const data = req.body;
+
+  try {
+    const cabecera = {
+      id_cliente: data.id_cliente,
+      id_contacto: typeof data.id_contacto === 'object' ? data.id_contacto.id : data.id_contacto,
+      id_condicion: data.id_condicion,
+      vigencia_hasta: data.vigencia_hasta,
+      observaciones: data.observaciones,
+      plazo_entrega: data.plazo_entrega,
+      costo_envio: data.costo_envio,
+      estado: data.estado || 'borrador'
+    };
+
+    await cotizacionModel.actualizarCabecera(id, cabecera);
+
+    console.log('🧪 Productos recibidos en el backend:', data.productos);
+
+    if (Array.isArray(data.productos) && data.productos.length > 0) {
+      await cotizacionModel.reemplazarProductos(id, data.productos);
+    }
+
+    res.json({ mensaje: 'Cotización actualizada como borrador' });
+  } catch (err) {
+    console.error("❌ Error al actualizar borrador:", err);
+    res.status(500).json({ error: 'Error al actualizar borrador' });
+  }
+}

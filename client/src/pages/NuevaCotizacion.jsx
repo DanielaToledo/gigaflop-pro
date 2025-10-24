@@ -7,10 +7,16 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import '../CSS/nuevaCotizacion.css';
 import { useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { useParams } from 'react-router-dom';
+
+
 
 // Página para crear una nueva cotización
 const NuevaCotizacion = () => {
   const location = useLocation();
+  const carritoInicial = location.state?.carrito || [];
+  const { id } = useParams();
+
 
   // Estados para la cotización seleccionar cliente y contacto
   const [vigencia, setVigencia] = useState('');
@@ -22,15 +28,13 @@ const NuevaCotizacion = () => {
   const [sugerencias, setSugerencias] = useState([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
 
-// Estados para la cotización: id, número, estado, mensajes
+  // Estados para la cotización: id, número, estado, mensajes
   const [mensajeError, setMensajeError] = useState('');
-const [mensajeExito, setMensajeExito] = useState('');
-const [idCotizacion, setIdCotizacion] = useState(null);
-const [numeroCotizacion, setNumeroCotizacion] = useState('');
-const [estadoCotizacion, setEstadoCotizacion] = useState('');
-
-
-
+  const [mensajeExito, setMensajeExito] = useState('');
+  const [numeroCotizacion, setNumeroCotizacion] = useState('');
+  const [estadoCotizacion, setEstadoCotizacion] = useState('');
+  const [idCotizacionActual, setIdCotizacionActual] = useState(null);
+  const [retomando, setRetomando] = useState(false);
 
 
   // Estados para la entrega metododo de envio y direccion
@@ -45,6 +49,8 @@ const [estadoCotizacion, setEstadoCotizacion] = useState('');
   const [clienteObjeto, setClienteObjeto] = useState(null); // nuevo: objeto completo
   const [zonasEnvio, setZonasEnvio] = useState([]);
   const [costoEnvio, setCostoEnvio] = useState(null);
+  const { idCotizacion } = useParams();
+
 
 
 
@@ -62,6 +68,11 @@ const [estadoCotizacion, setEstadoCotizacion] = useState('');
   const [errorGlobal, setErrorGlobal] = useState('');
   const [infoGlobal, setInfoGlobal] = useState('');
   const [fechaHoy, setFechaHoy] = useState('');
+  const [condicionSeleccionada, setCondicionSeleccionada] = useState(null);
+  const [vigenciaHasta, setVigenciaHasta] = useState('');
+  const [observaciones, setObservaciones] = useState('');
+  const [plazoEntrega, setPlazoEntrega] = useState('');
+
 
   // Otros estados como mpstrar modal, año, productos, etc.
   const [yearActual, setYearActual] = useState(new Date().getFullYear());
@@ -84,9 +95,11 @@ const [estadoCotizacion, setEstadoCotizacion] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
 
 
-// Obtener el usuario actual desde el contexto
-const { usuario: usuarioActual } = useUser();
-const idVendedor = usuarioActual.id_vendedor;
+  // Obtener el usuario actual desde el contexto
+  const { usuario: usuarioActual } = useUser();
+  const idVendedor = usuarioActual.id_vendedor;
+
+
 
 
 
@@ -106,6 +119,22 @@ const idVendedor = usuarioActual.id_vendedor;
     }
   };
 
+  useEffect(() => {
+    const id = localStorage.getItem('idCotizacionActual');
+    const retomar = location.state?.retomar;
+
+    console.log('🧪 Retomar:', retomar, 'ID:', id);
+    if (retomar && id) {
+      setRetomando(true); // ✅ activa el mensaje
+      cargarCotizacionExistente(id);
+    } else {
+      localStorage.removeItem('idCotizacionActual');
+      setRetomando(false);
+    }
+
+  }, []);
+
+
   //fecha de hoy para usar en la cotizacion
   useEffect(() => {
     setFechaHoy(new Date().toISOString().slice(0, 10));
@@ -124,6 +153,7 @@ const idVendedor = usuarioActual.id_vendedor;
         tasa_iva: num(p.tasa_iva) || 21
       }));
       setCarrito(formateados);
+      setProductosSeleccionados(formateados);
     } else {
       const guardados = localStorage.getItem('productosParaCotizar');
       if (guardados) {
@@ -199,7 +229,7 @@ const idVendedor = usuarioActual.id_vendedor;
     setCarrito(prev => { // Evita duplicados
       const yaExiste = prev.some(p => p.part_number === nuevo.part_number);
       return yaExiste ? prev : [...prev, nuevo];
-    });
+    }); console.log('🧪 Intentando agregar al carrito:', nuevo);
   };
 
   // Agregar productos seleccionados al carrito desde el modal
@@ -215,7 +245,6 @@ const idVendedor = usuarioActual.id_vendedor;
 
     setCarrito(prev => [...prev, ...nuevos]);
     cerrarModalConTransicion();
-    setProductosSeleccionados([]);
     setBusquedaProducto('');
   };
 
@@ -239,67 +268,211 @@ const idVendedor = usuarioActual.id_vendedor;
 
 
 
+
+
+
+  // Obtener idCotizacion de los parámetros de la URL
+  useEffect(() => {
+    if (idCotizacion) {
+      cargarCotizacionExistente(idCotizacion);
+    }
+  }, [idCotizacion]);
+
+
+
+
+
+
+
   // Cargar clientes disponibles (mock)
   useEffect(() => {
-    axios.get('/api/clientes')
-      .then(({ data }) => setClientesDisponibles(data))
-      .catch(err => console.error('Error al cargar clientes', err));
-  }, []);
+    const buscarProductos = async () => {
+      try {
+        const res = await axios.get(`/api/productos/buscar-flex?query=${busqueda}`, {
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        setProductosFiltrados(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error('Error al cargar productos:', err);
+      }
+    };
+
+    if (busqueda.trim().length > 1) {
+      buscarProductos();
+    }
+  }, [busqueda]);
 
 
-  const handleSeleccionCliente = async (id) => {
-    setCliente(id);
-    setClienteSeleccionado(id); // solo el número
 
+  const cargarCotizacionExistente = async (id) => {
     try {
-      const { data } = await axios.get(`/api/clientes/${id}/contactos`);
-      setContactosCliente(Array.isArray(data) ? data : []);
-      setContacto('');
-    } catch (err) {
-      console.error('Error al cargar contactos del cliente', err);
-      setContactosCliente([]);
+      const res = await axios.get(`/api/cotizaciones/borrador/retomar/${id}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      console.log('Respuesta completa de cotización:', res.data);
+      const { cabecera, productos } = res.data;
+
+      if (!cabecera?.id_cliente) {
+        console.error('❌ cabecera.id_cliente está vacío o undefined');
+        return;
+      }
+
+      // Setear cliente
+      setClienteSeleccionado(cabecera.id_cliente);
+
+      // Buscar cliente en la lista o construirlo desde cabecera
+      let clienteEncontrado = clientesDisponibles.find(c => c.id === cabecera.id_cliente);
+
+      if (!clienteEncontrado && cabecera.razon_social && cabecera.cuit) {
+        clienteEncontrado = {
+          id: cabecera.id_cliente,
+          razon_social: cabecera.razon_social.trim(),
+          cuit: cabecera.cuit.trim()
+        };
+
+        // Agregar cliente si no está en la lista
+        setClientesDisponibles(prev => {
+          const yaExiste = prev.some(c => c.id === clienteEncontrado.id);
+          return yaExiste ? prev : [...prev, clienteEncontrado];
+        });
+      }
+
+      setClienteObjeto(clienteEncontrado);
+      setBusquedaCliente(`${clienteEncontrado?.razon_social} – CUIT: ${clienteEncontrado?.cuit}`);
+
+      // Cargar contactos
+      try {
+        const contactosRes = await axios.get(`/api/clientes/${cabecera.id_cliente}/contactos`);
+        const listaContactos = Array.isArray(contactosRes.data) ? contactosRes.data : [];
+        setContactosCliente(listaContactos);
+
+        const contactoEncontrado = listaContactos.find(c => c.id === cabecera.id_contacto);
+        setContacto(contactoEncontrado?.id || '');
+      } catch (err) {
+        console.error('Error al cargar contactos del cliente', err);
+        setContactosCliente([]);
+        setContacto('');
+      }
+
+      // Cargar direcciones
+      try {
+        const direccionesRes = await axios.get(`/api/clientes/${cabecera.id_cliente}/direcciones`);
+        setDireccionesCliente(Array.isArray(direccionesRes.data) ? direccionesRes.data : []);
+      } catch (err) {
+        console.error('Error al cargar direcciones del cliente', err);
+        setDireccionesCliente([]);
+      }
+
+      // Cargar días de pago
+      try {
+        const diasRes = await axios.get(`/api/clientes/${cabecera.id_cliente}/dias-pago`);
+        setOpcionesDiasPago(diasRes.data.map(String));
+      } catch (err) {
+        console.error('Error al cargar días de pago', err);
+        setOpcionesDiasPago([]);
+      }
+
+      // Cargar condiciones comerciales
+      await cargarCondiciones(cabecera.id_cliente);
+      setCondicionSeleccionada(cabecera.id_condicion || null);
+
+      // Cargar productos
+      const formateados = productos.map(p => ({
+        ...p,
+        cantidad: p.cantidad || 1,
+        markup: p.markup ?? 0,
+        descuento: p.descuento ?? 0,
+        precio: Number(p.precio) || 0,
+        tasa_iva: Number(p.tasa_iva) || 21
+      }));
+
+      setProductosSeleccionados(formateados);
+      setCarrito(formateados);
+
+      // Otros datos de cabecera
+      setVigenciaHasta(cabecera.vigencia_hasta || '');
+      setObservaciones(cabecera.observaciones || '');
+      setPlazoEntrega(cabecera.plazo_entrega || '');
+      setCostoEnvio(cabecera.costo_envio || '');
+
+      // Estado e identificadores
+      setEstadoCotizacion(cabecera.estado);
+      setNumeroCotizacion(cabecera.numero_cotizacion);
+      setIdCotizacionActual(cabecera.id);
+      localStorage.setItem('idCotizacionActual', cabecera.id);
+
+    } catch (error) {
+      console.error('Error al cargar cotización existente:', error);
     }
   };
 
 
+
+
+
   // Guardar cotización como borrador
-const handleGuardarBorrador = async () => {
-  if (!clienteSeleccionado) {
-    setMensajeError('Debés seleccionar un cliente antes de guardar la cotización');
-    setMensajeExito('');
-    return;
-  }
+  const handleGuardarBorrador = async () => {
+    if (!clienteSeleccionado) {
+      setMensajeError('Debés seleccionar un cliente antes de guardar la cotización');
+      setMensajeExito('');
+      return;
+    }
 
-  if (!usuarioActual?.id_vendedor) {
-    setMensajeError('No se pudo identificar al vendedor');
-    setMensajeExito('');
-    return;
-  }
+    if (!usuarioActual?.id_vendedor) {
+      setMensajeError('No se pudo identificar al vendedor');
+      setMensajeExito('');
+      return;
+    } console.log('Productos seleccionados al guardar:', productosSeleccionados);
+    for (const p of productosSeleccionados) {
+      if (
+        typeof p.id_producto !== 'number' ||
+        typeof p.cantidad !== 'number' ||
+        typeof p.precio_unitario !== 'number' ||
+        typeof p.descuento !== 'number'
+      ) {
+        console.warn('❌ Producto mal formado:', p);
+      } else {
+        console.log('✅ Producto válido:', p);
+      }
+    }
 
-  console.log('Guardando borrador con:', {
-    cliente: clienteSeleccionado,
-    vendedor: usuarioActual.id_vendedor
-  });
 
-  try {
-    const res = await axios.post('/api/cotizaciones/iniciar', {
+    const payload = {
       id_cliente: clienteSeleccionado,
-      id_vendedor: usuarioActual.id_vendedor
-    });
+      id_vendedor: usuarioActual.id_vendedor,
+      id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
+      id_condicion: condicionSeleccionada,
+      vigencia_hasta: vigenciaHasta,
+      observaciones: observaciones,
+      plazo_entrega: plazoEntrega,
+      estado: 'borrador',
+      productos: formatearProductosParaGuardar(carrito)
+    };
 
-    console.log('Cotización creada:', res.data);
+    console.log('Guardando borrador con:', { ...payload, idCotizacionActual });
+    console.log('ID actual de cotización:', idCotizacionActual);
 
-    setIdCotizacion(res.data.id_cotizacion);
-    setNumeroCotizacion(res.data.numero_cotizacion);
-    setEstadoCotizacion(res.data.estado);
-    setMensajeExito('Cotización guardada como borrador');
-    setMensajeError('');
-  } catch (error) {
-    console.error('Error al guardar borrador:', error.response?.data || error.message || error);
-    setMensajeError('No se pudo guardar la cotización');
-    setMensajeExito('');
-  }
-};
+    try {
+      console.log('🧪 Enviando productos al backend:', productosSeleccionados);
+      if (idCotizacionActual) {
+        await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, payload);
+        setMensajeExito('Cotización actualizada como borrador');
+      } else {
+        const res = await axios.post('/api/cotizaciones/iniciar', payload); // Nuevo endpoint para iniciar cotización
+        setIdCotizacionActual(res.data.id_cotizacion);
+        localStorage.setItem('idCotizacionActual', res.data.id_cotizacion);
+        setNumeroCotizacion(res.data.numero_cotizacion);
+        setEstadoCotizacion(res.data.estado);
+        setMensajeExito('Cotización guardada como borrador');
+      }
+
+      setMensajeError('');
+    } catch (error) {
+      console.error('Error al guardar borrador:', error.response?.data || error.message || error);
+      setMensajeError('No se pudo guardar la cotización');
+      setMensajeExito('');
+    }
+  };
 
 
 
@@ -327,6 +500,28 @@ const handleGuardarBorrador = async () => {
     const delay = setTimeout(buscarClientes, 300); // debounce
     return () => clearTimeout(delay);
   }, [busquedaCliente]);
+
+
+  const handleSeleccionCliente = async (cliente) => {
+    // 🛡️ Evita recargar si ya está seleccionado
+    if (cliente?.id === clienteSeleccionado) return;
+
+    setCliente(cliente.id);
+    setClienteSeleccionado(cliente.id);
+    setClienteObjeto(cliente);
+    setBusquedaCliente(cliente.razon_social);
+
+    try {
+      const { data } = await axios.get(`/api/clientes/${cliente.id}/contactos`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      setContactosCliente(Array.isArray(data) ? data : []);
+      setContacto('');
+    } catch (err) {
+      console.error('Error al cargar contactos del cliente', err);
+      setContactosCliente([]);
+    }
+  };
 
 
   // Cargar direcciones del cliente seleccionado
@@ -377,28 +572,6 @@ const handleGuardarBorrador = async () => {
       })
       .catch((err) => console.error('Error al cargar zonas de envío:', err));
   }, []);
-
-
-
-
-  // Actualizar costo de envío al cambiar dirección
-  useEffect(() => {
-    if (!direccionIdSeleccionada) return;
-
-    fetch(`http://localhost:4000/api/clientes/envios/costo?id_direccion=${direccionIdSeleccionada}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setCostoEnvio(data.costo);
-        setZonaEnvio(data.zona_envio);
-      })
-      .catch((err) => {
-        console.error('Error al obtener costo de envío:', err);
-        setCostoEnvio(null);
-        setZonaEnvio('');
-      });
-  }, [direccionIdSeleccionada]);
-
-
 
 
 
@@ -507,6 +680,77 @@ const handleGuardarBorrador = async () => {
   console.log('Carrito actualizado:', carrito);
 
 
+  const formatearProductosParaGuardar = (productos) => {
+    return productos.map(p => ({
+      id_producto: p.id_producto || p.id,
+      cantidad: Number(p.cantidad) || 1,
+      precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+      descuento: Number(p.descuento) || 0,
+      markup: Number(p.markup) || 0,
+      tasa_iva: Number(p.tasa_iva) || 21
+    }));
+  };
+
+
+  const handleActualizarCotizacion = async () => {
+    if (!idCotizacionActual) {
+      setMensajeError('No hay cotización activa para actualizar');
+      return;
+    }
+
+    try {
+      console.log('🧪 Enviando productos:', productosSeleccionados);
+      await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, {
+        id_cliente: clienteSeleccionado,
+        id_contacto: contactoSeleccionado,
+        id_condicion: condicionSeleccionada,
+        vigencia_hasta: vigenciaHasta,
+        observaciones,
+        plazo_entrega: plazoEntrega,
+        costo_envio: costoEnvio,
+        estado: 'borrador',
+        productos: formatearProductosParaGuardar(carrito)
+      });
+
+      setMensajeExito('Cotización actualizada correctamente');
+      setMensajeError('');
+    } catch (error) {
+
+      setMensajeError('No se pudo actualizar la cotización');
+      setMensajeExito('');
+    } console.log('🧪 Enviando productos formateados:', formatearProductosParaGuardar(carrito));
+  };
+
+
+  const handleFinalizarCotizacion = async () => {
+    if (!idCotizacionActual) {
+      setMensajeError('No hay cotización activa para finalizar');
+      return;
+    }
+
+    try {
+      await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, {
+        id_cliente: clienteSeleccionado,
+        id_contacto: contactoSeleccionado,
+        id_condicion: condicionSeleccionada,
+        vigencia_hasta: vigenciaHasta,
+        observaciones,
+        plazo_entrega: plazoEntrega,
+        costo_envio: costoEnvio,
+        productos: formatearProductosParaGuardar(carrito)
+      });
+
+      setEstadoCotizacion('finalizada');
+      setMensajeExito('Cotización finalizada y enviada al cliente');
+      setMensajeError('');
+    } catch (error) {
+      console.error('Error al finalizar cotización:', error);
+      setMensajeError('No se pudo finalizar la cotización');
+      setMensajeExito('');
+    }
+  };
+
+
 
   return (
 
@@ -516,6 +760,13 @@ const handleGuardarBorrador = async () => {
       <main className="flex-grow-1">
         <div className="container my-4">
           <h1 className="mb-3"><i className="bi bi-receipt text-primary"></i> Nueva cotización</h1>
+          {retomando && (
+            <div className="alert alert-info" style={{ marginBottom: '1rem' }}>
+              Retomando cotización en borrador...
+            </div>
+          )}
+
+          {/* Botón para volver a mis cotizaciones */}
           <div className="mb-3">
             <button
               className="btn btn-outline-secondary d-inline-flex align-items-center"
@@ -531,38 +782,60 @@ const handleGuardarBorrador = async () => {
           <div className="card-body p-3">
             <h5 className="section-title"><i className="bi bi-person-badge"></i> Cliente</h5>
             <div className="row g-3">
-              {/* Input de búsqueda */}
-              <div className="col-md-6 buscador-cliente-container">
-                <label className="form-label">Cliente / CUIT</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Buscar cliente por nombre o CUIT"
-                  value={busquedaCliente}
-                  onChange={(e) => setBusquedaCliente(e.target.value)}
-                />
 
-                {sugerencias.length > 0 && (
-                  <ul className="sugerencias-lista">
-                    {sugerencias.map((c) => (
-                      <li
-                        key={c.id}
-                        className="sugerencia-item"
-                        onClick={() => {
-                          setClienteSeleccionado(c.id);
-                          setCliente(c.id);
-                          setClienteObjeto(c); // guarda el objeto completo
-                          handleSeleccionCliente(c.id);
-                          setBusquedaCliente(c.razon_social);
-                          setSugerencias([]);
-                        }}
-                      >
-                        {c.razon_social} – CUIT: {c.cuit}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {/* Input de búsqueda */}
+          <div className="col-md-6 buscador-cliente-container">
+  <label className="form-label">Cliente / CUIT</label>
+
+  {clienteObjeto ? (
+    <div className="form-control bg-light">
+      {clienteObjeto.razon_social} – CUIT: {clienteObjeto.cuit}
+    </div>
+  ) : (
+    <input
+      type="text"
+      className="form-control"
+      placeholder="Buscar cliente por nombre o CUIT"
+      value={busquedaCliente}
+      onChange={(e) => setBusquedaCliente(e.target.value)}
+    />
+  )}
+
+  {!clienteObjeto && sugerencias.length > 0 && (
+    <ul className="sugerencias-lista">
+      {sugerencias.map((c) => (
+        <li
+          key={c.id}
+          className="sugerencia-item"
+          onClick={() => {
+            setClienteSeleccionado(c.id);
+            setCliente(c.id);
+            setClienteObjeto(c);
+            setBusquedaCliente(`${c.razon_social} – CUIT: ${c.cuit}`);
+            setSugerencias([]);
+
+            axios.get(`/api/clientes/${c.id}/contactos`)
+              .then(({ data }) => {
+                const lista = Array.isArray(data) ? data : [];
+                setContactosCliente(lista);
+
+                const contactoPreservado = lista.find(ct => ct.id === contacto);
+                setContacto(contactoPreservado?.id || '');
+              })
+              .catch(err => {
+                console.error('Error al cargar contactos del cliente', err);
+                setContactosCliente([]);
+                setContacto('');
+              });
+          }}
+        >
+          {c.razon_social} – CUIT: {c.cuit}
+        </li>
+      ))}
+    </ul>
+  )}
+</div>
+
 
               {/* Contacto */}
               <div className="col-md-6">
@@ -581,6 +854,7 @@ const handleGuardarBorrador = async () => {
                   ))}
                 </select>
               </div>
+
             </div>
           </div>
 
@@ -690,7 +964,27 @@ const handleGuardarBorrador = async () => {
                     <option>Cheque</option>
                     <option>Tarjeta de crédito</option>
                   </select>
+
+                  <div className="mb-2">
+                    <label htmlFor="plazoEntrega" className="form-label" style={{ fontSize: '0.9rem' }}>
+                      Plazo de entrega
+                    </label>
+                    <input
+                      type="text"
+                      id="plazoEntrega"
+                      className="form-control form-control-sm"
+                      placeholder="Ej: 7 días hábiles"
+                      value={plazoEntrega}
+                      onChange={(e) => setPlazoEntrega(e.target.value)}
+                      style={{ fontSize: '0.9rem' }}
+                      maxLength={100}
+                    />
+                  </div>
+
                 </div>
+
+
+
 
                 <div className="col-md-4">
                   <label className="form-label">Tipo de cambio</label>
@@ -718,6 +1012,9 @@ const handleGuardarBorrador = async () => {
                       ))}
                     </select>
 
+
+
+
                     {/* Mostrar campo extra solo si el valor actual no está en el select */}
                     <input
                       type="number"
@@ -727,6 +1024,22 @@ const handleGuardarBorrador = async () => {
                       onChange={(e) => setDiasPagoExtra(e.target.value)}
                     />
                   </div>
+                  <div className="mb-3">
+                    <label htmlFor="observaciones" className="form-label">Observaciones</label>
+                    <input
+                      type="text"
+                      id="observaciones"
+                      className="form-control"
+                      placeholder="Escribí una nota breve si lo necesitás"
+                      value={observaciones}
+                      onChange={(e) => setObservaciones(e.target.value)}
+                      maxLength={300}
+                    />
+                  </div>
+
+
+
+
                 </div>
               </div>
             </div>
@@ -911,30 +1224,39 @@ const handleGuardarBorrador = async () => {
 
 
 
-
-          {/* Acciones / Guardar Borrador*/}
+          {/* Acciones / Guardar o Actualizar */}
           <div className="d-flex justify-content-center gap-2 my-3">
-            <button className="btn btn-outline-secondary" onClick={handleGuardarBorrador}>
-              <i className="bi bi-save me-2"></i> Guardar como borrador
-            </button>
-{mensajeExito && (
-  <div className="alert alert-success mt-3">
-    <i className="bi bi-check-circle-fill me-2"></i>
-    {mensajeExito}
-  </div>
-)}
-{mensajeError && (
-  <div className="alert alert-danger mt-3">
-    <i className="bi bi-exclamation-triangle-fill me-2"></i>
-    {mensajeError}
-  </div>
-)}
+            {estadoCotizacion === 'borrador' && idCotizacionActual ? (
+              <>
+                <button className="btn btn-sm btn-outline-warning" onClick={handleActualizarCotizacion}>
+                  <i className="bi bi-pencil-square me-1"></i> Actualizar
+                </button>
+                <button className="btn btn-sm btn-outline-success" onClick={handleFinalizarCotizacion}>
+                  <i className="bi bi-send-check me-1"></i> Enviar al cliente
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn btn-sm btn-outline-secondary" onClick={handleGuardarBorrador}>
+                  <i className="bi bi-save me-1"></i> Guardar borrador
+                </button>
+                <button className="btn btn-sm btn-outline-success" onClick={handleFinalizarCotizacion}>
+                  <i className="bi bi-send-check me-1"></i> Enviar al cliente
+                </button>
+              </>
+            )}
 
+            {mensajeExito && (
+              <div className="text-success small mt-2">
+                <i className="bi bi-check-circle me-1"></i> {mensajeExito}
+              </div>
+            )}
 
-
-            <button className="btn btn-success" onClick={() => showGlobalInfo('Enviada (mock).')}>
-              Enviar por correo
-            </button>
+            {mensajeError && (
+              <div className="text-danger small mt-2">
+                <i className="bi bi-exclamation-triangle me-1"></i> {mensajeError}
+              </div>
+            )}
           </div>
 
         </div>

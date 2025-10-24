@@ -22,28 +22,31 @@ export class Cotizacion {   //
     return `COT-${año}-${String(nuevo).padStart(4, '0')}`;
   }
 
-  async crearCabecera({ numero_cotizacion, fecha, estado, id_vendedor, id_cliente}) {  // Crea la cabecera de la nueva cotización utilizando el número generado
-    const [result] = await this.db.query(
-      `INSERT INTO cotizaciones (numero_cotizacion, fecha, estado, id_vendedor, id_cliente) VALUES (?, ?, ?, ? , ? )`,
-      [numero_cotizacion, fecha, estado, id_vendedor, id_cliente]
-    );
-    return result.insertId;
-  }
+async crearCabecera({ numero_cotizacion, fecha, estado, id_vendedor, id_cliente, id_contacto }) {
+  // ✅ Asegurate de incluir id_contacto en la desestructuración
+  const [result] = await this.db.query(
+    `INSERT INTO cotizaciones (
+      numero_cotizacion, fecha, estado, id_vendedor, id_cliente, id_contacto
+    ) VALUES (?, ?, ?, ?, ?, ?)`,
+    [numero_cotizacion, fecha, estado, id_vendedor, id_cliente, id_contacto]
+  );
+  return result.insertId;
+}
 
-  async actualizarCabecera(id, data) {  // Actualiza la cabecera de una cotización existente para finalizarla
-    await this.db.query(
-      `UPDATE cotizaciones SET
-        id_cliente = ?, id_contacto = ?, id_condicion = ?,
-        vigencia_hasta = ?, observaciones = ?, plazo_entrega = ?,
-        costo_envio = ?, estado = ?
-      WHERE id = ?`,
-      [
-        data.id_cliente, data.id_contacto, data.id_condicion,
-        data.vigencia_hasta, data.observaciones, data.plazo_entrega,
-        data.costo_envio, data.estado, id
-      ]
-    );
-  }
+async actualizarCabecera(id, data) {
+  await this.db.query(
+    `UPDATE cotizaciones SET
+      id_cliente = ?, id_contacto = ?, id_condicion = ?,
+      vigencia_hasta = ?, observaciones = ?, plazo_entrega = ?,
+      costo_envio = ?, estado = ?
+    WHERE id = ?`,
+    [
+      data.id_cliente, data.id_contacto, data.id_condicion,
+      data.vigencia_hasta, data.observaciones, data.plazo_entrega,
+      data.costo_envio, data.estado, id
+    ]
+  );
+}
 
   async agregarDetalle(idCotizacion, productos) {
   for (const item of productos) {
@@ -129,7 +132,67 @@ async obtenerCotizacionCompleta(idCotizacion) {
     productos
   };
 }
+
+async reemplazarProductos(idCotizacion, productos) {
+  await this.db.query(`DELETE FROM detalle_cotizacion WHERE id_cotizacion = ?`, [idCotizacion]);
+
+  for (const p of productos) {
+    // Validación mínima para evitar errores
+    if (!p.id_producto || p.cantidad <= 0) continue;
+
+    const descuento = p.descuento || 0;
+    const precioFinal = p.precio_unitario - descuento;
+    const subtotal = precioFinal * p.cantidad;
+    const iva = 0; // ya está incluido
+    const total = subtotal;
+console.log(`🧪 Insertando producto en cotización ${idCotizacion}:`, p);
+    await this.db.query(`
+      INSERT INTO detalle_cotizacion (
+        id_cotizacion, id_producto, cantidad, precio_unitario,
+        descuento, subtotal, iva, total_iva_incluido
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      idCotizacion,
+      p.id_producto,
+      p.cantidad,
+      p.precio_unitario,
+      descuento,
+      subtotal,
+      iva,
+      total
+    ]);
+    console.log(`✅ Producto insertado:`, p.id_producto); // ✅ ahora dentro del for
+
+
+  }
 }
 
+async obtenerCotizacionParaEdicion(id) {
+ const [cabecera] = await this.db.query(`
+  SELECT c.*, cl.razon_social, cl.cuit
+  FROM cotizaciones c
+  JOIN cliente cl ON c.id_cliente = cl.id
+  WHERE c.id = ?
+`, [id]);
+
+ 
+const [rows] = await this.db.query(`
+  SELECT
+    cd.*, p.detalle, p.part_number, p.marca, p.categoria, p.subcategoria, p.tasa_iva, p.precio
+  FROM detalle_cotizacion cd
+  JOIN productos p ON cd.id_producto = p.id
+  WHERE cd.id_cotizacion = ?
+`, [id]);
+
+console.log('🧪 Productos recuperados para edición:', rows);
+
+return {
+  cabecera: cabecera[0],
+  productos: rows
+};
+
+}
+
+}
 
 

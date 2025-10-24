@@ -2,15 +2,18 @@ import { Router } from 'express';
 import {
   iniciarCotizacion,
   obtenerCotizacionesBorrador,
-  finalizarCotizacion, verCotizacionCompleta
+  finalizarCotizacion, verCotizacionCompleta, obtenerCotizacionBorradorPorId,
+  actualizarCotizacionBorrador
 } from '../controllers/cotizacionController.js';
 
 const router = Router();
 
 router.post('/iniciar', iniciarCotizacion);
 router.get('/borrador/:id_vendedor', obtenerCotizacionesBorrador);
+router.get('/borrador/retomar/:id', obtenerCotizacionBorradorPorId);
 router.put('/finalizar/:id', finalizarCotizacion);
 router.get('/ver/:id', verCotizacionCompleta);
+router.put('/:id/actualizar', actualizarCotizacionBorrador);
 
 
 export default router;

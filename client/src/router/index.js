@@ -33,7 +33,12 @@ export const router = createBrowserRouter([
       { path: '/productos',
         element: <Productos />
       },
-      { path: '/nuevacotizacion', element: <NuevaCotizacion /> },
+      { path: '/nuevacotizacion',
+         element: <NuevaCotizacion />
+      },
+      { path: '/nuevacotizacion/:idCotizacion',
+         element: <NuevaCotizacion />
+      },
 
 
     ],
