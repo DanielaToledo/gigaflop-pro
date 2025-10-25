@@ -9,7 +9,7 @@ import {
 const router = Router();
 
 router.post('/iniciar', iniciarCotizacion);
-router.get('/borrador/:id_vendedor', obtenerCotizacionesBorrador);
+router.get('/borrador/:id_usuario', obtenerCotizacionesBorrador);
 router.get('/borrador/retomar/:id', obtenerCotizacionBorradorPorId);
 router.put('/finalizar/:id', finalizarCotizacion);
 router.get('/ver/:id', verCotizacionCompleta);

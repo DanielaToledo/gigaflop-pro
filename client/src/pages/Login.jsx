@@ -19,7 +19,11 @@ const Login = () => {
         { email, password },
         { withCredentials: true }
       );
+      const usuario = res.data.usuario;
+
       setUsuario(res.data.usuario);
+      localStorage.setItem('usuario', JSON.stringify(usuario));
+
       navigate('/menu');
     } catch (err) {
       const msg = err.response?.data?.message || 'Error de conexión';

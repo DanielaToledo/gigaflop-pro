@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 import { NavLink, useNavigate } from 'react-router-dom';
 import '../CSS/menu.css';
@@ -7,36 +6,35 @@ import Sidebar from '../components/Sidebar';
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 
-
-
 const Menu = () => {
-  const { usuario } = useUser();
+  const { usuario, cargando } = useUser(); // ✅ incluye cargando
   const navigate = useNavigate();
   const [cotizaciones, setCotizaciones] = useState([]);
-
-
-
-
-  // Cargar cotizaciones en estado 'borrador' para el vendedor actual
+  const [searchTerm, setSearchTerm] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [deletedCotizacion, setDeletedCotizacion] = useState(null);
+  const [undoTimer, setUndoTimer] = useState(null);
+  // ✅ Esperar a que cargue el usuario
   useEffect(() => {
-    if (!usuario?.id_vendedor) return;
+
+    if (cargando || !usuario?.id) return;
 
     const cargarCotizaciones = async () => {
       try {
-        const res = await axios.get(`/api/cotizaciones/borrador/${usuario.id_vendedor}`);
+        const res = await axios.get(`/api/cotizaciones/borrador/${usuario.id}`, );
         console.log('Cotizaciones recibidas:', res.data);
 
         const transformadas = res.data.map(c => ({
           id: c.id,
           numero: c.numero_cotizacion,
           fecha: new Date(c.fecha).toLocaleDateString(),
-          vendedor: c.vendedor_nombre || '—',
+          vendedor: `${usuario.nombre} ${usuario.apellido}`, // ✅ usa nombre del usuario actual
           estado: c.estado,
           cliente: c.cliente_nombre || '—',
           contacto: c.contacto_nombre && c.contacto_apellido
             ? `${c.contacto_nombre} ${c.contacto_apellido}`
             : '—',
-          total: '—'
+          total: c.total || 0
         }));
         setCotizaciones(transformadas);
       } catch (error) {
@@ -45,16 +43,7 @@ const Menu = () => {
     };
 
     cargarCotizaciones();
-  }, [usuario?.id_vendedor]);
-
-
-
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [modalVisible, setModalVisible] = useState(false);
-  const [deletedCotizacion, setDeletedCotizacion] = useState(null);
-  const [undoTimer, setUndoTimer] = useState(null);
-
+  }, [cargando, usuario]);
 
   const filteredCotizaciones = cotizaciones.filter(cotizacion =>
     cotizacion.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -93,6 +82,8 @@ const Menu = () => {
       clearTimeout(undoTimer);
     }
   };
+
+  if (cargando) return <p className="text-center mt-5">Cargando usuario...</p>; // ✅ loader
 
   return (
     <>
@@ -140,11 +131,6 @@ const Menu = () => {
             >
               + Nueva Cotización
             </button>
-
-
-
-
-
           </div>
 
           <div className="menu-matriz">
@@ -163,87 +149,84 @@ const Menu = () => {
                     <th className="text-end">Acciones</th>
                   </tr>
                 </thead>
+                <tbody>
+                  {filteredCotizaciones.map((cotizacion, index) => {
+                    const fechaVencimiento = cotizacion.vigencia_hasta
+                      ? new Date(cotizacion.vigencia_hasta)
+                      : null;
 
-               <tbody>
-  {filteredCotizaciones.map((cotizacion, index) => {
-    const fechaVencimiento = cotizacion.vigencia_hasta
-      ? new Date(cotizacion.vigencia_hasta)
-      : null;
+                    const hoy = new Date();
+                    const diferenciaDias = fechaVencimiento
+                      ? Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24))
+                      : null;
 
-    const hoy = new Date();
-    const diferenciaDias = fechaVencimiento
-      ? Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24))
-      : null;
+                    const vencida = diferenciaDias !== null && diferenciaDias < 0;
+                    const vencePronto = diferenciaDias !== null && diferenciaDias >= 0 && diferenciaDias <= 3;
 
-    const vencida = diferenciaDias !== null && diferenciaDias < 0;
-    const vencePronto = diferenciaDias !== null && diferenciaDias >= 0 && diferenciaDias <= 3;
+                    return (
+                      <tr key={index} className="fila-cotizacion">
+                        <td>
+                          <button className="btn-link" onClick={() => setModalVisible(true)}>
+                            {cotizacion.numero}
+                          </button>
+                        </td>
+                        <td>{new Date(cotizacion.fecha).toLocaleDateString('es-AR')}</td>
+                        <td className={
+                          cotizacion.estado === 'pendiente'
+                            ? vencida
+                              ? 'text-danger fw-bold'
+                              : vencePronto
+                                ? 'text-warning fw-bold'
+                                : ''
+                            : ''
+                        }>
+                          {cotizacion.estado === 'pendiente' && fechaVencimiento
+                            ? fechaVencimiento.toLocaleDateString('es-AR')
+                            : '—'}
+                        </td>
+                        <td>{cotizacion.vendedor}</td>
+                        <td style={{ color: getColor(cotizacion.estado), fontWeight: 500 }}>
+                          {cotizacion.estado}
+                        </td>
+                        <td>{cotizacion.cliente}</td>
+                        <td>{cotizacion.contacto}</td>
+                        <td>${Number(cotizacion.total).toFixed(2)}</td>
+                        <td className="text-end">
+                          <button
+                            className="btn-cuadro btn-retomar"
+                            title="Retomar cotización"
+                            onClick={() => {
+                              localStorage.setItem('idCotizacionActual', cotizacion.id);
+                              navigate('/nuevacotizacion', { state: { retomar: true } });
+                            }}
+                          >
+                            <i className="bi bi-arrow-repeat"></i>
+                          </button>
 
-    return (
-      <tr key={index} className="fila-cotizacion">
-        <td>
-          <button className="btn-link" onClick={() => setModalVisible(true)}>
-            {cotizacion.numero}
-          </button>
-        </td>
-        <td>{new Date(cotizacion.fecha).toLocaleDateString('es-AR')}</td>
-        <td className={
-          cotizacion.estado === 'pendiente'
-            ? vencida
-              ? 'text-danger fw-bold'
-              : vencePronto
-              ? 'text-warning fw-bold'
-              : ''
-            : ''
-        }>
-          {cotizacion.estado === 'pendiente' && fechaVencimiento
-            ? fechaVencimiento.toLocaleDateString('es-AR')
-            : '—'}
-        </td>
-        <td>{cotizacion.vendedor}</td>
-        <td style={{ color: getColor(cotizacion.estado), fontWeight: 500 }}>
-          {cotizacion.estado}
-        </td>
-        <td>{cotizacion.cliente}</td>
-        <td>{cotizacion.contacto}</td>
-        <td>${Number(cotizacion.total).toFixed(2)}</td>
-        <td className="text-end">
-          <button
-            className="btn-cuadro btn-retomar"
-            title="Retomar cotización"
-            onClick={() => {
-              localStorage.setItem('idCotizacionActual', cotizacion.id);
-              navigate('/nuevacotizacion', { state: { retomar: true } });
-            }}
-          >
-            <i className="bi bi-arrow-repeat"></i>
-          </button>
+                          <button className="btn-cuadro btn-descargar" title="Descargar PDF">
+                            <i className="bi bi-file-earmark-arrow-down-fill"></i>
+                          </button>
 
-          <button className="btn-cuadro btn-descargar" title="Descargar PDF">
-            <i className="bi bi-file-earmark-arrow-down-fill"></i>
-          </button>
-
-          {deletedCotizacion?.id === cotizacion.id ? (
-            <button className="btn-cuadro btn-undo" title="Deshacer" onClick={handleUndo}>
-              <i className="bi bi-arrow-counterclockwise"></i>
-            </button>
-          ) : (
-            <button className="btn-cuadro btn-eliminar" title="Eliminar" onClick={() => handleDelete(cotizacion.id)}>
-              <i className="bi bi-trash3-fill"></i>
-            </button>
-          )}
-        </td>
-      </tr>
-    );
-  })}
-</tbody> 
-
-
+                          {deletedCotizacion?.id === cotizacion.id ? (
+                            <button className="btn-cuadro btn-undo" title="Deshacer" onClick={handleUndo}>
+                              <i className="bi bi-arrow-counterclockwise"></i>
+                            </button>
+                          ) : (
+                            <button className="btn-cuadro btn-eliminar" title="Eliminar" onClick={() => handleDelete(cotizacion.id)}>
+                              <i className="bi bi-trash3-fill"></i>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
             </div>
           </div>
         </div>
 
-        {modalVisible && (
+                {modalVisible && (
           <div className="modal-backdrop">
             <div className="modal-formulario">
               <div className="modal-header">
@@ -251,7 +234,13 @@ const Menu = () => {
                 <button className="btn-close" onClick={() => setModalVisible(false)}></button>
               </div>
               <div className="modal-body">
-                {/* Daniela completará esto */}
+                <p className="text-muted">Aquí se mostrará la vista previa de la cotización seleccionada.</p>
+                {/* Podés agregar más detalles o componentes aquí */}
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setModalVisible(false)}>
+                  Cerrar
+                </button>
               </div>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { Cotizacion } from '../models/CotizacionModels.js';
 //iniciar una nueva cotizacion Crea una nueva cotización en estado  con número autogenerado 'borrador'
 export async function iniciarCotizacion(req, res) {
   const db = req.app.get('db');
-  const { id_vendedor, id_cliente, id_contacto, productos = [] } = req.body;
+  const { id_usuario, id_cliente, id_contacto, productos = [] } = req.body;
   const cotizacionModel = new Cotizacion(db);
   const contactoId = typeof id_contacto === 'string' ? parseInt(id_contacto) : id_contacto;
   try {
@@ -14,9 +14,9 @@ export async function iniciarCotizacion(req, res) {
 
    const nuevaCabecera = {
   numero_cotizacion: numero,
+  id_usuario,
   fecha,
   estado: 'borrador',
-  id_vendedor,
   id_cliente,
   id_contacto: contactoId,
   id_direccion_cliente: req.body.id_direccion_cliente
@@ -45,11 +45,12 @@ export async function iniciarCotizacion(req, res) {
 // Obtener cotizaciones en estado 'borrador' para un vendedor específico
 export async function obtenerCotizacionesBorrador(req, res) {
   const db = req.app.get('db');
-  const { id_vendedor } = req.params; // Obtener id_vendedor de los parámetros de la ruta
+  const { id_usuario } = req.params; // Obtener id_vendedor de los parámetros de la ruta
   const cotizacionModel = new Cotizacion(db); // Crear instancia del modelo Cotizacion pasando la conexión a la base de datos
-
   try {
-    const borradores = await cotizacionModel.obtenerBorradoresPorVendedor(id_vendedor);
+    const borradores = await cotizacionModel.obtenerBorradoresPorUsuario(id_usuario);
+    let resultado = res.json(borradores);
+    console.log(resultado);
     res.json(borradores);
   } catch (err) {
     res.status(500).json({ error: 'Error al obtener cotizaciones en borrador' });
@@ -65,6 +66,7 @@ export async function finalizarCotizacion(req, res) {
   const {
     id_cliente,
     id_contacto,
+    id_usuario,
     id_condicion,
     vigencia_hasta,
     observaciones,
@@ -81,6 +83,7 @@ export async function finalizarCotizacion(req, res) {
     await cotizacionModel.actualizarCabecera(cotizacionId, {
       id_cliente,
       id_contacto,
+      id_usuario,
       id_condicion,
       vigencia_hasta,
       observaciones,

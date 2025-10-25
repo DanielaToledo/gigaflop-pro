@@ -7,26 +7,25 @@ export const findUserByEmail = async (email) => {
 };
 
 // Crear usuario
-export const createUser = async (usuario, email, password, rol, apellido= '') => {
-  const rolesPermitidos = ['vendedor', 'administrador', 'gerente'];
-  const rolSeguro = rolesPermitidos.includes(rol?.toLowerCase()) ? rol.toLowerCase() : 'vendedor';
+export const createUser = async (usuario, email, password,nombre, apellido, rol, estado = true) => {
+  //const rolesPermitidos = ['vendedor', 'administrador', 'gerente'];
+  //const rolSeguro = rolesPermitidos.includes(rol?.toLowerCase()) ? rol.toLowerCase() : 'vendedor';
 
   const [result] = await pool.query(
-    'INSERT INTO usuarios (usuario, email, password, rol) VALUES (?, ?, ?, ?)',
-    [usuario, email, password, rolSeguro]
+    'INSERT INTO usuarios (usuario, email, password,nombre, apellido, rol, estado) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [usuario, email, password, nombre, apellido, rol, estado]
   );
 
   const userId = result.insertId;
-  const legajo = userId; // legajo único basado en el ID del usuario
+  //const legajo = userId; // legajo único basado en el ID del usuario
 
 
   // Si el rol es vendedor, insertarlo también en la tabla vendedores
-if (rolSeguro === 'vendedor') {
-  await pool.query(
-    'INSERT INTO vendedores (id_usuario, nombre, apellido, legajo, email) VALUES (?, ?, ?, ?, ?)',
-    [userId, usuario, apellido, legajo, email]
-  );
-}
+//if (rolSeguro === 'vendedor') {
+  //await pool.query(
+    //'INSERT INTO vendedores (id_usuario, nombre, apellido, legajo, email) VALUES (?, ?, ?, ?, ?)',
+    //[userId, usuario, apellido, legajo, email]
+  //);
 
 
 
@@ -36,10 +35,9 @@ if (rolSeguro === 'vendedor') {
 // Buscar usuario por ID
 export const findUserById = async (id) => {
   const [rows] = await pool.query(
-    `SELECT u.id, u.usuario, u.email, u.rol, v.id AS id_vendedor
-     FROM usuarios u
-     LEFT JOIN vendedores v ON v.id_usuario = u.id
-     WHERE u.id = ?`,
+    `SELECT id, usuario, email, nombre, apellido, rol, estado
+FROM usuarios
+WHERE id = ?`,
     [id]
   );
   return rows[0];
