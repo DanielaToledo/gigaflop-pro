@@ -17,9 +17,9 @@ const Menu = () => {
 
 
 
- // Cargar cotizaciones en estado 'borrador' para el vendedor actual
+  // Cargar cotizaciones en estado 'borrador' para el vendedor actual
   useEffect(() => {
-  if (!usuario?.id_vendedor) return;
+    if (!usuario?.id_vendedor) return;
 
     const cargarCotizaciones = async () => {
       try {
@@ -27,38 +27,41 @@ const Menu = () => {
         console.log('Cotizaciones recibidas:', res.data);
 
         const transformadas = res.data.map(c => ({
-          id: c.id, // ✅ ahora usás el ID numérico real
-          numero: c.numero_cotizacion, // opcional si querés mostrarlo
+          id: c.id,
+          numero: c.numero_cotizacion,
           fecha: new Date(c.fecha).toLocaleDateString(),
           vendedor: c.vendedor_nombre || '—',
           estado: c.estado,
           cliente: c.cliente_nombre || '—',
+          contacto: c.contacto_nombre && c.contacto_apellido
+            ? `${c.contacto_nombre} ${c.contacto_apellido}`
+            : '—',
           total: '—'
         }));
-      setCotizaciones(transformadas);
-    } catch (error) {
-      console.error('Error al cargar cotizaciones:', error);
-    }
-  };
+        setCotizaciones(transformadas);
+      } catch (error) {
+        console.error('Error al cargar cotizaciones:', error);
+      }
+    };
 
-  cargarCotizaciones();
-}, [usuario?.id_vendedor]);
-
-
+    cargarCotizaciones();
+  }, [usuario?.id_vendedor]);
 
 
-  const [searchTerm, setSearchTerm] = useState(''); 
+
+
+  const [searchTerm, setSearchTerm] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [deletedCotizacion, setDeletedCotizacion] = useState(null);
   const [undoTimer, setUndoTimer] = useState(null);
 
 
   const filteredCotizaciones = cotizaciones.filter(cotizacion =>
-  cotizacion.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  String(cotizacion.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-  cotizacion.vendedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  cotizacion.cliente.toLowerCase().includes(searchTerm.toLowerCase())
-);
+    cotizacion.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(cotizacion.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cotizacion.vendedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cotizacion.cliente.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const getColor = (estado) => {
     switch (estado.toLowerCase()) {
@@ -128,18 +131,18 @@ const Menu = () => {
               />
             </div>
 
-<button
-  className='nc'
-  onClick={() => {
-    localStorage.removeItem('idCotizacionActual');
-    navigate('/nuevacotizacion');
-  }}
->
-  + Nueva Cotización
-</button>
+            <button
+              className='nc'
+              onClick={() => {
+                localStorage.removeItem('idCotizacionActual');
+                navigate('/nuevacotizacion');
+              }}
+            >
+              + Nueva Cotización
+            </button>
 
 
-            
+
 
 
           </div>
@@ -151,56 +154,90 @@ const Menu = () => {
                   <tr>
                     <th>ID</th>
                     <th>Fecha</th>
+                    <th>Fecha de vencimiento</th>
                     <th>Vendedor</th>
                     <th>Estado</th>
                     <th>Cliente</th>
+                    <th>Contacto</th>
                     <th>Total</th>
                     <th className="text-end">Acciones</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {filteredCotizaciones.map((cotizacion, index) => (
-                    <tr key={index} className="fila-cotizacion">
-                      <td>
-                        <button className="btn-link" onClick={() => setModalVisible(true)}>
-                          {cotizacion.numero}
-                        </button>
-                      </td>
-                      <td>{cotizacion.fecha}</td>
-                      <td>{cotizacion.vendedor}</td>
-                      <td style={{ color: getColor(cotizacion.estado), fontWeight: 500 }}>{cotizacion.estado}</td>
-                      <td>{cotizacion.cliente}</td>
-                      <td>{cotizacion.total}</td>
-                      <td className="text-end">
 
-<button
-  className="btn-cuadro btn-retomar"
-  title="Retomar cotización"
-  onClick={() => {
-    localStorage.setItem('idCotizacionActual', cotizacion.id); // ✅ guarda el ID
-    navigate('/nuevacotizacion', { state: { retomar: true } }); // ✅ indica que debe retomarse
-  }}
->
-  <i className="bi bi-arrow-repeat"></i>
-</button>
+               <tbody>
+  {filteredCotizaciones.map((cotizacion, index) => {
+    const fechaVencimiento = cotizacion.vigencia_hasta
+      ? new Date(cotizacion.vigencia_hasta)
+      : null;
 
-                   
-                        <button className="btn-cuadro btn-descargar" title="Descargar PDF">
-                          <i className="bi bi-file-earmark-arrow-down-fill"></i>
-                        </button>
-                        {deletedCotizacion?.id === cotizacion.id ? (
-                          <button className="btn-cuadro btn-undo" title="Deshacer" onClick={handleUndo}>
-                            <i className="bi bi-arrow-counterclockwise"></i>
-                          </button>
-                        ) : (
-                          <button className="btn-cuadro btn-eliminar" title="Eliminar" onClick={() => handleDelete(cotizacion.id)}>
-                            <i className="bi bi-trash3-fill"></i>
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+    const hoy = new Date();
+    const diferenciaDias = fechaVencimiento
+      ? Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24))
+      : null;
+
+    const vencida = diferenciaDias !== null && diferenciaDias < 0;
+    const vencePronto = diferenciaDias !== null && diferenciaDias >= 0 && diferenciaDias <= 3;
+
+    return (
+      <tr key={index} className="fila-cotizacion">
+        <td>
+          <button className="btn-link" onClick={() => setModalVisible(true)}>
+            {cotizacion.numero}
+          </button>
+        </td>
+        <td>{new Date(cotizacion.fecha).toLocaleDateString('es-AR')}</td>
+        <td className={
+          cotizacion.estado === 'pendiente'
+            ? vencida
+              ? 'text-danger fw-bold'
+              : vencePronto
+              ? 'text-warning fw-bold'
+              : ''
+            : ''
+        }>
+          {cotizacion.estado === 'pendiente' && fechaVencimiento
+            ? fechaVencimiento.toLocaleDateString('es-AR')
+            : '—'}
+        </td>
+        <td>{cotizacion.vendedor}</td>
+        <td style={{ color: getColor(cotizacion.estado), fontWeight: 500 }}>
+          {cotizacion.estado}
+        </td>
+        <td>{cotizacion.cliente}</td>
+        <td>{cotizacion.contacto}</td>
+        <td>${Number(cotizacion.total).toFixed(2)}</td>
+        <td className="text-end">
+          <button
+            className="btn-cuadro btn-retomar"
+            title="Retomar cotización"
+            onClick={() => {
+              localStorage.setItem('idCotizacionActual', cotizacion.id);
+              navigate('/nuevacotizacion', { state: { retomar: true } });
+            }}
+          >
+            <i className="bi bi-arrow-repeat"></i>
+          </button>
+
+          <button className="btn-cuadro btn-descargar" title="Descargar PDF">
+            <i className="bi bi-file-earmark-arrow-down-fill"></i>
+          </button>
+
+          {deletedCotizacion?.id === cotizacion.id ? (
+            <button className="btn-cuadro btn-undo" title="Deshacer" onClick={handleUndo}>
+              <i className="bi bi-arrow-counterclockwise"></i>
+            </button>
+          ) : (
+            <button className="btn-cuadro btn-eliminar" title="Eliminar" onClick={() => handleDelete(cotizacion.id)}>
+              <i className="bi bi-trash3-fill"></i>
+            </button>
+          )}
+        </td>
+      </tr>
+    );
+  })}
+</tbody> 
+
+
               </table>
             </div>
           </div>

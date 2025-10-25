@@ -8,6 +8,7 @@ import '../CSS/nuevaCotizacion.css';
 import { useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 
 
@@ -19,6 +20,9 @@ const NuevaCotizacion = () => {
 
 
   // Estados para la cotización seleccionar cliente y contacto
+
+  const navigate = useNavigate(); // Hook para navegación
+
   const [vigencia, setVigencia] = useState('');
   const [cliente, setCliente] = useState('');
   const [contacto, setContacto] = useState('');
@@ -36,7 +40,6 @@ const NuevaCotizacion = () => {
   const [idCotizacionActual, setIdCotizacionActual] = useState(null);
   const [retomando, setRetomando] = useState(false);
 
-
   // Estados para la entrega metododo de envio y direccion
   const [modalidadEntrega, setModalidadEntrega] = useState('Envío');
   const [direccionesCliente, setDireccionesCliente] = useState([]);
@@ -49,17 +52,11 @@ const NuevaCotizacion = () => {
   const [clienteObjeto, setClienteObjeto] = useState(null); // nuevo: objeto completo
   const [zonasEnvio, setZonasEnvio] = useState([]);
   const [costoEnvio, setCostoEnvio] = useState(null);
-  const { idCotizacion } = useParams();
-
-
-
-
-
-
-
+  const { idCotizacion } = useParams(); // Obtener idCotizacion de la URL para retomar
+  const [direccionSeleccionada, setDireccionSeleccionada] = useState('');
 
   // Estados para condiciones comerciales
-  const [formaPago, setFormaPago] = useState('');
+
   const [tipoCambio, setTipoCambio] = useState('');
   const [diasPago, setDiasPago] = useState('');
   const [diasPagoExtra, setDiasPagoExtra] = useState('');
@@ -68,10 +65,14 @@ const NuevaCotizacion = () => {
   const [errorGlobal, setErrorGlobal] = useState('');
   const [infoGlobal, setInfoGlobal] = useState('');
   const [fechaHoy, setFechaHoy] = useState('');
-  const [condicionSeleccionada, setCondicionSeleccionada] = useState(null);
+  const [formaPago, setFormaPago] = useState('');
   const [vigenciaHasta, setVigenciaHasta] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [plazoEntrega, setPlazoEntrega] = useState('');
+  const [vencimiento, setVencimiento] = useState('');
+const [condicionSeleccionada, setCondicionSeleccionada] = useState('');
+const [condiciones, setCondiciones] = useState([]);
+
 
 
   // Otros estados como mpstrar modal, año, productos, etc.
@@ -87,13 +88,15 @@ const NuevaCotizacion = () => {
   const [busqueda, setBusqueda] = useState('');
   const [productosPorPagina] = useState(10);
 
-  //estados para el buscador de productos fuera del modal
+  //estados para el buscador de productos pero fuera del modal
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
   const [productosFiltrados, setProductosFiltrados] = useState([]);
   const [query, setQuery] = useState('');
   const [mostrarModal, setMostrarModal] = useState(false);
   const [paginaActual, setPaginaActual] = useState(1);
 
+  // Determina si estamos en modo edición (retomar cotización existente)
+  const modoEdicion = Boolean(idCotizacionActual);
 
   // Obtener el usuario actual desde el contexto
   const { usuario: usuarioActual } = useUser();
@@ -103,21 +106,7 @@ const NuevaCotizacion = () => {
 
 
 
-  // Función para manejar la búsqueda de productos fuera del modal
-  const handleBuscar = async () => {
-    try {
-      const res = await axios.get(`/api/productos/buscar-flex?query=${query}`);
-      const productos = Array.isArray(res.data) ? res.data : res.data.productos || [];
 
-      setProductosFiltrados(productos);
-      setPaginaActual(1); // reinicia paginación
-      setMostrarModal(true);
-    } catch (err) {
-      console.error('❌ Error al buscar productos:', err.message);
-      setProductosFiltrados([]);
-      setMostrarModal(true);
-    }
-  };
 
   useEffect(() => {
     const id = localStorage.getItem('idCotizacionActual');
@@ -267,23 +256,6 @@ const NuevaCotizacion = () => {
   const showGlobalInfo = (msg) => setInfoGlobal(msg);
 
 
-
-
-
-
-  // Obtener idCotizacion de los parámetros de la URL
-  useEffect(() => {
-    if (idCotizacion) {
-      cargarCotizacionExistente(idCotizacion);
-    }
-  }, [idCotizacion]);
-
-
-
-
-
-
-
   // Cargar clientes disponibles (mock)
   useEffect(() => {
     const buscarProductos = async () => {
@@ -301,6 +273,24 @@ const NuevaCotizacion = () => {
       buscarProductos();
     }
   }, [busqueda]);
+
+
+  // Obtener idCotizacion de los parámetros de la URL
+  useEffect(() => {
+    if (idCotizacion) {
+      cargarCotizacionExistente(idCotizacion);
+    }
+  }, [idCotizacion]);
+
+
+
+// 👇 Helper para convertir nombre a ID
+const getCondicionId = (nombreCondicion) => {
+  const condicion = condiciones.find(c => c.nombre === nombreCondicion);
+  return condicion?.id || null;
+};
+
+
 
 
 
@@ -358,6 +348,9 @@ const NuevaCotizacion = () => {
       try {
         const direccionesRes = await axios.get(`/api/clientes/${cabecera.id_cliente}/direcciones`);
         setDireccionesCliente(Array.isArray(direccionesRes.data) ? direccionesRes.data : []);
+
+         setDireccionIdSeleccionada(cabecera.id_direccion_cliente || '');
+console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
       } catch (err) {
         console.error('Error al cargar direcciones del cliente', err);
         setDireccionesCliente([]);
@@ -374,7 +367,7 @@ const NuevaCotizacion = () => {
 
       // Cargar condiciones comerciales
       await cargarCondiciones(cabecera.id_cliente);
-      setCondicionSeleccionada(cabecera.id_condicion || null);
+      setCondicionSeleccionada(cabecera.forma_pago?.trim() || '');
 
       // Cargar productos
       const formateados = productos.map(p => ({
@@ -410,69 +403,6 @@ const NuevaCotizacion = () => {
 
 
 
-  // Guardar cotización como borrador
-  const handleGuardarBorrador = async () => {
-    if (!clienteSeleccionado) {
-      setMensajeError('Debés seleccionar un cliente antes de guardar la cotización');
-      setMensajeExito('');
-      return;
-    }
-
-    if (!usuarioActual?.id_vendedor) {
-      setMensajeError('No se pudo identificar al vendedor');
-      setMensajeExito('');
-      return;
-    } console.log('Productos seleccionados al guardar:', productosSeleccionados);
-    for (const p of productosSeleccionados) {
-      if (
-        typeof p.id_producto !== 'number' ||
-        typeof p.cantidad !== 'number' ||
-        typeof p.precio_unitario !== 'number' ||
-        typeof p.descuento !== 'number'
-      ) {
-        console.warn('❌ Producto mal formado:', p);
-      } else {
-        console.log('✅ Producto válido:', p);
-      }
-    }
-
-
-    const payload = {
-      id_cliente: clienteSeleccionado,
-      id_vendedor: usuarioActual.id_vendedor,
-      id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
-      id_condicion: condicionSeleccionada,
-      vigencia_hasta: vigenciaHasta,
-      observaciones: observaciones,
-      plazo_entrega: plazoEntrega,
-      estado: 'borrador',
-      productos: formatearProductosParaGuardar(carrito)
-    };
-
-    console.log('Guardando borrador con:', { ...payload, idCotizacionActual });
-    console.log('ID actual de cotización:', idCotizacionActual);
-
-    try {
-      console.log('🧪 Enviando productos al backend:', productosSeleccionados);
-      if (idCotizacionActual) {
-        await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, payload);
-        setMensajeExito('Cotización actualizada como borrador');
-      } else {
-        const res = await axios.post('/api/cotizaciones/iniciar', payload); // Nuevo endpoint para iniciar cotización
-        setIdCotizacionActual(res.data.id_cotizacion);
-        localStorage.setItem('idCotizacionActual', res.data.id_cotizacion);
-        setNumeroCotizacion(res.data.numero_cotizacion);
-        setEstadoCotizacion(res.data.estado);
-        setMensajeExito('Cotización guardada como borrador');
-      }
-
-      setMensajeError('');
-    } catch (error) {
-      console.error('Error al guardar borrador:', error.response?.data || error.message || error);
-      setMensajeError('No se pudo guardar la cotización');
-      setMensajeExito('');
-    }
-  };
 
 
 
@@ -502,26 +432,7 @@ const NuevaCotizacion = () => {
   }, [busquedaCliente]);
 
 
-  const handleSeleccionCliente = async (cliente) => {
-    // 🛡️ Evita recargar si ya está seleccionado
-    if (cliente?.id === clienteSeleccionado) return;
 
-    setCliente(cliente.id);
-    setClienteSeleccionado(cliente.id);
-    setClienteObjeto(cliente);
-    setBusquedaCliente(cliente.razon_social);
-
-    try {
-      const { data } = await axios.get(`/api/clientes/${cliente.id}/contactos`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      setContactosCliente(Array.isArray(data) ? data : []);
-      setContacto('');
-    } catch (err) {
-      console.error('Error al cargar contactos del cliente', err);
-      setContactosCliente([]);
-    }
-  };
 
 
   // Cargar direcciones del cliente seleccionado
@@ -582,41 +493,43 @@ const NuevaCotizacion = () => {
     }
   }, [clienteSeleccionado]);
 
+ 
+ 
+ 
   // Cargar condiciones comerciales al seleccionar cliente
-  const cargarCondiciones = async (idCliente) => {
-    try {
-      const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`, {
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      });
+ const cargarCondiciones = async (idCliente) => {
+  try {
+    const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`, {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
 
-      const forma = (data.forma_pago || '').trim();
-      const cambio = (data.tipo_cambio || '').trim();
-      const dias = String(data.dias_pago || '').trim();
+    const forma = (data.forma_pago || '').trim();
+    const cambio = (data.tipo_cambio || '').trim();
+    const dias = String(data.dias_pago || '').trim();
 
-      setFormaPago(forma);
+    setFormaPago(forma);
+    setCondicionSeleccionada(forma); // 👈 esto es lo nuevo
 
-      setTipoCambio(''); // limpia primero
-      setTimeout(() => {
-        setTipoCambio(cambio); // actualiza después
-      }, 0);
+    setTipoCambio('');
+    setTimeout(() => {
+      setTipoCambio(cambio);
+    }, 0);
 
-      if (opcionesDiasPago.includes(dias)) {
-        setDiasPago(dias);
-        setDiasPagoExtra('');
-      } else {
-        setDiasPago('');
-        setDiasPagoExtra(dias);
-      }
-
-      console.log('Tipo de cambio recibido:', cambio);
-      console.log('Forma de pago:', forma);
-      console.log('Días de pago:', dias);
-    } catch (err) {
-      console.error('Error al cargar condiciones comerciales:', err);
+    if (opcionesDiasPago.includes(dias)) {
+      setDiasPago(dias);
+      setDiasPagoExtra('');
+    } else {
+      setDiasPago('');
+      setDiasPagoExtra(dias);
     }
-  };
+
+    console.log('Tipo de cambio recibido:', cambio);
+    console.log('Forma de pago:', forma);
+    console.log('Días de pago:', dias);
+  } catch (err) {
+    console.error('Error al cargar condiciones comerciales:', err);
+  }
+};
 
   // Cargar opciones de plazos de pago
   useEffect(() => {
@@ -692,6 +605,120 @@ const NuevaCotizacion = () => {
   };
 
 
+
+  //aca empiezan los handlers que se usan en los botones
+  //son funciones que manejan eventos específicos en la interfaz de usuario.
+
+  // Función para manejar la búsqueda de productos fuera del modal
+  const handleBuscar = async () => {
+    try {
+      const res = await axios.get(`/api/productos/buscar-flex?query=${query}`);
+      const productos = Array.isArray(res.data) ? res.data : res.data.productos || [];
+
+      setProductosFiltrados(productos);
+      setPaginaActual(1); // reinicia paginación
+      setMostrarModal(true);
+    } catch (err) {
+      console.error('❌ Error al buscar productos:', err.message);
+      setProductosFiltrados([]);
+      setMostrarModal(true);
+    }
+  };
+
+
+  // Guardar cotización como borrador
+  const handleGuardarBorrador = async () => {
+    if (!clienteSeleccionado) {
+      setMensajeError('Debés seleccionar un cliente antes de guardar la cotización');
+      setMensajeExito('');
+      return;
+    }
+
+    if (!usuarioActual?.id_vendedor) {
+      setMensajeError('No se pudo identificar al vendedor');
+      setMensajeExito('');
+      return;
+    } console.log('Productos seleccionados al guardar:', productosSeleccionados);
+    for (const p of productosSeleccionados) {
+      if (
+        typeof p.id_producto !== 'number' ||
+        typeof p.cantidad !== 'number' ||
+        typeof p.precio_unitario !== 'number' ||
+        typeof p.descuento !== 'number'
+      ) {
+        console.warn('❌ Producto mal formado:', p);
+      } else {
+        console.log('✅ Producto válido:', p);
+      }
+    }
+
+
+    const payload = {
+      id_cliente: clienteSeleccionado,
+      id_vendedor: usuarioActual.id_vendedor,
+      id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
+      id_direccion_cliente: direccionIdSeleccionada,
+     id_condicion: getCondicionId(condicionSeleccionada),
+      vigencia_hasta: vigenciaHasta,
+      observaciones: observaciones,
+      plazo_entrega: plazoEntrega,
+      estado: 'borrador',
+      productos: formatearProductosParaGuardar(carrito)
+    };
+
+    console.log('Guardando borrador con:', { ...payload, idCotizacionActual });
+    console.log('ID actual de cotización:', idCotizacionActual);
+    console.log('🧪 Condición seleccionada:', condicionSeleccionada);
+console.log('🧪 ID de condición:', getCondicionId(condicionSeleccionada));
+
+    try {
+      console.log('🧪 Enviando productos al backend:', productosSeleccionados);
+      if (idCotizacionActual) {
+        await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, payload);
+        setMensajeExito('Cotización actualizada como borrador');
+      } else {
+        const res = await axios.post('/api/cotizaciones/iniciar', payload); // Nuevo endpoint para iniciar cotización
+        setIdCotizacionActual(res.data.id_cotizacion);
+        localStorage.setItem('idCotizacionActual', res.data.id_cotizacion);
+        setNumeroCotizacion(res.data.numero_cotizacion);
+        setEstadoCotizacion(res.data.estado);
+        setMensajeExito('Cotización guardada como borrador');
+      }
+
+      setMensajeError('');
+    } catch (error) {
+      console.error('Error al guardar borrador:', error.response?.data || error.message || error);
+      setMensajeError('No se pudo guardar la cotización');
+      setMensajeExito('');
+    }
+  };
+
+
+
+
+  const handleSeleccionCliente = async (cliente) => {
+    // 🛡️ Evita recargar si ya está seleccionado
+    if (cliente?.id === clienteSeleccionado) return;
+
+    setCliente(cliente.id);
+    setClienteSeleccionado(cliente.id);
+    setClienteObjeto(cliente);
+    setBusquedaCliente(cliente.razon_social);
+
+    try {
+      const { data } = await axios.get(`/api/clientes/${cliente.id}/contactos`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      setContactosCliente(Array.isArray(data) ? data : []);
+      setContacto('');
+    } catch (err) {
+      console.error('Error al cargar contactos del cliente', err);
+      setContactosCliente([]);
+    }
+  };
+
+
+  // Actualizar cotización existente
   const handleActualizarCotizacion = async () => {
     if (!idCotizacionActual) {
       setMensajeError('No hay cotización activa para actualizar');
@@ -703,7 +730,8 @@ const NuevaCotizacion = () => {
       await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, {
         id_cliente: clienteSeleccionado,
         id_contacto: contactoSeleccionado,
-        id_condicion: condicionSeleccionada,
+        id_direccion_cliente: direccionIdSeleccionada,
+        id_condicion: getCondicionId(condicionSeleccionada),
         vigencia_hasta: vigenciaHasta,
         observaciones,
         plazo_entrega: plazoEntrega,
@@ -722,34 +750,127 @@ const NuevaCotizacion = () => {
   };
 
 
-  const handleFinalizarCotizacion = async () => {
-    if (!idCotizacionActual) {
-      setMensajeError('No hay cotización activa para finalizar');
-      return;
+  // Cancelar creación o edición de cotización
+  const handleCancelarCreacion = () => {
+    // Acción sugerida: navegar al menú principal o limpiar el formulario
+    navigate('/menu'); // o la ruta que corresponda
+  };
+
+  const handleCancelarEdicion = () => {
+    // Acción sugerida: volver al listado de cotizaciones
+    navigate('/menu'); // o la ruta que corresponda
+  };
+
+
+  
+const handleFinalizarCotizacion = async () => {
+  alert('Finalizar cotización ejecutado');
+ // 👇 Agregá esto para ver qué valores están llegando
+  console.log({
+    clienteSeleccionado,
+    id_vendedor: usuarioActual?.id_vendedor,
+    id_direccion_cliente: direccionIdSeleccionada,
+    contacto,
+    condicionSeleccionada,
+    vencimiento,
+    carritoLength: carrito.length
+  });
+
+  if (
+    !clienteSeleccionado ||
+    !usuarioActual?.id_vendedor ||
+    !idireccionIdSeleccionada ||
+    !contacto ||
+    !condicionSeleccionada ||
+    !vencimiento ||
+    carrito.length === 0
+  ) {
+    setMensajeError('Faltan datos obligatorios para finalizar la cotización');
+    setMensajeExito('');
+    return;
+  }
+
+  // Calcular vigencia_hasta a partir de vencimiento
+  const hoy = new Date();
+  hoy.setDate(hoy.getDate() + Number(vencimiento));
+  const fechaVencimiento = hoy.toISOString().slice(0, 10);
+  setVigenciaHasta(fechaVencimiento); // opcional si querés mostrarla en tiempo real
+
+  const payload = {
+    id_cliente: clienteSeleccionado,
+    id_vendedor: usuarioActual?.id_vendedor,
+    id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
+    id_direccion_cliente: direccionIdSeleccionada,
+    id_condicion: condicionSeleccionada,
+    vigencia_hasta: fechaVencimiento,
+    vencimiento,
+    observaciones,
+    plazo_entrega: plazoEntrega,
+    costo_envio: costoEnvio,
+    estado: 'pendiente',
+    productos: formatearProductosParaGuardar(carrito)
+  };
+
+  try {
+    if (idCotizacionActual) {
+      await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, payload);
+    } else {
+      const res = await axios.post('/api/cotizaciones/iniciar', payload);
+      setIdCotizacionActual(res.data.id_cotizacion);
+      setNumeroCotizacion(res.data.numero_cotizacion);
     }
 
-    try {
-      await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, {
-        id_cliente: clienteSeleccionado,
-        id_contacto: contactoSeleccionado,
-        id_condicion: condicionSeleccionada,
-        vigencia_hasta: vigenciaHasta,
-        observaciones,
-        plazo_entrega: plazoEntrega,
-        costo_envio: costoEnvio,
-        productos: formatearProductosParaGuardar(carrito)
-      });
+    setEstadoCotizacion('pendiente');
+    setMensajeExito('Cotización finalizada y enviada al cliente');
+    setMensajeError('');
+    navigate('/menu');
+  } catch (error) {
+    console.error('Error al finalizar cotización:', error);
+    setMensajeError('No se pudo finalizar la cotización');
+    setMensajeExito('');
+  }
+};
 
-      setEstadoCotizacion('finalizada');
-      setMensajeExito('Cotización finalizada y enviada al cliente');
+
+  const handleEnviarCotizacion = async () => {
+    const datosCotizacion = {
+      id_cliente: clienteSeleccionado,
+      id_vendedor: usuarioActual?.id_vendedor,
+      id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
+      id_direccion_cliente: direccionIdSeleccionada,
+      id_condicion: condicionSeleccionada,
+      vigencia_hasta: vigenciaHasta,
+      observaciones,
+      plazo_entrega: plazoEntrega,
+      costo_envio: costoEnvio,
+      productos: formatearProductosParaGuardar(carrito)
+    };
+
+    try {
+      if (idCotizacionActual) {
+        await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, {
+          ...datosCotizacion,
+          estado: 'pendiente'
+        });
+      } else {
+        const res = await axios.post('/api/cotizaciones/iniciar', {
+          ...datosCotizacion,
+          estado: 'pendiente'
+        });
+        setIdCotizacionActual(res.data.id_cotizacion);
+        setNumeroCotizacion(res.data.numero_cotizacion);
+        setEstadoCotizacion(res.data.estado);
+      }
+
+      setMensajeExito('Cotización enviada al cliente');
       setMensajeError('');
+      navigate('/menu');
     } catch (error) {
-      console.error('Error al finalizar cotización:', error);
-      setMensajeError('No se pudo finalizar la cotización');
+      console.error('❌ Error al enviar cotización:', error);
+      setMensajeError('No se pudo enviar la cotización');
       setMensajeExito('');
     }
   };
-
 
 
   return (
@@ -769,10 +890,10 @@ const NuevaCotizacion = () => {
           {/* Botón para volver a mis cotizaciones */}
           <div className="mb-3">
             <button
-              className="btn btn-outline-secondary d-inline-flex align-items-center"
-              onClick={() => window.location.href = '/gigaflop-pp3-app-react/menu'}
+              className="btn btn-outline-secondary"
+              onClick={() => navigate('/menu')}
             >
-              <i className="bi bi-arrow-left me-2"></i> Volver a mis cotizaciones
+              ← Volver a mis cotizaciones
             </button>
           </div>
         </div>
@@ -784,57 +905,57 @@ const NuevaCotizacion = () => {
             <div className="row g-3">
 
               {/* Input de búsqueda */}
-          <div className="col-md-6 buscador-cliente-container">
-  <label className="form-label">Cliente / CUIT</label>
+              <div className="col-md-6 buscador-cliente-container">
+                <label className="form-label">Cliente / CUIT</label>
 
-  {clienteObjeto ? (
-    <div className="form-control bg-light">
-      {clienteObjeto.razon_social} – CUIT: {clienteObjeto.cuit}
-    </div>
-  ) : (
-    <input
-      type="text"
-      className="form-control"
-      placeholder="Buscar cliente por nombre o CUIT"
-      value={busquedaCliente}
-      onChange={(e) => setBusquedaCliente(e.target.value)}
-    />
-  )}
+                {clienteObjeto ? (
+                  <div className="form-control bg-light">
+                    {clienteObjeto.razon_social} – CUIT: {clienteObjeto.cuit}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Buscar cliente por nombre o CUIT"
+                    value={busquedaCliente}
+                    onChange={(e) => setBusquedaCliente(e.target.value)}
+                  />
+                )}
 
-  {!clienteObjeto && sugerencias.length > 0 && (
-    <ul className="sugerencias-lista">
-      {sugerencias.map((c) => (
-        <li
-          key={c.id}
-          className="sugerencia-item"
-          onClick={() => {
-            setClienteSeleccionado(c.id);
-            setCliente(c.id);
-            setClienteObjeto(c);
-            setBusquedaCliente(`${c.razon_social} – CUIT: ${c.cuit}`);
-            setSugerencias([]);
+                {!clienteObjeto && sugerencias.length > 0 && (
+                  <ul className="sugerencias-lista">
+                    {sugerencias.map((c) => (
+                      <li
+                        key={c.id}
+                        className="sugerencia-item"
+                        onClick={() => {
+                          setClienteSeleccionado(c.id);
+                          setCliente(c.id);
+                          setClienteObjeto(c);
+                          setBusquedaCliente(`${c.razon_social} – CUIT: ${c.cuit}`);
+                          setSugerencias([]);
 
-            axios.get(`/api/clientes/${c.id}/contactos`)
-              .then(({ data }) => {
-                const lista = Array.isArray(data) ? data : [];
-                setContactosCliente(lista);
+                          axios.get(`/api/clientes/${c.id}/contactos`)
+                            .then(({ data }) => {
+                              const lista = Array.isArray(data) ? data : [];
+                              setContactosCliente(lista);
 
-                const contactoPreservado = lista.find(ct => ct.id === contacto);
-                setContacto(contactoPreservado?.id || '');
-              })
-              .catch(err => {
-                console.error('Error al cargar contactos del cliente', err);
-                setContactosCliente([]);
-                setContacto('');
-              });
-          }}
-        >
-          {c.razon_social} – CUIT: {c.cuit}
-        </li>
-      ))}
-    </ul>
-  )}
-</div>
+                              const contactoPreservado = lista.find(ct => ct.id === contacto);
+                              setContacto(contactoPreservado?.id || '');
+                            })
+                            .catch(err => {
+                              console.error('Error al cargar contactos del cliente', err);
+                              setContactosCliente([]);
+                              setContacto('');
+                            });
+                        }}
+                      >
+                        {c.razon_social} – CUIT: {c.cuit}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
 
               {/* Contacto */}
@@ -965,21 +1086,50 @@ const NuevaCotizacion = () => {
                     <option>Tarjeta de crédito</option>
                   </select>
 
-                  <div className="mb-2">
-                    <label htmlFor="plazoEntrega" className="form-label" style={{ fontSize: '0.9rem' }}>
-                      Plazo de entrega
-                    </label>
-                    <input
-                      type="text"
-                      id="plazoEntrega"
-                      className="form-control form-control-sm"
-                      placeholder="Ej: 7 días hábiles"
-                      value={plazoEntrega}
-                      onChange={(e) => setPlazoEntrega(e.target.value)}
-                      style={{ fontSize: '0.9rem' }}
-                      maxLength={100}
-                    />
+                  <div className="d-flex flex-wrap gap-3 mb-3">
+                    {/* Plazo de entrega */}
+                    <div className="flex-grow-1">
+                      <label htmlFor="plazoEntrega" className="form-label">Plazo de entrega</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        id="plazoEntrega"
+                        value={plazoEntrega}
+                        onChange={(e) => setPlazoEntrega(e.target.value)}
+                        placeholder="Ej: 7 días hábiles"
+                      />
+                    </div>
+
+                    {/* Vencimiento */}
+                    <div style={{ width: '180px' }}>
+                      <label htmlFor="vencimiento" className="form-label">Vencimiento (días)</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        id="vencimiento"
+                        value={vencimiento}
+                        onChange={(e) => {
+                          const dias = Number(e.target.value);
+                          setVencimiento(dias);
+                          if (dias > 0) {
+                            const hoy = new Date();
+                            hoy.setDate(hoy.getDate() + dias);
+                            const fechaCalculada = hoy.toISOString().slice(0, 10);
+                            setVigenciaHasta(fechaCalculada);
+                          } else {
+                            setVigenciaHasta('');
+                          }
+                        }}
+                        min={1}
+                        placeholder="Ej: 15"
+                      />
+                    </div>
+
+
                   </div>
+
+
+
 
                 </div>
 
@@ -1224,43 +1374,74 @@ const NuevaCotizacion = () => {
 
 
 
-          {/* Acciones / Guardar o Actualizar */}
-          <div className="d-flex justify-content-center gap-2 my-3">
+          {/* Acciones / Guardar, Finalizar, Enviar, Cancelar */}
+          <div className="d-flex justify-content-between align-items-center my-3 flex-wrap gap-2">
             {estadoCotizacion === 'borrador' && idCotizacionActual ? (
               <>
-                <button className="btn btn-sm btn-outline-warning" onClick={handleActualizarCotizacion}>
-                  <i className="bi bi-pencil-square me-1"></i> Actualizar
+                {/* Cancelar edición */}
+                <button className="btn btn-sm btn-outline-danger" onClick={handleCancelarEdicion}>
+                  <i className="bi bi-x-circle me-1"></i> Cancelar edición
                 </button>
-                <button className="btn btn-sm btn-outline-success" onClick={handleFinalizarCotizacion}>
+
+                {/* Botones centrales: Actualizar + Finalizar */}
+                <div className="d-flex gap-2">
+                  <button className="btn btn-sm btn-outline-warning" onClick={handleActualizarCotizacion}>
+                    <i className="bi bi-pencil-square me-1"></i> Actualizar
+                  </button>
+                  <button className="btn btn-sm btn-outline-primary" onClick={handleFinalizarCotizacion}>
+                    <i className="bi bi-check2-circle me-1"></i> Finalizar
+                  </button>
+                </div>
+
+                {/* Enviar */}
+                <button className="btn btn-sm btn-success" onClick={handleEnviarCotizacion}>
                   <i className="bi bi-send-check me-1"></i> Enviar al cliente
                 </button>
               </>
             ) : (
               <>
-                <button className="btn btn-sm btn-outline-secondary" onClick={handleGuardarBorrador}>
-                  <i className="bi bi-save me-1"></i> Guardar borrador
+                {/* Cancelar creación */}
+                <button className="btn btn-sm btn-outline-danger" onClick={handleCancelarCreacion}>
+                  <i className="bi bi-x-circle me-1"></i> Cancelar cotización
                 </button>
-                <button className="btn btn-sm btn-outline-success" onClick={handleFinalizarCotizacion}>
+
+                {/* Botones centrales: Guardar + Finalizar */}
+                <div className="d-flex gap-2">
+                  <button className="btn btn-sm btn-outline-secondary" onClick={handleGuardarBorrador}>
+                    <i className="bi bi-save me-1"></i> Guardar borrador
+                  </button>
+                  <button className="btn btn-sm btn-outline-primary" onClick={handleFinalizarCotizacion}>
+                    <i className="bi bi-check2-circle me-1"></i> Finalizar
+                  </button>
+                </div>
+
+                {/* Enviar */}
+                <button className="btn btn-sm btn-success" onClick={handleEnviarCotizacion}>
                   <i className="bi bi-send-check me-1"></i> Enviar al cliente
                 </button>
               </>
             )}
 
-            {mensajeExito && (
-              <div className="text-success small mt-2">
-                <i className="bi bi-check-circle me-1"></i> {mensajeExito}
-              </div>
-            )}
-
-            {mensajeError && (
-              <div className="text-danger small mt-2">
-                <i className="bi bi-exclamation-triangle me-1"></i> {mensajeError}
-              </div>
-            )}
+            {/* Mensajes de estado */}
+            <div className="w-100 mt-2">
+              {mensajeExito && (
+                <div className="text-success small">
+                  <i className="bi bi-check-circle me-1"></i> {mensajeExito}
+                </div>
+              )}
+              {mensajeError && (
+                <div className="text-danger small">
+                  <i className="bi bi-exclamation-triangle me-1"></i> {mensajeError}
+                </div>
+              )}
+            </div>
           </div>
 
-        </div>
 
+
+
+
+        </div>
       </main>
 
       {mostrarModal && (

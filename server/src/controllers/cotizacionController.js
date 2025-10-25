@@ -7,21 +7,26 @@ export async function iniciarCotizacion(req, res) {
   const db = req.app.get('db');
   const { id_vendedor, id_cliente, id_contacto, productos = [] } = req.body;
   const cotizacionModel = new Cotizacion(db);
-
+  const contactoId = typeof id_contacto === 'string' ? parseInt(id_contacto) : id_contacto;
   try {
     const numero = await cotizacionModel.generarNumeroCotizacion();
     const fecha = new Date();
 
-    const idCotizacion = await cotizacionModel.crearCabecera({
-      numero_cotizacion: numero,
-      fecha,
-      estado: 'borrador',
-      id_vendedor,
-      id_cliente,
-      id_contacto // ✅ asegurate que esto se use en el modelo
-    });
+   const nuevaCabecera = {
+  numero_cotizacion: numero,
+  fecha,
+  estado: 'borrador',
+  id_vendedor,
+  id_cliente,
+  id_contacto: contactoId,
+  id_direccion_cliente: req.body.id_direccion_cliente
+};
 
-    // ✅ Guardar productos si vienen en el payload
+    console.log('🧪 Datos enviados a crearCabecera:', nuevaCabecera);
+
+    const idCotizacion = await cotizacionModel.crearCabecera(nuevaCabecera);
+
+    // Guardar productos si vienen en el payload
     if (Array.isArray(productos) && productos.length > 0) {
       await cotizacionModel.reemplazarProductos(idCotizacion, productos);
     }
@@ -40,8 +45,8 @@ export async function iniciarCotizacion(req, res) {
 // Obtener cotizaciones en estado 'borrador' para un vendedor específico
 export async function obtenerCotizacionesBorrador(req, res) {
   const db = req.app.get('db');
-  const { id_vendedor } = req.params;
-  const cotizacionModel = new Cotizacion(db);
+  const { id_vendedor } = req.params; // Obtener id_vendedor de los parámetros de la ruta
+  const cotizacionModel = new Cotizacion(db); // Crear instancia del modelo Cotizacion pasando la conexión a la base de datos
 
   try {
     const borradores = await cotizacionModel.obtenerBorradoresPorVendedor(id_vendedor);
@@ -104,10 +109,10 @@ export async function verCotizacionCompleta(req, res) {
     const cotizacion = await cotizacionModel.obtenerCotizacionCompleta(id);
     res.json(cotizacion);
   } catch (err) {
-  console.error("Error al obtener detalle de la cotización:", err);
-  res.status(500).json({ error: 'Error al obtener detalle de la cotización' });
-}
+    console.error("Error al obtener detalle de la cotización:", err);
+    res.status(500).json({ error: 'Error al obtener detalle de la cotización' });
   }
+}
 
 // Obtener una cotización en estado 'borrador' por su ID para edición
 export async function obtenerCotizacionBorradorPorId(req, res) {
@@ -136,16 +141,17 @@ export async function actualizarCotizacionBorrador(req, res) {
   const data = req.body;
 
   try {
-    const cabecera = {
-      id_cliente: data.id_cliente,
-      id_contacto: typeof data.id_contacto === 'object' ? data.id_contacto.id : data.id_contacto,
-      id_condicion: data.id_condicion,
-      vigencia_hasta: data.vigencia_hasta,
-      observaciones: data.observaciones,
-      plazo_entrega: data.plazo_entrega,
-      costo_envio: data.costo_envio,
-      estado: data.estado || 'borrador'
-    };
+   const cabecera = {
+  id_cliente: data.id_cliente,
+  id_contacto: typeof data.id_contacto === 'object' ? data.id_contacto.id : data.id_contacto,
+  id_direccion_cliente: data.id_direccion_cliente,
+  id_condicion: data.id_condicion,
+  vigencia_hasta: data.vigencia_hasta,
+  observaciones: data.observaciones,
+  plazo_entrega: data.plazo_entrega,
+  costo_envio: data.costo_envio,
+  estado: data.estado || 'borrador'
+};
 
     await cotizacionModel.actualizarCabecera(id, cabecera);
 
