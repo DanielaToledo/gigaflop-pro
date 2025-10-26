@@ -5,28 +5,45 @@ import { Cotizacion } from '../models/CotizacionModels.js';
 //iniciar una nueva cotizacion Crea una nueva cotización en estado  con número autogenerado 'borrador'
 export async function iniciarCotizacion(req, res) {
   const db = req.app.get('db');
-  const { id_usuario, id_cliente, id_contacto, productos = [] } = req.body;
+  const id_usuario = req.user?.id;
+  const { id_cliente, id_contacto, productos = [], id_direccion_cliente } = req.body;
+
+  // 🔒 Validación de autenticación
+  if (!id_usuario) {
+    return res.status(401).json({ error: 'Usuario no autenticado' });
+  }
+
+  // 🔒 Validación de cliente
+  if (!id_cliente || typeof id_cliente !== 'number') {
+    return res.status(400).json({ error: 'Cliente inválido o no especificado' });
+  }
+
+  // 🔒 Validación de dirección (opcional pero recomendable)
+  if (!id_direccion_cliente || typeof id_direccion_cliente !== 'number') {
+    return res.status(400).json({ error: 'Dirección del cliente inválida o no especificada' });
+  }
+
   const cotizacionModel = new Cotizacion(db);
   const contactoId = typeof id_contacto === 'string' ? parseInt(id_contacto) : id_contacto;
+
   try {
     const numero = await cotizacionModel.generarNumeroCotizacion();
     const fecha = new Date();
 
-   const nuevaCabecera = {
-  numero_cotizacion: numero,
-  id_usuario,
-  fecha,
-  estado: 'borrador',
-  id_cliente,
-  id_contacto: contactoId,
-  id_direccion_cliente: req.body.id_direccion_cliente
-};
+    const nuevaCabecera = {
+      numero_cotizacion: numero,
+      id_usuario,
+      fecha,
+      estado: 'borrador',
+      id_cliente,
+      id_contacto: contactoId,
+      id_direccion_cliente
+    };
 
     console.log('🧪 Datos enviados a crearCabecera:', nuevaCabecera);
 
     const idCotizacion = await cotizacionModel.crearCabecera(nuevaCabecera);
 
-    // Guardar productos si vienen en el payload
     if (Array.isArray(productos) && productos.length > 0) {
       await cotizacionModel.reemplazarProductos(idCotizacion, productos);
     }
@@ -37,10 +54,11 @@ export async function iniciarCotizacion(req, res) {
       estado: 'borrador'
     });
   } catch (err) {
-    console.error("Error al iniciar cotización:", err);
+    console.error("❌ Error al iniciar cotización:", err);
     res.status(500).json({ error: 'Error al iniciar cotización' });
   }
 }
+
 
 // Obtener cotizaciones en estado 'borrador' para un vendedor específico
 export async function obtenerCotizacionesBorrador(req, res) {
@@ -49,10 +67,10 @@ export async function obtenerCotizacionesBorrador(req, res) {
   const cotizacionModel = new Cotizacion(db); // Crear instancia del modelo Cotizacion pasando la conexión a la base de datos
   try {
     const borradores = await cotizacionModel.obtenerBorradoresPorUsuario(id_usuario);
-    let resultado = res.json(borradores);
-    console.log(resultado);
+    console.log('Borradores encontrados:', borradores);
     res.json(borradores);
   } catch (err) {
+    console.error('❌ Error en obtenerCotizacionesBorrador:', err);
     res.status(500).json({ error: 'Error al obtener cotizaciones en borrador' });
   }
 }

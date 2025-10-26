@@ -39,6 +39,7 @@ export const login = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: 'Datos incorrectos' });
     }
+console.log('Usuario para token:', usuario);
 
     const token = await creatAccesToken({
       id: usuario.id,

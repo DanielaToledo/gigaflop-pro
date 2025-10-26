@@ -677,7 +677,7 @@ console.log('🧪 ID de condición:', getCondicionId(condicionSeleccionada));
         await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, payload);
         setMensajeExito('Cotización actualizada como borrador');
       } else {
-        const res = await axios.post('/api/cotizaciones/iniciar', payload); // Nuevo endpoint para iniciar cotización
+       const res = await axios.post('/api/cotizaciones/iniciar', payload, { withCredentials: true }); 
         setIdCotizacionActual(res.data.id_cotizacion);
         localStorage.setItem('idCotizacionActual', res.data.id_cotizacion);
         setNumeroCotizacion(res.data.numero_cotizacion);
@@ -779,7 +779,7 @@ const handleFinalizarCotizacion = async () => {
 
   if (
     !clienteSeleccionado ||
-    ! suarioActual?.id ||
+    ! usuarioActual?.id ||
     !direccionIdSeleccionada ||
     !contacto ||
     !condicionSeleccionada ||
