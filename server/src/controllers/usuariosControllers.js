@@ -4,7 +4,7 @@ import { findUserByEmail, createUser, findUserById } from '../models/UsuariosMod
 
 // Registrar usuario
 export const register = async (req, res) => {
-  const { usuario, email, password, rol = 'Vendedor', apellido= '' } = req.body;
+  const { usuario, email, nombre,  apellido, password, rol = 'Vendedor', estado } = req.body;
 
   try {
     const existingUser = await findUserByEmail(email);
@@ -13,10 +13,10 @@ export const register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const rolesPermitidos = ['vendedor', 'administrador', 'gerente'];
-    const rolFinal = rolesPermitidos.includes(rol?.toLowerCase()) ? rol.toLowerCase() : 'vendedor';
+    //const rolesPermitidos = ['vendedor', 'administrador', 'gerente'];
+    //const rolFinal = rolesPermitidos.includes(rol?.toLowerCase()) ? rol.toLowerCase() : 'vendedor';
     // 🔁 Delegás todo al modelo
-    const userId = await createUser(usuario, email, hashedPassword, rolFinal, apellido);
+    const userId = await createUser(usuario, email, nombre, apellido, hashedPassword, rol, estado);
 
     res.status(201).json({ message: 'Usuario registrado con éxito', userId });
   } catch (error) {
@@ -39,6 +39,7 @@ export const login = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: 'Datos incorrectos' });
     }
+console.log('Usuario para token:', usuario);
 
     const token = await creatAccesToken({
       id: usuario.id,
@@ -54,7 +55,15 @@ export const login = async (req, res) => {
     });
 
     res.status(200).json({
-      message: 'Inicio de sesión exitoso', usuario: { id: usuario.id, nombre: usuario.usuario, rol: usuario.rol }
+      message: 'Inicio de sesión exitoso', usuario: {
+  id: usuario.id,
+  usuario: usuario.usuario,
+  email: usuario.email,
+  nombre: usuario.nombre,
+  apellido: usuario.apellido,
+  rol: usuario.rol,
+  estado: usuario.estado
+}
     });
   } catch (error) {
     console.error('Error en el login:', error);
@@ -64,7 +73,9 @@ export const login = async (req, res) => {
 
 // Cerrar sesión
 export const logout = (req, res) => {
+  if (process.env.NODE_ENV !== 'production') {
   console.log(req.cookies);
+}
   res.clearCookie('token');
   res.status(200).json({ message: 'Sesión cerrada correctamente' });
 };
@@ -78,9 +89,12 @@ export const profile = async (req, res) => {
     }
 
     res.status(200).json({
-      usuario: { id: usuario.id, nombre: usuario.usuario, email: usuario.email, rol: usuario.rol, id_vendedor: usuario.id_vendedor // 👈 nuevo campo
-
- }
+     usuario: {
+  id: req.user.id,
+  nombre: req.user.nombre,
+  apellido: req.user.apellido,
+  rol: req.user.rol
+}
     });
     // Cambiado "user" por "usuario"
   } catch (error) {

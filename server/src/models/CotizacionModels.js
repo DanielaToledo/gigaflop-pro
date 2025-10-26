@@ -24,13 +24,25 @@ export class Cotizacion {   //
 
 
   // Crear la cabecera de una nueva cotización
-async crearCabecera({ numero_cotizacion, fecha, estado, id_vendedor, id_cliente, id_contacto, id_direccion_cliente }) {
+async crearCabecera({ numero_cotizacion, fecha, estado, id_usuario, id_cliente, id_contacto, id_direccion_cliente }) {
+ console.log('🧪 Datos recibidos para crear cotización:', {
+    numero_cotizacion,
+    fecha,
+    estado,
+    id_usuario,
+    id_cliente,
+    id_contacto,
+    id_direccion_cliente
+  });
+
+ 
   const [result] = await this.db.query(
-    `INSERT INTO cotizaciones (
-      numero_cotizacion, fecha, estado, id_vendedor, id_cliente, id_contacto, id_direccion_cliente
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [numero_cotizacion, fecha, estado, id_vendedor, id_cliente, id_contacto, id_direccion_cliente]
-  );
+  `INSERT INTO cotizaciones (
+    numero_cotizacion, fecha, estado, id_cliente, id_contacto, id_direccion_cliente, id_usuario
+  ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  [numero_cotizacion, fecha, estado, id_cliente, id_contacto, id_direccion_cliente, id_usuario]
+);
+  
   return result.insertId;
 }
 
@@ -87,38 +99,42 @@ async crearCabecera({ numero_cotizacion, fecha, estado, id_vendedor, id_cliente,
   }
 
   // Método para obtener las cotizaciones en estado 'borrador' de un vendedor específico
-  async obtenerBorradoresPorVendedor(id_vendedor) {
-    const [rows] = await this.db.query(`
-    SELECT 
-      c.id, 
-      c.numero_cotizacion, 
-      c.fecha, 
-      c.estado,
-      cl.razon_social AS cliente_nombre,
-      v.nombre AS vendedor_nombre,
-      ct.nombre_contacto AS contacto_nombre,
-      ct.apellido AS contacto_apellido
-    FROM cotizaciones c
-    JOIN cliente cl ON c.id_cliente = cl.id
-    JOIN vendedores v ON c.id_vendedor = v.id
-    LEFT JOIN contactos ct ON c.id_contacto = ct.id
-    WHERE c.estado = 'borrador' AND c.id_vendedor = ?
-    ORDER BY c.fecha DESC
-  `, [id_vendedor]);
+async obtenerBorradoresPorUsuario(id_usuario) {  
+  const [rows] = await this.db.query(`
+SELECT 
+  c.id, 
+  c.numero_cotizacion, 
+  c.fecha, 
+  c.estado,
+  cl.razon_social AS cliente_nombre,
+  u.nombre AS usuario_nombre,
+  ct.nombre_contacto AS contacto_nombre,
+  ct.apellido AS contacto_apellido,
+  c.vigencia_hasta,
+  SUM(dp.precio_unitario * dp.cantidad * (1 - dp.descuento / 100)) AS total
+FROM cotizaciones c
+LEFT JOIN cliente cl ON c.id_cliente = cl.id
+LEFT JOIN usuarios u ON c.id_usuario = u.id
+LEFT JOIN contactos ct ON c.id_contacto = ct.id
+LEFT JOIN detalle_cotizacion dp ON c.id = dp.id_cotizacion
+WHERE c.estado = 'borrador' AND c.id_usuario = ?
+GROUP BY c.id
+ORDER BY c.fecha DESC;
+`, [id_usuario]);
 
-    return rows;
-  }
+  return rows;
+}
 
   async obtenerCotizacionCompleta(idCotizacion) {
  const [cabecera] = await this.db.query(`
   SELECT c.*, 
          cl.razon_social AS cliente_nombre, cl.cuit,
-         v.nombre AS vendedor_nombre,
+         u.nombre AS usuario_nombre, u.apellido AS usuario_apellido,
          cc.forma_pago, cc.tipo_cambio, cc.dias_pago, cc.mark_up_maximo, cc.observaciones AS condiciones_observaciones,
          dc.locacion, dc.localidad, dc.provincia
   FROM cotizaciones c
   JOIN cliente cl ON c.id_cliente = cl.id
-  JOIN vendedores v ON c.id_vendedor = v.id
+  JOIN usuarios u ON c.id_usuario = u.id
   JOIN condiciones_comerciales cc ON c.id_condicion = cc.id
   LEFT JOIN direccion_cliente dc ON c.id_direccion_cliente = dc.id
   WHERE c.id = ?

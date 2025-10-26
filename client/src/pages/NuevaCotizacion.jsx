@@ -100,7 +100,7 @@ const [condiciones, setCondiciones] = useState([]);
 
   // Obtener el usuario actual desde el contexto
   const { usuario: usuarioActual } = useUser();
-  const idVendedor = usuarioActual.id_vendedor;
+
 
 
 
@@ -634,7 +634,7 @@ console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
       return;
     }
 
-    if (!usuarioActual?.id_vendedor) {
+    if (!usuarioActual?.id) {
       setMensajeError('No se pudo identificar al vendedor');
       setMensajeExito('');
       return;
@@ -655,7 +655,7 @@ console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
 
     const payload = {
       id_cliente: clienteSeleccionado,
-      id_vendedor: usuarioActual.id_vendedor,
+     id_usuario: usuarioActual?.id,
       id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
       id_direccion_cliente: direccionIdSeleccionada,
      id_condicion: getCondicionId(condicionSeleccionada),
@@ -677,7 +677,7 @@ console.log('🧪 ID de condición:', getCondicionId(condicionSeleccionada));
         await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, payload);
         setMensajeExito('Cotización actualizada como borrador');
       } else {
-        const res = await axios.post('/api/cotizaciones/iniciar', payload); // Nuevo endpoint para iniciar cotización
+       const res = await axios.post('/api/cotizaciones/iniciar', payload, { withCredentials: true }); 
         setIdCotizacionActual(res.data.id_cotizacion);
         localStorage.setItem('idCotizacionActual', res.data.id_cotizacion);
         setNumeroCotizacion(res.data.numero_cotizacion);
@@ -737,6 +737,7 @@ console.log('🧪 ID de condición:', getCondicionId(condicionSeleccionada));
         plazo_entrega: plazoEntrega,
         costo_envio: costoEnvio,
         estado: 'borrador',
+        id_usuario: usuarioActual?.id,
         productos: formatearProductosParaGuardar(carrito)
       });
 
@@ -768,7 +769,7 @@ const handleFinalizarCotizacion = async () => {
  // 👇 Agregá esto para ver qué valores están llegando
   console.log({
     clienteSeleccionado,
-    id_vendedor: usuarioActual?.id_vendedor,
+    id_usuario: usuarioActual?.id,
     id_direccion_cliente: direccionIdSeleccionada,
     contacto,
     condicionSeleccionada,
@@ -778,8 +779,8 @@ const handleFinalizarCotizacion = async () => {
 
   if (
     !clienteSeleccionado ||
-    !usuarioActual?.id_vendedor ||
-    !idireccionIdSeleccionada ||
+    ! usuarioActual?.id ||
+    !direccionIdSeleccionada ||
     !contacto ||
     !condicionSeleccionada ||
     !vencimiento ||
@@ -798,7 +799,7 @@ const handleFinalizarCotizacion = async () => {
 
   const payload = {
     id_cliente: clienteSeleccionado,
-    id_vendedor: usuarioActual?.id_vendedor,
+   id_usuario: usuarioActual?.id,
     id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
     id_direccion_cliente: direccionIdSeleccionada,
     id_condicion: condicionSeleccionada,
@@ -835,8 +836,8 @@ const handleFinalizarCotizacion = async () => {
   const handleEnviarCotizacion = async () => {
     const datosCotizacion = {
       id_cliente: clienteSeleccionado,
-      id_vendedor: usuarioActual?.id_vendedor,
       id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
+      id_usuario: usuarioActual?.id,
       id_direccion_cliente: direccionIdSeleccionada,
       id_condicion: condicionSeleccionada,
       vigencia_hasta: vigenciaHasta,

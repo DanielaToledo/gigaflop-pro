@@ -1,15 +1,15 @@
-//CONEXION A BD LOCAL
+//CONEXION A BD ONLINE
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 dotenv.config(); // carga las variables de .env
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
+  host: process.env.DB_ONLINE_HOST,
+  user: process.env.DB_ONLINE_USER,
+  password: process.env.DB_ONLINE_PASSWORD,
+  database: process.env.DB_ONLINE_NAME,
+  port: process.env.DB_ONLINE_PORT,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0

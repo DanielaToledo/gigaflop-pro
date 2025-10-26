@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { authRequired } from '../middlewares/validateToken.js';
 import {
   iniciarCotizacion,
   obtenerCotizacionesBorrador,
@@ -8,12 +9,12 @@ import {
 
 const router = Router();
 
-router.post('/iniciar', iniciarCotizacion);
-router.get('/borrador/:id_vendedor', obtenerCotizacionesBorrador);
-router.get('/borrador/retomar/:id', obtenerCotizacionBorradorPorId);
+router.post('/iniciar', authRequired,iniciarCotizacion);
+router.get('/borrador/:id_usuario', authRequired, obtenerCotizacionesBorrador);
+router.get('/borrador/retomar/:id', authRequired, obtenerCotizacionBorradorPorId);
 router.put('/finalizar/:id', finalizarCotizacion);
-router.get('/ver/:id', verCotizacionCompleta);
-router.put('/:id/actualizar', actualizarCotizacionBorrador);
+router.get('/ver/:id', authRequired, verCotizacionCompleta);
+router.put('/:id/actualizar', authRequired, actualizarCotizacionBorrador);
 
 
 export default router;
