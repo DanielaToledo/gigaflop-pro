@@ -12,7 +12,7 @@ const router = Router();
 router.post('/iniciar', authRequired,iniciarCotizacion);
 router.get('/borrador/:id_usuario', authRequired, obtenerCotizacionesBorrador);
 router.get('/borrador/retomar/:id', authRequired, obtenerCotizacionBorradorPorId);
-router.put('/finalizar/:id', finalizarCotizacion);
+router.put('/finalizar/:id',authRequired, finalizarCotizacion);
 router.get('/ver/:id', authRequired, verCotizacionCompleta);
 router.put('/:id/actualizar', authRequired, actualizarCotizacionBorrador);
 

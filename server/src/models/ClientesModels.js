@@ -40,43 +40,49 @@ export const listarCliente = async ({ razon_social }) => {
   
 };
 
-
+// server/src/models/ClientesModels.js
 export const obtenerCondicionesComerciales = async (idCliente) => {
   if (!idCliente || isNaN(Number(idCliente))) {
     throw new Error('ID de cliente inválido');
   }
 
   const [rows] = await pool.query(
-    `SELECT forma_pago, tipo_cambio, dias_pago
+    `SELECT id, forma_pago, tipo_cambio, dias_pago, mark_up_maximo
      FROM condiciones_comerciales
-     WHERE id_cliente = ?`,
+     WHERE id_cliente = ?
+     ORDER BY id ASC`,
     [idCliente]
   );
 
-  if (!rows.length) return null;
-
-  const { forma_pago, tipo_cambio, dias_pago } = rows[0];
-
-  return {
-    forma_pago: forma_pago || '',
-    tipo_cambio: tipo_cambio || '',
-    dias_pago: dias_pago || ''
-  };
+  return Array.isArray(rows)
+    ? rows.map(r => ({
+        id: r.id,
+        forma_pago: (r.forma_pago ?? '').toString().trim(),
+        tipo_cambio: r.tipo_cambio ?? '',
+        dias_pago: r.dias_pago === null || r.dias_pago === undefined ? '' : String(r.dias_pago),
+        mark_up_maximo: r.mark_up_maximo ?? null
+      }))
+    : [];
 };
 
-//modelo para obtener dias de pago por cliente
+
+// server/src/models/ClientesModels.js
+
 export const obtenerDiasPagoPorCliente = async (idCliente) => {
+  if (!idCliente || isNaN(Number(idCliente))) {
+    throw new Error('ID de cliente inválido');
+  }
+
   const [rows] = await pool.query(
     `SELECT DISTINCT dias_pago
      FROM condiciones_comerciales
      WHERE id_cliente = ?`,
     [idCliente]
   );
-  return rows.map(r => String(r.dias_pago));
+
+  // devolver siempre array (vacío si no hay rows), convertidos a string para consistencia
+  return Array.isArray(rows) ? rows.map(r => (r.dias_pago === null || r.dias_pago === undefined) ? '' : String(r.dias_pago)) : [];
 };
-
-
-
 
 
 //modelo para listar un cliente por razon social o cuit o id

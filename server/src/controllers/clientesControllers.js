@@ -134,6 +134,8 @@ export const eliminarClienteController = async (req, res) => {
 
 //controlador para obtener condiciones comerciales de un cliente por su id
 // controlador para obtener condiciones comerciales de un cliente por su id
+// server/src/controllers/clientesController.js
+
 export const getCondicionesComerciales = async (req, res) => {
   const { id } = req.params;
 
@@ -144,14 +146,11 @@ export const getCondicionesComerciales = async (req, res) => {
   try {
     const condiciones = await obtenerCondicionesComerciales(id);
 
-    if (!condiciones || Object.values(condiciones).every(val => val === '')) {
-      return res.status(404).json({ error: 'No se encontraron condiciones comerciales para este cliente' });
-    }
-
-    res.status(200).json(condiciones);
+    // responder siempre 200 con array (vacío si no hay condiciones)
+    return res.status(200).json(Array.isArray(condiciones) ? condiciones : []);
   } catch (error) {
     console.error('Error al obtener condiciones comerciales:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
 

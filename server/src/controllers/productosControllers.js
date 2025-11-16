@@ -175,6 +175,3 @@ export const obtenerImagenProxy = async (req, res) => {
     res.status(500).send('Error al cargar la imagen');
   }
 };
-
-
-

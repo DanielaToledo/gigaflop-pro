@@ -1,12 +1,13 @@
-import pool from '../config/db.js'; // Importa la conexión a la base de datos
 
+// models/CotizacionModels.js
+import pool from '../config/db.js';
 
-export class Cotizacion {   //
+export class Cotizacion {
   constructor(db) {
     this.db = db;
   }
 
-  async generarNumeroCotizacion() { // Genera un nuevo número de cotización
+  async generarNumeroCotizacion() {
     const año = new Date().getFullYear();
     const [rows] = await this.db.query(
       `SELECT numero_cotizacion FROM cotizaciones WHERE numero_cotizacion LIKE ? ORDER BY id DESC LIMIT 1`,
@@ -16,74 +17,107 @@ export class Cotizacion {   //
     let nuevo = 1;
     if (rows.length > 0) {
       const partes = rows[0].numero_cotizacion.split('-');
-      nuevo = parseInt(partes[2]) + 1;
+      nuevo = parseInt(partes[2], 10) + 1;
     }
 
     return `COT-${año}-${String(nuevo).padStart(4, '0')}`;
   }
 
-
-  // Crear la cabecera de una nueva cotización
-async crearCabecera({ numero_cotizacion, fecha, estado, id_usuario, id_cliente, id_contacto, id_direccion_cliente }) {
- console.log('🧪 Datos recibidos para crear cotización:', {
+  // Crear la cabecera de una nueva cotización (ajustada a las columnas reales)
+  async crearCabecera({
     numero_cotizacion,
     fecha,
     estado,
     id_usuario,
     id_cliente,
     id_contacto,
-    id_direccion_cliente
-  });
+    id_direccion_cliente,
+    id_condicion = null,
+    vigencia_hasta = null,
+    observaciones = '',
+    plazo_entrega = '',
+    costo_envio = 0,
+    modalidad_envio = null,
+    vencimiento = null
+  }) {
+    const [result] = await this.db.query(
+      `INSERT INTO cotizaciones (
+        numero_cotizacion, id_cliente, id_contacto, id_condicion, fecha,
+        vigencia_hasta, observaciones, plazo_entrega, costo_envio,
+        estado, id_direccion_cliente, id_usuario, modalidad_envio, vencimiento
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        numero_cotizacion,
+        id_cliente,
+        id_contacto,
+        id_condicion,
+        fecha,
+        vigencia_hasta,
+        observaciones,
+        plazo_entrega,
+        costo_envio,
+        estado,
+        id_direccion_cliente,
+        id_usuario,
+        modalidad_envio,
+        vencimiento
+      ]
+    );
 
- 
-  const [result] = await this.db.query(
-  `INSERT INTO cotizaciones (
-    numero_cotizacion, fecha, estado, id_cliente, id_contacto, id_direccion_cliente, id_usuario
-  ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  [numero_cotizacion, fecha, estado, id_cliente, id_contacto, id_direccion_cliente, id_usuario]
-);
-  
-  return result.insertId;
-}
+    return result.insertId;
+  }
 
-  // Actualizar la cabecera de una cotización existente
+  // Actualizar la cabecera de una cotización existente (ajustada a las columnas reales)
   async actualizarCabecera(id, data) {
     await this.db.query(
       `UPDATE cotizaciones SET
-      id_cliente = ?, id_contacto = ?, id_direccion_cliente = ?, id_condicion = ?,
-      vigencia_hasta = ?, observaciones = ?, plazo_entrega = ?,
-      costo_envio = ?, estado = ?
-    WHERE id = ?`,
+        id_cliente = ?, id_contacto = ?, id_condicion = ?,
+        fecha = ?, vigencia_hasta = ?, observaciones = ?, plazo_entrega = ?, costo_envio = ?,
+        estado = ?, id_direccion_cliente = ?, id_usuario = ?, modalidad_envio = ?, vencimiento = ?
+      WHERE id = ?`,
       [
-        data.id_cliente, data.id_contacto,
-        data.id_direccion_cliente,
-        data.id_condicion,
-        data.vigencia_hasta, data.observaciones, data.plazo_entrega,
-        data.costo_envio, data.estado, id
+        data.id_cliente,
+        data.id_contacto,
+        data.id_condicion ?? null,
+        data.fecha ?? null,
+        data.vigencia_hasta ?? null,
+        data.observaciones ?? '',
+        data.plazo_entrega ?? '',
+        data.costo_envio ?? 0,
+        data.estado,
+        data.id_direccion_cliente ?? null,
+        data.id_usuario ?? null,
+        data.modalidad_envio ?? null,
+        data.vencimiento ?? null,
+        id
       ]
     );
   }
 
+  // Agregar detalle tomando precios desde tabla productos (opcional)
   async agregarDetalle(idCotizacion, productos) {
     for (const item of productos) {
-      const [producto] = await this.db.query(
+      const [productoRows] = await this.db.query(
         `SELECT precio, tasa_iva FROM productos WHERE id = ?`,
         [item.id_producto]
       );
+      const producto = productoRows[0];
+      if (!producto) continue;
 
-      const precioConIva = producto[0].precio; // ya incluye IVA
-      const descuento = item.descuento || 0;
-      const cantidad = item.cantidad;
+      const precioConIva = Number(producto.precio);
+      const descuento = Number(item.descuento || 0);
+      const cantidad = Number(item.cantidad || 1);
 
       const subtotal = (precioConIva - descuento) * cantidad;
-      const iva = 0; // no se calcula porque ya está incluido
+      const iva = 0; // según tu comentario el precio ya incluye IVA
       const total = subtotal;
 
       await this.db.query(
         `INSERT INTO detalle_cotizacion (
-        id_cotizacion, id_producto, cantidad, precio_unitario,
-        descuento, subtotal, iva, total_iva_incluido
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          id_cotizacion, id_producto, cantidad, precio_unitario,
+          descuento, subtotal, iva, total_iva_incluido, markup_ingresado
+
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           idCotizacion,
           item.id_producto,
@@ -92,129 +126,197 @@ async crearCabecera({ numero_cotizacion, fecha, estado, id_usuario, id_cliente, 
           descuento,
           subtotal,
           iva,
-          total
+          total,
+          Number(item.markup_ingresado ?? item.markup ?? 0)
         ]
       );
     }
   }
 
-  // Método para obtener las cotizaciones en estado 'borrador' de un vendedor específico
-async obtenerBorradoresPorUsuario(id_usuario) {  
-  const [rows] = await this.db.query(`
-SELECT 
-  c.id, 
-  c.numero_cotizacion, 
-  c.fecha, 
-  c.estado,
-  cl.razon_social AS cliente_nombre,
-  u.nombre AS usuario_nombre,
-  ct.nombre_contacto AS contacto_nombre,
-  ct.apellido AS contacto_apellido,
-  c.vigencia_hasta,
-  SUM(dp.precio_unitario * dp.cantidad * (1 - dp.descuento / 100)) AS total
-FROM cotizaciones c
-LEFT JOIN cliente cl ON c.id_cliente = cl.id
-LEFT JOIN usuarios u ON c.id_usuario = u.id
-LEFT JOIN contactos ct ON c.id_contacto = ct.id
-LEFT JOIN detalle_cotizacion dp ON c.id = dp.id_cotizacion
-WHERE c.estado = 'borrador' AND c.id_usuario = ?
-GROUP BY c.id
-ORDER BY c.fecha DESC;
-`, [id_usuario]);
-
-  return rows;
-}
-
-  async obtenerCotizacionCompleta(idCotizacion) {
- const [cabecera] = await this.db.query(`
-  SELECT c.*, 
-         cl.razon_social AS cliente_nombre, cl.cuit,
-         u.nombre AS usuario_nombre, u.apellido AS usuario_apellido,
-         cc.forma_pago, cc.tipo_cambio, cc.dias_pago, cc.mark_up_maximo, cc.observaciones AS condiciones_observaciones,
-         dc.locacion, dc.localidad, dc.provincia
-  FROM cotizaciones c
-  JOIN cliente cl ON c.id_cliente = cl.id
-  JOIN usuarios u ON c.id_usuario = u.id
-  JOIN condiciones_comerciales cc ON c.id_condicion = cc.id
-  LEFT JOIN direccion_cliente dc ON c.id_direccion_cliente = dc.id
-  WHERE c.id = ?
-`, [idCotizacion]);
-
-    // Calcular IVA incluido por producto
-    const productos = detalle.map(item => {
-      const ivaDesglosado = item.precio_unitario * (item.tasa_iva / (100 + item.tasa_iva));
-      return {
-        ...item,
-        iva_desglosado: parseFloat(ivaDesglosado.toFixed(2))
-      };
-    });
-
-    return {
-      cabecera: cabecera[0],
-      productos
-    };
-  }
-
+  // Reemplaza los productos del detalle y persiste markup_ingresado
+  // Ejecuta delete + inserts dentro de una transacción para atomicidad
   async reemplazarProductos(idCotizacion, productos) {
-    await this.db.query(`DELETE FROM detalle_cotizacion WHERE id_cotizacion = ?`, [idCotizacion]);
+    await this.db.query('START TRANSACTION');
+    try {
+      await this.db.query(`DELETE FROM detalle_cotizacion WHERE id_cotizacion = ?`, [idCotizacion]);
 
-    for (const p of productos) {
-      // Validación mínima para evitar errores
-      if (!p.id_producto || p.cantidad <= 0) continue;
+      for (const p of productos) {
+        if (!p.id_producto || Number(p.cantidad) <= 0) continue;
 
-      const descuento = p.descuento || 0;
-      const precioFinal = p.precio_unitario - descuento;
-      const subtotal = precioFinal * p.cantidad;
-      const iva = 0; // ya está incluido
-      const total = subtotal;
-      console.log(`🧪 Insertando producto en cotización ${idCotizacion}:`, p);
-      await this.db.query(`
-      INSERT INTO detalle_cotizacion (
-        id_cotizacion, id_producto, cantidad, precio_unitario,
-        descuento, subtotal, iva, total_iva_incluido
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-        idCotizacion,
-        p.id_producto,
-        p.cantidad,
-        p.precio_unitario,
-        descuento,
-        subtotal,
-        iva,
-        total
-      ]);
-      console.log(`✅ Producto insertado:`, p.id_producto); // ✅ ahora dentro del for
+        const cantidad = Number(p.cantidad) || 1;
+        const precio_unitario = Number(p.precio_unitario ?? p.precio ?? 0);
+        const descuento = Number(p.descuento ?? 0);
+        const markup_ingresado = Number(p.markup_ingresado ?? p.markup ?? 0);
+        const subtotal = (precio_unitario - descuento) * cantidad;
+        const iva = 0;
+        const total = subtotal;
 
+        await this.db.query(
+          `INSERT INTO detalle_cotizacion (
+            id_cotizacion, id_producto, cantidad, precio_unitario,
+            descuento, subtotal, iva, total_iva_incluido, markup_ingresado
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            idCotizacion,
+            p.id_producto,
+            cantidad,
+            precio_unitario,
+            descuento,
+            subtotal,
+            iva,
+            total,
+            markup_ingresado
+          ]
+        );
+      }
 
+      await this.db.query('COMMIT');
+    } catch (err) {
+      await this.db.query('ROLLBACK');
+      throw err;
     }
   }
 
-  async obtenerCotizacionParaEdicion(id) {
-    const [cabecera] = await this.db.query(`
-  SELECT c.*, cl.razon_social, cl.cuit
-  FROM cotizaciones c
-  JOIN cliente cl ON c.id_cliente = cl.id
-  WHERE c.id = ?
-`, [id]);
+  // Obtener borradores por usuario
+  async obtenerBorradoresPorUsuario(id_usuario) {
+    const [rows] = await this.db.query(
+      `SELECT
+        c.id,
+        c.numero_cotizacion,
+        c.fecha,
+        c.estado,
+        cl.razon_social AS cliente_nombre,
+        u.nombre AS usuario_nombre,
+        ct.nombre_contacto AS contacto_nombre,
+        ct.apellido AS contacto_apellido,
+        c.vigencia_hasta,
+        SUM(dp.precio_unitario * dp.cantidad * (1 - dp.descuento / 100)) AS total
+      FROM cotizaciones c
+      LEFT JOIN cliente cl ON c.id_cliente = cl.id
+      LEFT JOIN usuarios u ON c.id_usuario = u.id
+      LEFT JOIN contactos ct ON c.id_contacto = ct.id
+      LEFT JOIN detalle_cotizacion dp ON c.id = dp.id_cotizacion
+      WHERE c.estado = 'borrador' AND c.id_usuario = ?
+      GROUP BY c.id
+      ORDER BY c.fecha DESC;`,
+      [id_usuario]
+    );
 
-
-    const [rows] = await this.db.query(`
-  SELECT
-    cd.*, p.detalle, p.part_number, p.marca, p.categoria, p.subcategoria, p.tasa_iva, p.precio
-  FROM detalle_cotizacion cd
-  JOIN productos p ON cd.id_producto = p.id
-  WHERE cd.id_cotizacion = ?
-`, [id]);
-
-    console.log('🧪 Productos recuperados para edición:', rows);
-
-    return {
-      cabecera: cabecera[0],
-      productos: rows
-    };
-
+    return rows;
   }
 
+  // Devuelve la cabecera + productos con datos enriquecidos (incluye mark_up_maximo desde condiciones_comerciales)
+ // Devuelve la cabecera + productos con datos enriquecidos (incluye mark_up_maximo desde condiciones_comerciales)
+async obtenerCotizacionCompleta(idCotizacion) {
+  const [cabeceraRows] = await this.db.query(
+    `SELECT c.*,
+       cl.razon_social AS cliente_nombre, cl.cuit,
+       u.nombre AS usuario_nombre, u.apellido AS usuario_apellido,
+       cc.forma_pago, cc.tipo_cambio, cc.dias_pago, cc.mark_up_maximo, cc.observaciones AS condiciones_observaciones,
+       dc.locacion, dc.localidad, dc.provincia
+     FROM cotizaciones c
+     JOIN cliente cl ON c.id_cliente = cl.id
+     JOIN usuarios u ON c.id_usuario = u.id
+     LEFT JOIN condiciones_comerciales cc ON c.id_condicion = cc.id
+     LEFT JOIN direccion_cliente dc ON c.id_direccion_cliente = dc.id
+     WHERE c.id = ?`,
+    [idCotizacion]
+  );
+
+  const cabeceraRaw = cabeceraRows[0] ?? null;
+
+  // normalizar mark_up_maximo a Number o null
+  let cabecera = cabeceraRaw;
+  if (cabecera) {
+    const rawMark = cabecera.mark_up_maximo;
+    if (rawMark === null || rawMark === undefined || rawMark === '') {
+      cabecera.mark_up_maximo = null;
+    } else {
+      const parsed = parseFloat(String(rawMark).replace(',', '.').trim());
+      cabecera.mark_up_maximo = Number.isFinite(parsed) ? parsed : null;
+    }
+  }
+
+  const [detalleRows] = await this.db.query(
+    `SELECT dc.*, p.detalle, p.part_number, p.marca, p.categoria, p.subcategoria, p.tasa_iva, p.precio
+     FROM detalle_cotizacion dc
+     JOIN productos p ON dc.id_producto = p.id
+     WHERE dc.id_cotizacion = ?`,
+    [idCotizacion]
+  );
+
+  const productos = (detalleRows || []).map(item => {
+    const tasa = Number(item.tasa_iva ?? 21);
+    const precio_unitario_raw = Number(item.precio_unitario ?? item.precio ?? 0);
+    const precio_unitario = parseFloat(precio_unitario_raw.toFixed(2));
+    const descuento = parseFloat(Number(item.descuento ?? 0).toFixed(2));
+    const subtotal = parseFloat(Number(item.subtotal ?? (precio_unitario - descuento) * Number(item.cantidad ?? 1)).toFixed(2));
+    const ivaDesglosado = tasa > 0 ? precio_unitario * (tasa / (100 + tasa)) : 0;
+
+    return {
+      ...item,
+      precio_unitario,
+      descuento,
+      subtotal,
+      iva_desglosado: parseFloat(ivaDesglosado.toFixed(2)),
+      // asegurar markup_ingresado numérico y consistente
+      markup_ingresado: item.markup_ingresado !== undefined && item.markup_ingresado !== null
+        ? Number(item.markup_ingresado)
+        : 0
+    };
+  });
+
+  return {
+    cabecera,
+    productos
+  };
 }
 
+// Devuelve la cabecera y los productos para edición
+async obtenerCotizacionParaEdicion(id) {
+  const [cabeceraRows] = await this.db.query(
+    `SELECT c.*, cl.razon_social, cl.cuit
+     FROM cotizaciones c
+     JOIN cliente cl ON c.id_cliente = cl.id
+     WHERE c.id = ?`,
+    [id]
+  );
 
+  const cabecera = cabeceraRows[0] ?? null;
+
+  const [rows] = await this.db.query(
+    `SELECT
+      cd.*, p.detalle, p.part_number, p.marca, p.categoria, p.subcategoria, p.tasa_iva, p.precio
+     FROM detalle_cotizacion cd
+     JOIN productos p ON cd.id_producto = p.id
+     WHERE cd.id_cotizacion = ?`,
+    [id]
+  );
+
+  const productos = (rows || []).map(item => {
+    const tasa = Number(item.tasa_iva ?? 21);
+    const precio_unitario_raw = Number(item.precio_unitario ?? item.precio ?? 0);
+    const precio_unitario = parseFloat(precio_unitario_raw.toFixed(2));
+    const descuento = parseFloat(Number(item.descuento ?? 0).toFixed(2));
+    const subtotal = parseFloat(Number(item.subtotal ?? (precio_unitario - descuento) * Number(item.cantidad ?? 1)).toFixed(2));
+    const ivaDesglosado = tasa > 0 ? precio_unitario * (tasa / (100 + tasa)) : 0;
+
+    return {
+      ...item,
+      precio_unitario,
+      descuento,
+      subtotal,
+      iva_desglosado: parseFloat(ivaDesglosado.toFixed(2)),
+      markup_ingresado: item.markup_ingresado !== undefined && item.markup_ingresado !== null
+        ? Number(item.markup_ingresado)
+        : 0
+    };
+  });
+
+  return {
+    cabecera,
+    productos
+  };
+}
+
+}

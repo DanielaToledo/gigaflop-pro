@@ -1,3 +1,5 @@
+  
+
 export const getMenuOptions = (req, res) => {
     try {
         const menuOptions = [
@@ -15,4 +17,3 @@ export const getMenuOptions = (req, res) => {
     }
 };
 export default { getMenuOptions };      
-

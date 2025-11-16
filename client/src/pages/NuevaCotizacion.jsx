@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMemo } from 'react';
 import axios from 'axios';
 import BuscadorProductos from '../components/BuscadorProductos';
@@ -70,8 +70,15 @@ const NuevaCotizacion = () => {
   const [observaciones, setObservaciones] = useState('');
   const [plazoEntrega, setPlazoEntrega] = useState('');
   const [vencimiento, setVencimiento] = useState('');
-const [condicionSeleccionada, setCondicionSeleccionada] = useState('');
-const [condiciones, setCondiciones] = useState([]);
+  const [condicionSeleccionada, setCondicionSeleccionada] = useState('');
+  const [condiciones, setCondiciones] = useState([]);
+  const [opcionesDiasPago, setOpcionesDiasPago] = useState([]);       // select
+  const [markUpMaximoServer, setMarkUpMaximoServer] = useState(null);
+
+  const [diasPendiente, setDiasPendiente] = useState(null); // nuevo: valor que queremos resolver al retomar
+  const diasResueltoRef = useRef(false);      // evita sobrescrituras una vez resuelto
+  const condicionesCargadasRef = useRef(false);   // marca que cargarCondiciones ya terminó
+  const userInteractedRef = useRef(false);
 
 
 
@@ -80,7 +87,7 @@ const [condiciones, setCondiciones] = useState([]);
   const [productosDisponibles, setProductosDisponibles] = useState([]);
   const [seleccionModal, setSeleccionModal] = useState({});
   const [condicionesComerciales, setCondicionesComerciales] = useState([]);
-  const [opcionesDiasPago, setOpcionesDiasPago] = useState([]);
+
 
   // Estados para el buscador de productos(modal)
   const [busquedaProducto, setBusquedaProducto] = useState('');
@@ -95,16 +102,153 @@ const [condiciones, setCondiciones] = useState([]);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [paginaActual, setPaginaActual] = useState(1);
 
+  const [formulario, setFormulario] = useState({ cabecera: {}, productos: [] });
+  const [erroresProductos, setErroresProductos] = useState({}); // { <id|index>: "mensaje" }
+
   // Determina si estamos en modo edición (retomar cotización existente)
   const modoEdicion = Boolean(idCotizacionActual);
 
   // Obtener el usuario actual desde el contexto
   const { usuario: usuarioActual } = useUser();
 
+  // Normalizadores
+  const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+
+  const normalizarProducto = p => ({
+    id_producto: normalizarNumero(p.id_producto ?? p.id),
+    cantidad: normalizarNumero(p.cantidad) || 1,
+    precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+    descuento: Number(p.descuento ?? 0) || 0,
+    markup_ingresado: Number(p.markup_ingresado ?? p.markup ?? 0),
+    tasa_iva: Number(p.tasa_iva ?? 21) || 21,
+    part_number: p.part_number ?? p.partNumber ?? null,
+    detalle: p.detalle ?? p.nombre ?? null,
+    subtotal: Number(
+      p.subtotal ??
+      ((Number(p.precio_unitario ?? p.precio ?? 0) - Number(p.descuento ?? 0)) * (p.cantidad || 1))
+    ) || 0
+  });
+
+  // Devuelve id de condición como Number o null si no hay id
+  const getCondicionId = (cond) => {
+    if (cond === null || cond === undefined || cond === '') return null;
+
+    // Si ya es número finito (number)
+    if (typeof cond === 'number' && Number.isFinite(cond)) return Number(cond);
+
+    // Si es string, puede ser "123" o "Contado"
+    if (typeof cond === 'string') {
+      const trimmed = cond.trim();
+      if (trimmed === '') return null;
+      if (/^\d+$/.test(trimmed)) return Number(trimmed); // "123" -> 123
+      // si no es numérica, buscar por nombre en condiciones
+      const byName = condiciones.find(c => (c.nombre ?? c.forma_pago ?? '').toString().trim() === trimmed);
+      return byName ? byName.id : null;
+    }
+
+    // Si es objeto, intentar extraer id directamente o buscar por nombre
+    if (typeof cond === 'object') {
+      const possibleId = cond.id ?? cond.id_condicion ?? cond.value ?? cond.key;
+      if (possibleId !== undefined && possibleId !== null && possibleId !== '') {
+        if (typeof possibleId === 'number' && Number.isFinite(possibleId)) return Number(possibleId);
+        if (typeof possibleId === 'string' && /^\d+$/.test(possibleId.trim())) return Number(possibleId.trim());
+      }
+      const possibleName = cond.nombre ?? cond.forma_pago ?? cond.label ?? cond.name;
+      if (possibleName) {
+        const trimmed = possibleName.toString().trim();
+        const byName = condiciones.find(c => (c.nombre ?? c.forma_pago ?? '').toString().trim() === trimmed);
+        return byName ? byName.id : null;
+      }
+    }
+
+    return null;
+  };
 
 
 
+  // Derivar markUpMaximo de forma segura usando getCondicionId
+  const markUpMaximo = useMemo(() => {
+    const idCond = getCondicionId(condicionSeleccionada);
+    if (!idCond || !Array.isArray(condiciones)) return null;
 
+    const found = condiciones.find(c =>
+      Number(c.id) === Number(idCond) || String(c.id) === String(idCond)
+    );
+    if (!found) return null;
+
+    const raw = found.mark_up_maximo ?? found.markup ?? found.markUpMaximo ?? found.markup_maximo;
+    return normalizarNumero(raw);
+  }, [condicionSeleccionada, condiciones]);
+
+
+  // Lista normalizada de productos del carrito
+  const productosNormalizados = useMemo(
+    () => (Array.isArray(carrito) ? carrito.map(normalizarProducto) : []),
+    [carrito]
+  );
+
+  // Productos que exceden el máximo (null-safe)
+  const productosExcedenMarkup = useMemo(() => {
+    if (markUpMaximo === null) return [];
+    return productosNormalizados.filter(p => {
+      const markup = Number(p.markup_ingresado ?? 0);
+      return Number.isFinite(markup) && markup > markUpMaximo;
+    });
+  }, [productosNormalizados, markUpMaximo]);
+
+  // Validación antes de enviar (devuelve boolean)
+  const validarAntesDeEnviar = () => {
+    const maxServer = Number(markUpMaximoServer ?? 0);
+
+    const productosExceden = (Array.isArray(carrito) ? carrito : [])
+      .map((p, i) => {
+        const key = getProductKey(p, i);
+        const ingreso = Number(p.markup ?? p.markup_ingresado ?? 0);
+        return { p, key, ingreso, excede: maxServer && !Number.isNaN(ingreso) && ingreso > maxServer };
+      })
+      .filter(x => x.excede);
+
+    // construir errores por línea
+    const errores = {};
+    productosExceden.forEach(x => {
+      const p = x.p;
+      errores[x.key] = `El markup del producto ${p.part_number ?? `id ${p.id_producto ?? p.id}`} (${x.ingreso}%) supera el máximo permitido (${maxServer}%)`;
+    });
+    setErroresProductos(errores);
+
+    if (productosExceden.length > 0) {
+      // mensaje global breve y no la lista completa
+      setMensajeError(`Hay ${productosExceden.length} producto(s) con markup superior al máximo ${maxServer}%`);
+      return false;
+    }
+
+    // limpiar y continuar
+    setMensajeError('');
+    setErroresProductos({});
+    return true;
+  };
+
+  // Construir payload para enviar al servidor
+  const buildPayload = (estado = 'borrador', extra = {}) => {
+    const productos = (Array.isArray(carrito) ? carrito : [])
+      .map(normalizarProducto)
+      .filter(p => Number.isFinite(p.id_producto));
+
+    return {
+      id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente) ?? null,
+      id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+      id_usuario: normalizarNumero(usuarioActual?.id) ?? null,
+      id_direccion_cliente: normalizarNumero(direccionIdSeleccionada) ?? null,
+      id_condicion: normalizarNumero(getCondicionId(condicionSeleccionada)) || null,
+      vigencia_hasta: vigenciaHasta || null,
+      observaciones: observaciones || '',
+      plazo_entrega: plazoEntrega || '',
+      costo_envio: normalizarNumero(costoEnvio) || 0,
+      estado,
+      productos,
+      ...extra
+    };
+  };
 
 
 
@@ -143,6 +287,10 @@ const [condiciones, setCondiciones] = useState([]);
       }));
       setCarrito(formateados);
       setProductosSeleccionados(formateados);
+      // validar cada producto para precargar errores inline
+      formateados.forEach((p, idx) => validateMarkupForProduct(getProductKey(p, idx), p.markup));
+
+
     } else {
       const guardados = localStorage.getItem('productosParaCotizar');
       if (guardados) {
@@ -275,6 +423,11 @@ const [condiciones, setCondiciones] = useState([]);
   }, [busqueda]);
 
 
+
+
+
+
+
   // Obtener idCotizacion de los parámetros de la URL
   useEffect(() => {
     if (idCotizacion) {
@@ -283,18 +436,30 @@ const [condiciones, setCondiciones] = useState([]);
   }, [idCotizacion]);
 
 
-
-// 👇 Helper para convertir nombre a ID
-const getCondicionId = (nombreCondicion) => {
-  const condicion = condiciones.find(c => c.nombre === nombreCondicion);
-  return condicion?.id || null;
-};
-
-
-
+  const getProductKey = (p, i) => String(p.id_producto ?? p.id ?? p.part_number ?? `idx_${i}`);
+  const validateMarkupForProduct = (productKey, valorMarkup) => {
+    const maxServer = Number(markUpMaximoServer ?? 0);
+    const ingreso = Number(valorMarkup ?? 0);
+    setErroresProductos(prev => {
+      const nuevo = { ...(prev || {}) };
+      if (!maxServer || Number.isNaN(ingreso)) {
+        delete nuevo[String(productKey)];
+        return nuevo;
+      }
+      if (ingreso > maxServer) {
+        nuevo[String(productKey)] = `El markup del producto ${productKey} (${ingreso}%) supera el máximo permitido (${maxServer}%)`;
+      } else {
+        delete nuevo[String(productKey)];
+      }
+      return nuevo;
+    });
+  };
 
 
   const cargarCotizacionExistente = async (id) => {
+    const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+    const norm = s => String(s ?? '').trim().toLowerCase();
+
     try {
       const res = await axios.get(`/api/cotizaciones/borrador/retomar/${id}`, {
         headers: { 'Cache-Control': 'no-cache' }
@@ -307,101 +472,426 @@ const getCondicionId = (nombreCondicion) => {
         return;
       }
 
-      // Setear cliente
+      // 1) Setear cliente seleccionado (id) temprano
       setClienteSeleccionado(cabecera.id_cliente);
 
-      // Buscar cliente en la lista o construirlo desde cabecera
-      let clienteEncontrado = clientesDisponibles.find(c => c.id === cabecera.id_cliente);
+      // Reconstruir clienteObjeto para mostrar en UI
+      let clienteEncontrado = Array.isArray(clientesDisponibles)
+        ? clientesDisponibles.find(c => Number(c.id) === Number(cabecera.id_cliente))
+        : undefined;
 
-      if (!clienteEncontrado && cabecera.razon_social && cabecera.cuit) {
+      if (!clienteEncontrado && cabecera?.razon_social && cabecera?.cuit) {
         clienteEncontrado = {
           id: cabecera.id_cliente,
-          razon_social: cabecera.razon_social.trim(),
-          cuit: cabecera.cuit.trim()
+          razon_social: String(cabecera.razon_social).trim(),
+          cuit: String(cabecera.cuit).trim()
         };
 
-        // Agregar cliente si no está en la lista
         setClientesDisponibles(prev => {
-          const yaExiste = prev.some(c => c.id === clienteEncontrado.id);
-          return yaExiste ? prev : [...prev, clienteEncontrado];
+          const prevArr = Array.isArray(prev) ? prev : [];
+          const yaExiste = prevArr.some(x => Number(x.id) === Number(clienteEncontrado.id));
+          return yaExiste ? prevArr : [...prevArr, clienteEncontrado];
         });
       }
 
-      setClienteObjeto(clienteEncontrado);
-      setBusquedaCliente(`${clienteEncontrado?.razon_social} – CUIT: ${clienteEncontrado?.cuit}`);
+      setClienteObjeto(clienteEncontrado || null);
+      setBusquedaCliente(clienteEncontrado ? `${clienteEncontrado.razon_social} – CUIT: ${clienteEncontrado.cuit}` : '');
 
-      // Cargar contactos
+      // ------------------------------------------------------------
+      // CARGAR Y NORMALIZAR CONDICIONES (fuente de verdad local)
+      // ------------------------------------------------------------
+      const condicionesLoaded = await cargarCondiciones(cabecera.id_cliente);
+
+      // Normalizar posibles formatos de retorno
+      let condicionesFuente = [];
+      if (Array.isArray(condicionesLoaded)) {
+        condicionesFuente = condicionesLoaded;
+      } else if (condicionesLoaded && typeof condicionesLoaded === 'object') {
+        if (Array.isArray(condicionesLoaded.lista)) condicionesFuente = condicionesLoaded.lista;
+        else if (Array.isArray(condicionesLoaded.listaCondiciones)) condicionesFuente = condicionesLoaded.listaCondiciones;
+        else if (Array.isArray(condicionesLoaded.lista_condiciones)) condicionesFuente = condicionesLoaded.lista_condiciones;
+        else if (Array.isArray(condicionesLoaded.condiciones)) condicionesFuente = condicionesLoaded.condiciones;
+        else {
+          const maybe = condicionesLoaded;
+          if (maybe && (maybe.id || maybe.forma_pago)) condicionesFuente = [maybe];
+        }
+      }
+
+      // fallback: usar estado si no vino nada
+      if (!Array.isArray(condicionesFuente) || condicionesFuente.length === 0) {
+        condicionesFuente = Array.isArray(condiciones) && condiciones.length > 0 ? condiciones : [];
+      }
+
+      // dedupe defensivo por id (prioriza entradas con dias_pago no vacíos y prioriza la última)
+      const dedupeCondiciones = (arr = []) => {
+        const map = new Map();
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const c = arr[i] ?? {};
+          const id = String(c?.id ?? c?.id_condicion ?? '');
+          if (!id) continue;
+          if (!map.has(id)) map.set(id, c);
+          else {
+            const existing = map.get(id);
+            const existingDias = String(existing?.dias_pago ?? existing?.dias ?? '').trim();
+            const currentDias = String(c?.dias_pago ?? c?.dias ?? '').trim();
+            if ((!existingDias || existingDias === '') && currentDias) map.set(id, c);
+          }
+        }
+        return Array.from(map.values()).reverse();
+      };
+
+      condicionesFuente = dedupeCondiciones(condicionesFuente);
+
+      // Guardar en estado y marcar como cargadas
+      if (typeof setCondiciones === 'function') setCondiciones(condicionesFuente);
+      if (typeof condicionesCargadasRef !== 'undefined' && condicionesCargadasRef && 'current' in condicionesCargadasRef) {
+        condicionesCargadasRef.current = true;
+      }
+
+      console.log('AFTER cargarCondiciones -> condicionesFuente (post-dedupe):', condicionesFuente);
+
+      // ------------------------------------------------------------
+      // Decidir si usar el valor de la cabecera como diasPendiente
+      // (ahora basado en condicionesFuente, no en condiciones estado obsoleto)
+      // ------------------------------------------------------------
+      let _diasPendienteLocal = null;
+      const diasCabecera = cabecera.dias_pago ?? cabecera.vencimiento ?? null;
+
+      if (diasCabecera !== null && diasCabecera !== undefined && String(diasCabecera).trim() !== '') {
+        const valCab = String(diasCabecera).trim();
+
+        const idCondOrigenTemp = cabecera.id_condicion ?? null;
+        const condicionDesdeCabeceraTemp = (Array.isArray(condicionesFuente) && idCondOrigenTemp)
+          ? condicionesFuente.find(c => Number(c.id) === Number(idCondOrigenTemp)) || null
+          : null;
+
+        const diasDesdeCondicionTemp = condicionDesdeCabeceraTemp ? String(condicionDesdeCabeceraTemp.dias_pago ?? condicionDesdeCabeceraTemp.dias ?? '').trim() : '';
+
+        if (!diasDesdeCondicionTemp) {
+          // La condición no trae días -> usamos cabecera como pendiente
+          _diasPendienteLocal = valCab;
+          if (typeof setDiasPendiente === 'function') setDiasPendiente(_diasPendienteLocal);
+        } else {
+          // La condición ya tiene días -> preferimos esa fuente
+          _diasPendienteLocal = null;
+          if (typeof setDiasPendiente === 'function') setDiasPendiente(null);
+        }
+      } else {
+        if (typeof setDiasPendiente === 'function') setDiasPendiente(null);
+      }
+
+      // ------------------------------------------------------------
+      // helper: aplicar dias y tipo de cambio desde una condición concreta (usa opciones actuales si existen)
+      // ------------------------------------------------------------
+      const aplicarDiasDesdeCondicion = (cond) => {
+        if (!cond) return false;
+        const diasCondRaw = cond.dias_pago ?? cond.dias ?? '';
+        const diasCond = String(diasCondRaw ?? '').trim();
+        const tipoCambioCond = cond.tipo_cambio ?? cond.tipoCambio ?? '';
+        if (tipoCambioCond !== '') setTipoCambio(String(tipoCambioCond));
+
+        if (!diasCond) return false;
+
+        const opcionesEstado = Array.isArray(opcionesDiasPago) ? opcionesDiasPago.map(String).map(s => s.trim()) : [];
+        if (opcionesEstado.length > 0 && opcionesEstado.includes(diasCond)) {
+          setDiasPago(diasCond);
+          setDiasPagoExtra('');
+        } else {
+          setDiasPago('');
+          setDiasPagoExtra(diasCond);
+        }
+
+        if (typeof diasResueltoRef !== 'undefined' && diasResueltoRef && 'current' in diasResueltoRef) diasResueltoRef.current = true;
+        return true;
+      };
+
+      // ------------------------------------------------------------
+      // Aplicar condición preferente desde condicionesFuente (sin depender del state)
+      // ------------------------------------------------------------
+      const idCondOrigen = normalizarNumero(cabecera.id_condicion);
+      const formaOrigen = (cabecera.forma_pago ?? '').toString().trim();
+
+      const idSelActual = (condicionSeleccionada && typeof condicionSeleccionada === 'object' && condicionSeleccionada.id) ? Number(condicionSeleccionada.id) : null;
+      const tieneSeleccionUsuario = !!idSelActual || (formaPago && String(formaPago).trim() !== '');
+
+      // Solo aplicar automáticamente si el usuario NO interactuó y no existe selección previa
+      if (!tieneSeleccionUsuario && !userInteractedRef?.current) {
+        if (idCondOrigen) {
+          const found = condicionesFuente.find(c => Number(c.id) === Number(idCondOrigen));
+          if (found) {
+            // aplicar desde la variable local 'found' para evitar leer state que React todavía no actualizó
+            const forma = (found.forma_pago ?? found.nombre ?? '').toString().trim();
+            setCondicionSeleccionada({ id: found.id, forma_pago: forma });
+            setFormaPago(forma);
+
+            const tipoCambioFromCond = found.tipo_cambio ?? found.tipoCambio ?? '';
+            if (tipoCambioFromCond !== '') setTipoCambio(String(tipoCambioFromCond));
+
+            aplicarDiasDesdeCondicion(found);
+          } else {
+            // no vino la condición en la lista: guardamos id y forma del header para payload
+            setCondicionSeleccionada({ id: idCondOrigen, forma_pago: formaOrigen || '' });
+            setFormaPago(formaOrigen || '');
+          }
+        } else if (formaOrigen) {
+          const byName = condicionesFuente.find(c => norm(c.forma_pago ?? c.nombre) === norm(formaOrigen));
+          if (byName) {
+            const forma = (byName.forma_pago ?? '').toString().trim();
+            setCondicionSeleccionada({ id: byName.id, forma_pago: forma });
+            setFormaPago(forma);
+
+            const tipoCambioFromCond = byName.tipo_cambio ?? byName.tipoCambio ?? '';
+            if (tipoCambioFromCond !== '') setTipoCambio(String(tipoCambioFromCond));
+            aplicarDiasDesdeCondicion(byName);
+          } else {
+            setCondicionSeleccionada({ id: null, forma_pago: formaOrigen });
+            setFormaPago(formaOrigen);
+          }
+        } else {
+          setCondicionSeleccionada('');
+          setFormaPago('');
+        }
+      } else {
+        // Si el usuario ya tenía selección, sincronizamos formaPago con la selección actual (si es posible)
+        if (idSelActual) {
+          const matched = condicionesFuente.find(c => Number(c.id) === Number(idSelActual));
+          if (matched) {
+            setCondicionSeleccionada({ id: matched.id, forma_pago: (matched.forma_pago ?? '').toString().trim() });
+            setFormaPago((matched.forma_pago ?? '').toString().trim());
+
+            const tipoCambioFromCond = matched.tipo_cambio ?? matched.tipoCambio ?? '';
+            if (tipoCambioFromCond !== '') setTipoCambio(String(tipoCambioFromCond));
+            aplicarDiasDesdeCondicion(matched);
+          }
+        }
+      }
+
+      // ------------------------------------------------------------
+      // Cargar contactos (esperar y manejar fallo sin sobreescribir todo)
+      // ------------------------------------------------------------
       try {
         const contactosRes = await axios.get(`/api/clientes/${cabecera.id_cliente}/contactos`);
         const listaContactos = Array.isArray(contactosRes.data) ? contactosRes.data : [];
         setContactosCliente(listaContactos);
 
-        const contactoEncontrado = listaContactos.find(c => c.id === cabecera.id_contacto);
+        const contactoEncontrado = listaContactos.find(c => Number(c.id) === Number(cabecera.id_contacto));
         setContacto(contactoEncontrado?.id || '');
       } catch (err) {
         console.error('Error al cargar contactos del cliente', err);
-        setContactosCliente([]);
+        setContactosCliente(prev => prev || []);
         setContacto('');
       }
 
-      // Cargar direcciones
+      // ------------------------------------------------------------
+      // Cargar direcciones y días de pago
+      // ------------------------------------------------------------
       try {
         const direccionesRes = await axios.get(`/api/clientes/${cabecera.id_cliente}/direcciones`);
         setDireccionesCliente(Array.isArray(direccionesRes.data) ? direccionesRes.data : []);
-
-         setDireccionIdSeleccionada(cabecera.id_direccion_cliente || '');
-console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
+        setDireccionIdSeleccionada(cabecera.id_direccion_cliente || '');
+        console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
       } catch (err) {
         console.error('Error al cargar direcciones del cliente', err);
-        setDireccionesCliente([]);
+        setDireccionesCliente(prev => prev || []);
+        setDireccionIdSeleccionada('');
       }
 
-      // Cargar días de pago
       try {
         const diasRes = await axios.get(`/api/clientes/${cabecera.id_cliente}/dias-pago`);
-        setOpcionesDiasPago(diasRes.data.map(String));
+
+        // Normalizar opciones como strings trimmed, únicos y sin vacíos
+        const opcionesRaw = Array.isArray(diasRes.data) ? diasRes.data : [];
+        const opciones = Array.from(new Set(opcionesRaw.map(x => String(x ?? '').trim()))).filter(x => x !== '');
+        setOpcionesDiasPago(opciones);
+
+        // reset flag local (si existe el ref)
+        if (typeof diasResueltoRef !== 'undefined' && diasResueltoRef && 'current' in diasResueltoRef) {
+          diasResueltoRef.current = false;
+        }
+
+        console.log('opciones normalizadas:', opciones);
+        console.log('condicionSeleccionada raw:', condicionSeleccionada);
+        console.log('pendiente local:', typeof _diasPendienteLocal !== 'undefined' ? _diasPendienteLocal : null);
+
+        // helper local para aplicar valor en select o en extra (mutuamente excluyentes)
+        const aplicarValorDiasLocal = (valor) => {
+          const v = String(valor ?? '').trim();
+          if (!v) return false;
+          if (opciones.includes(v)) {
+            setDiasPago(v);
+            setDiasPagoExtra('');
+          } else {
+            setDiasPago('');
+            setDiasPagoExtra(v);
+          }
+          if (typeof diasResueltoRef !== 'undefined' && diasResueltoRef && 'current' in diasResueltoRef) diasResueltoRef.current = true;
+          return true;
+        };
+
+        // Determinar prioridad de origen de dias (variables locales)
+        let aplicado = false;
+
+        // 1) intentar desde condicionSeleccionada (si es objeto con id)
+        const csLocal = condicionSeleccionada && typeof condicionSeleccionada === 'object' ? condicionSeleccionada : null;
+        if (csLocal && csLocal.id) {
+          const matchedLocal = condicionesFuente.find(c => Number(c.id) === Number(csLocal.id)) || null;
+          const diasCond = matchedLocal ? (matchedLocal.dias_pago ?? matchedLocal.dias ?? null) : null;
+          console.log('matchedLocal.dias_pago (si matched):', matchedLocal ? (matchedLocal.dias_pago ?? matchedLocal.dias) : null);
+          if (diasCond !== null && diasCond !== undefined && String(diasCond).trim() !== '') {
+            aplicado = aplicarValorDiasLocal(diasCond);
+
+            // si no estaba en opciones y querés que el select lo muestre, añadilo y reaplicá
+            if (!aplicado) {
+              const v = String(diasCond).trim();
+              if (v) {
+                const merged = Array.from(new Set([...(opciones || []), v]));
+                setOpcionesDiasPago(merged);
+                // aplicar con la nueva lista (actualizar estado ya disparará render; aquí aplicamos de todas formas)
+                aplicarValorDiasLocal(v);
+                aplicado = true;
+              }
+            }
+          }
+        }
+
+        // 2) fallback: usar diasPendiente (estado) si existe
+        if (!aplicado && diasPendiente) {
+          const val = String(diasPendiente).trim();
+          if (val) {
+            if (!opciones.includes(val)) {
+              setOpcionesDiasPago(prev => Array.from(new Set([...(prev || []), val])));
+            }
+            aplicarValorDiasLocal(val);
+          }
+        }
+
+        console.log('despues aplicar -> diasPago:', diasPago, 'diasPagoExtra:', diasPagoExtra);
       } catch (err) {
-        console.error('Error al cargar días de pago', err);
+        console.error('Error al cargar días de pago del cliente', err);
         setOpcionesDiasPago([]);
       }
 
-      // Cargar condiciones comerciales
-      await cargarCondiciones(cabecera.id_cliente);
-      setCondicionSeleccionada(cabecera.forma_pago?.trim() || '');
-
-      // Cargar productos
-      const formateados = productos.map(p => ({
-        ...p,
-        cantidad: p.cantidad || 1,
-        markup: p.markup ?? 0,
-        descuento: p.descuento ?? 0,
+      // ------------------------------------------------------------
+      // Mapear y normalizar productos devueltos por la API y setear el carrito
+      // ------------------------------------------------------------
+      const formateados = (Array.isArray(productos) ? productos : []).map(p => ({
+        id: p.id_producto ?? p.id,
+        id_producto: p.id_producto ?? p.id,
+        cantidad: Number(p.cantidad ?? 1),
+        markup_ingresado: Number(p.markup_ingresado ?? p.markup ?? 0),
+        markup: Number(p.markup ?? p.markup_ingresado ?? 0),
+        descuento: Number(p.descuento ?? 0),
         precio: Number(p.precio) || 0,
-        tasa_iva: Number(p.tasa_iva) || 21
+        precio_unitario: Number(p.precio_unitario ?? p.precio ?? 0),
+        tasa_iva: Number(p.tasa_iva ?? 21),
+        part_number: p.part_number ?? p.partNumber ?? null,
+        detalle: p.detalle ?? p.nombre ?? null,
+        subtotal: Number(p.subtotal ?? ((Number(p.precio_unitario ?? p.precio ?? 0) - Number(p.descuento ?? 0)) * (p.cantidad || 1)))
       }));
 
       setProductosSeleccionados(formateados);
       setCarrito(formateados);
+      // validar cada producto para precargar errores inline
+      formateados.forEach((p, idx) => validateMarkupForProduct(getProductKey(p, idx), p.markup));
+
+
+      // Limpiar errores por producto
+      setErroresProductos({});
 
       // Otros datos de cabecera
       setVigenciaHasta(cabecera.vigencia_hasta || '');
       setObservaciones(cabecera.observaciones || '');
       setPlazoEntrega(cabecera.plazo_entrega || '');
-      setCostoEnvio(cabecera.costo_envio || '');
+      setCostoEnvio(cabecera.costo_envio ?? '');
 
-      // Estado e identificadores
       setEstadoCotizacion(cabecera.estado);
       setNumeroCotizacion(cabecera.numero_cotizacion);
-      setIdCotizacionActual(cabecera.id);
-      localStorage.setItem('idCotizacionActual', cabecera.id);
+      setIdCotizacionActual(cabecera.id ?? cabecera.id_cotizacion ?? null);
+      localStorage.setItem('idCotizacionActual', (cabecera.id ?? cabecera.id_cotizacion ?? '') + '');
 
+      if (cabecera.mark_up_maximo !== undefined) {
+        setMarkUpMaximoServer?.(Number(cabecera.mark_up_maximo));
+      }
+
+      // Logs para verificación
+      console.log('cabecera (retomada):', cabecera);
+      console.log('clienteEncontrado (reconstruido):', clienteEncontrado);
+      console.log('condiciones (post cargarCondiciones - local):', condicionesFuente);
+      console.log('condicionSeleccionada (final):', condicionSeleccionada, '-> getCondicionId:', getCondicionId(condicionSeleccionada));
+      console.log('diasPago (final):', diasPago, 'diasPagoExtra (final):', diasPagoExtra);
+      console.log('tipoCambio (final):', tipoCambio);
+      console.log('carrito reconstruido:', formateados);
     } catch (error) {
       console.error('Error al cargar cotización existente:', error);
     }
   };
 
 
+  useEffect(() => {
+    if (!clienteSeleccionado) return;
+    if (userInteractedRef?.current) return;
+    if (diasResueltoRef?.current) return;
 
+    let mounted = true;
 
+    (async () => {
+      try {
+        // esperar hasta que condiciones hayan sido cargadas (timeout 1s)
+        const esperaCondiciones = () => new Promise(resolve => {
+          const start = Date.now();
+          const tick = () => {
+            if (condicionesCargadasRef.current) return resolve(true);
+            if (Date.now() - start > 1000) return resolve(false);
+            setTimeout(tick, 50);
+          };
+          tick();
+        });
+        await esperaCondiciones();
+
+        const { data } = await axios.get(`/api/clientes/${clienteSeleccionado}/dias-pago`);
+        if (!mounted) return;
+
+        // normalizar y guardar opciones
+        const opciones = Array.isArray(data)
+          ? Array.from(new Set(data.map(x => String(x ?? '').trim()))).filter(x => x !== '')
+          : [];
+        setOpcionesDiasPago(opciones);
+
+        // helper para aplicar valor según las opciones recién obtenidas
+        const aplicarValor = (valor) => {
+          const v = String(valor ?? '').trim();
+          if (!v) return false;
+          if (opciones.includes(v)) {
+            setDiasPago(v);
+            setDiasPagoExtra('');
+          } else {
+            setDiasPago('');
+            setDiasPagoExtra(v);
+          }
+          if (typeof diasResueltoRef !== 'undefined' && diasResueltoRef && 'current' in diasResueltoRef) diasResueltoRef.current = true;
+          return true;
+        };
+
+        // prioridad: usar diasPendiente (estado) si existe
+        const pendiente = (typeof diasPendiente !== 'undefined' && diasPendiente) ? String(diasPendiente).trim() : null;
+
+        if (pendiente) {
+          // leemos los valores actuales del estado para no sobrescribir la selección del usuario
+          const usuarioTieneSeleccion = (diasPago && String(diasPago).trim() !== '') || (diasPagoExtra && String(diasPagoExtra).trim() !== '');
+          if (!usuarioTieneSeleccion) {
+            const aplicado = aplicarValor(pendiente);
+            if (aplicado && typeof setDiasPendiente === 'function') setDiasPendiente(null);
+          }
+        }
+      } catch (err) {
+        console.error('Error al cargar días de pago del cliente', err);
+        setOpcionesDiasPago([]);
+      }
+    })();
+
+    return () => { mounted = false; };
+    // agrego diasPago/diasPagoExtra para asegurar que el efecto vea la selección más reciente
+  }, [clienteSeleccionado, diasPendiente, diasPago, diasPagoExtra]);
 
 
 
@@ -488,60 +978,171 @@ console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
 
   // Cargar condiciones comerciales al cambiar cliente
   useEffect(() => {
-    if (clienteSeleccionado) {
-      cargarCondiciones(clienteSeleccionado);
+    if (!clienteSeleccionado) {
+      condicionesCargadasRef.current = false;
+      return;
     }
+
+    let mounted = true;
+    condicionesCargadasRef.current = false;
+
+    (async () => {
+      try {
+        const loaded = await cargarCondiciones(clienteSeleccionado);
+        if (!mounted) return;
+        // marcar que la llamada terminó (aunque venga vacía)
+        condicionesCargadasRef.current = true;
+        // setCondiciones debería hacerse dentro de cargarCondiciones; si no, hacelo aquí:
+        if (Array.isArray(loaded) && typeof setCondiciones === 'function') setCondiciones(loaded);
+      } catch (err) {
+        console.error('Error en cargarCondiciones useEffect', err);
+        condicionesCargadasRef.current = true;
+      }
+    })();
+
+    return () => { mounted = false; };
   }, [clienteSeleccionado]);
 
- 
- 
- 
+
   // Cargar condiciones comerciales al seleccionar cliente
- const cargarCondiciones = async (idCliente) => {
-  try {
-    const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`, {
-      headers: { 'Cache-Control': 'no-cache' }
-    });
+  const cargarCondiciones = async (idCliente) => {
+    try {
+      const { data } = await axios.get(`/api/clientes/${idCliente}/condiciones`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
 
-    const forma = (data.forma_pago || '').trim();
-    const cambio = (data.tipo_cambio || '').trim();
-    const dias = String(data.dias_pago || '').trim();
+      // Normalizar la respuesta a un array de condiciones
+      let listaCondiciones = [];
+      if (Array.isArray(data)) {
+        listaCondiciones = data;
+      } else if (data && typeof data === 'object') {
+        if (Array.isArray(data.lista)) {
+          listaCondiciones = data.lista;
+        } else {
+          listaCondiciones = [data];
+        }
+      } else {
+        listaCondiciones = [];
+      }
 
-    setFormaPago(forma);
-    setCondicionSeleccionada(forma); // 👈 esto es lo nuevo
+      // Garantizar keys y normalizar formato
+      listaCondiciones = listaCondiciones.map(r => ({
+        id: r.id ?? r.id_condicion ?? null,
+        forma_pago: (r.forma_pago ?? r.nombre ?? '').toString().trim(),
+        tipo_cambio: r.tipo_cambio ?? '',
+        dias_pago: r.dias_pago ?? r.dias ?? '',
+        mark_up_maximo: r.mark_up_maximo ?? r.markup_maximo ?? r.markup ?? null,
+        ...r
+      }));
 
-    setTipoCambio('');
-    setTimeout(() => {
-      setTipoCambio(cambio);
-    }, 0);
+      // dedupe: prioriza la entrada que tenga dias_pago no vacío; en empate prioriza la última
+      const dedupeCondiciones = (arr = []) => {
+        const map = new Map();
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const c = arr[i];
+          const id = String(c?.id ?? '');
+          if (!map.has(id)) {
+            map.set(id, c);
+          } else {
+            const existing = map.get(id);
+            const existingDias = String(existing?.dias_pago ?? existing?.dias ?? '').trim();
+            const currentDias = String(c?.dias_pago ?? c?.dias ?? '').trim();
+            if ((!existingDias || existingDias === '') && currentDias) {
+              map.set(id, c);
+            }
+          }
+        }
+        return Array.from(map.values()).reverse();
+      };
 
-    if (opcionesDiasPago.includes(dias)) {
-      setDiasPago(dias);
-      setDiasPagoExtra('');
-    } else {
+      const listaDedup = dedupeCondiciones(listaCondiciones);
+
+      // Guardar lista dedupeada en el estado (fuente de verdad)
+      if (typeof setCondiciones === 'function') setCondiciones(listaDedup);
+      // indicar que condiciones fueron cargadas (si usás el ref)
+      if (typeof condicionesCargadasRef !== 'undefined' && condicionesCargadasRef && 'current' in condicionesCargadasRef) {
+        condicionesCargadasRef.current = true;
+      }
+
+      // Helper local para obtener id válido desde condicionSeleccionada
+      const getIdSeleccion = (cs) => {
+        if (!cs) return null;
+        if (typeof cs === 'object' && (cs.id !== undefined && cs.id !== null)) return Number(cs.id);
+        if (!isNaN(Number(cs))) return Number(cs);
+        return null;
+      };
+
+      // Determinar condicion a aplicar: si cabecera ya tiene id_condicion debe priorizarse
+      // Nota: este método sólo calcula defaults; quien llamó a cargarCondiciones puede usar el retorno para aplicar más lógica.
+      const condicionDefault = listaDedup[0] ?? null;
+      const defaultForma = (condicionDefault?.forma_pago ?? '').toString().trim();
+      const defaultCambio = condicionDefault?.tipo_cambio ?? '';
+      const defaultDias = (condicionDefault?.dias_pago ?? '').toString().trim();
+
+      // Si ya hay una selección válida, respetarla; si no, setear default usando listaDedup (no el estado)
+      const idSelActual = getIdSeleccion(condicionSeleccionada);
+      if (idSelActual) {
+        const matched = listaDedup.find(c => Number(c.id) === Number(idSelActual));
+        if (matched) {
+          setCondicionSeleccionada({ id: matched.id, forma_pago: (matched.forma_pago ?? '').toString().trim() });
+          setFormaPago((matched.forma_pago ?? '').toString().trim());
+        } else {
+          setCondicionSeleccionada(prev => (typeof prev === 'object' ? prev : { id: prev, forma_pago: String(prev ?? '') }));
+          setFormaPago(prev => (prev ? String(prev) : ''));
+        }
+      } else {
+        // aplicar default desde listaDedup
+        if (condicionDefault && condicionDefault.id !== null) {
+          setCondicionSeleccionada({ id: condicionDefault.id, forma_pago: defaultForma });
+          setFormaPago(defaultForma);
+        } else if (defaultForma) {
+          setCondicionSeleccionada(defaultForma);
+          setFormaPago(defaultForma);
+        } else {
+          setCondicionSeleccionada('');
+          setFormaPago('');
+        }
+      }
+
+      // Tipo de cambio y días de pago (mantener consistencia)
+      setTipoCambio(defaultCambio);
+
+      if (defaultDias) {
+        const opciones = Array.isArray(opcionesDiasPago) ? opcionesDiasPago.map(String) : [];
+        if (opciones.includes(String(defaultDias))) {
+          setDiasPago(String(defaultDias));
+          setDiasPagoExtra('');
+        } else {
+          setDiasPago('');
+          setDiasPagoExtra(defaultDias);
+        }
+        // marca resuelto sólo si aplicaste algo
+        if (typeof diasResueltoRef !== 'undefined' && diasResueltoRef && 'current' in diasResueltoRef) diasResueltoRef.current = true;
+      } else {
+        setDiasPago('');
+        setDiasPagoExtra('');
+      }
+
+      console.log('Tipo de cambio recibido:', defaultCambio);
+      console.log('Forma de pago (seleccionada o default):', condicionSeleccionada ?? defaultForma);
+      console.log('Días de pago (aplicados o default):', defaultDias);
+      // devolver por si el caller quiere usar los datos inmediatamente
+      return { condicionDefault, listaCondiciones: listaDedup };
+    } catch (err) {
+      console.error('Error al cargar condiciones comerciales:', err);
+      if (typeof setCondiciones === 'function') setCondiciones(prev => Array.isArray(prev) ? prev : []);
+      setFormaPago('');
+      setCondicionSeleccionada('');
+      setTipoCambio('');
       setDiasPago('');
-      setDiasPagoExtra(dias);
+      setDiasPagoExtra('');
+      if (typeof condicionesCargadasRef !== 'undefined' && condicionesCargadasRef && 'current' in condicionesCargadasRef) {
+        condicionesCargadasRef.current = true;
+      }
+      return { condicionDefault: null, listaCondiciones: [] };
     }
+  };
 
-    console.log('Tipo de cambio recibido:', cambio);
-    console.log('Forma de pago:', forma);
-    console.log('Días de pago:', dias);
-  } catch (err) {
-    console.error('Error al cargar condiciones comerciales:', err);
-  }
-};
-
-  // Cargar opciones de plazos de pago
-  useEffect(() => {
-    if (clienteSeleccionado) {
-      axios.get(`/api/clientes/${clienteSeleccionado}/dias-pago`)
-        .then(({ data }) => {
-          const opciones = data.map(String);
-          setOpcionesDiasPago(opciones);
-        })
-        .catch(err => console.error('Error al cargar días de pago del cliente', err));
-    }
-  }, [clienteSeleccionado]);
 
 
   // Resumen de la cotización: totales, IVA, descuentos, etc.
@@ -549,12 +1150,18 @@ console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
     let base21 = 0, base105 = 0;
     let totalDescuentos = 0;
 
-    carrito.forEach(p => {
-      const precio = isNaN(parseFloat(p.precio)) ? 0 : parseFloat(p.precio);
-      const cantidad = isNaN(parseFloat(p.cantidad)) ? 1 : parseFloat(p.cantidad);
-      const markup = isNaN(parseFloat(p.markup)) ? 0 : parseFloat(p.markup);
-      const descuento = isNaN(parseFloat(p.descuento)) ? 0 : parseFloat(p.descuento);
-      const iva = isNaN(parseFloat(p.tasa_iva)) ? 21 : parseFloat(p.tasa_iva);
+    const safeNum = v => {
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    (Array.isArray(carrito) ? carrito : []).forEach(p => {
+      const precio = safeNum(p.precio);
+      const cantidad = safeNum(p.cantidad) || 1;
+      const markup = safeNum(p.markup);
+      const descuento = safeNum(p.descuento);
+      const iva = safeNum(p.tasa_iva) || 21;
+
       totalDescuentos += descuento;
       const pf = precio * (1 + markup / 100);
       const base = Math.max(0, cantidad * pf - descuento);
@@ -567,7 +1174,7 @@ console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
     const baseProd = base21 + base105;
 
     // Costo de envío original
-    const envio = isNaN(parseFloat(costoEnvio)) ? 0 : parseFloat(costoEnvio);
+    const envio = safeNum(costoEnvio);
 
     // Bonificación si el total supera 1500
     const envioBonificado = baseProd >= 1500;
@@ -589,17 +1196,17 @@ console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
       totalDescuentos
     };
   }, [carrito, costoEnvio]);
-
   console.log('Carrito actualizado:', carrito);
 
 
   const formatearProductosParaGuardar = (productos) => {
-    return productos.map(p => ({
+    return (productos || []).map(p => ({
       id_producto: p.id_producto || p.id,
       cantidad: Number(p.cantidad) || 1,
       precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
       descuento: Number(p.descuento) || 0,
-      markup: Number(p.markup) || 0,
+      // persistir el valor que editó el vendedor
+      markup: Number(p.markup_ingresado ?? p.markup ?? 0),
       tasa_iva: Number(p.tasa_iva) || 21
     }));
   };
@@ -626,73 +1233,290 @@ console.log('🧪 Dirección retomada:', cabecera.id_direccion_cliente);
   };
 
 
-  // Guardar cotización como borrador
-  const handleGuardarBorrador = async () => {
-    if (!clienteSeleccionado) {
-      setMensajeError('Debés seleccionar un cliente antes de guardar la cotización');
+
+  // Actualizar cotización existente
+  const handleActualizarCotizacion = async () => {
+    if (!idCotizacionActual) {
+      setMensajeError('No hay cotización activa para actualizar');
       setMensajeExito('');
       return;
     }
-
-    if (!usuarioActual?.id) {
-      setMensajeError('No se pudo identificar al vendedor');
-      setMensajeExito('');
-      return;
-    } console.log('Productos seleccionados al guardar:', productosSeleccionados);
-    for (const p of productosSeleccionados) {
-      if (
-        typeof p.id_producto !== 'number' ||
-        typeof p.cantidad !== 'number' ||
-        typeof p.precio_unitario !== 'number' ||
-        typeof p.descuento !== 'number'
-      ) {
-        console.warn('❌ Producto mal formado:', p);
-      } else {
-        console.log('✅ Producto válido:', p);
-      }
-    }
-
-
-    const payload = {
-      id_cliente: clienteSeleccionado,
-     id_usuario: usuarioActual?.id,
-      id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
-      id_direccion_cliente: direccionIdSeleccionada,
-     id_condicion: getCondicionId(condicionSeleccionada),
-      vigencia_hasta: vigenciaHasta,
-      observaciones: observaciones,
-      plazo_entrega: plazoEntrega,
-      estado: 'borrador',
-      productos: formatearProductosParaGuardar(carrito)
-    };
-
-    console.log('Guardando borrador con:', { ...payload, idCotizacionActual });
-    console.log('ID actual de cotización:', idCotizacionActual);
-    console.log('🧪 Condición seleccionada:', condicionSeleccionada);
-console.log('🧪 ID de condición:', getCondicionId(condicionSeleccionada));
 
     try {
-      console.log('🧪 Enviando productos al backend:', productosSeleccionados);
-      if (idCotizacionActual) {
-        await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, payload);
-        setMensajeExito('Cotización actualizada como borrador');
-      } else {
-       const res = await axios.post('/api/cotizaciones/iniciar', payload, { withCredentials: true }); 
-        setIdCotizacionActual(res.data.id_cotizacion);
-        localStorage.setItem('idCotizacionActual', res.data.id_cotizacion);
-        setNumeroCotizacion(res.data.numero_cotizacion);
-        setEstadoCotizacion(res.data.estado);
-        setMensajeExito('Cotización guardada como borrador');
+      // Construir payload desde helper central si existe, sino fallback simple
+      const payload = (typeof buildPayload === 'function')
+        ? buildPayload('borrador')
+        : (() => {
+          const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+          const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
+            id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
+            cantidad: normalizarNumero(p.cantidad) || 1,
+            precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+            descuento: Number(p.descuento ?? 0) || 0,
+            markup: Number(p.markup ?? p.markup_ingresado ?? 0) || 0,
+            tasa_iva: Number(p.tasa_iva ?? 21) || 21
+          })).filter(x => Number.isFinite(x.id_producto));
+          return {
+            id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+            id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+            id_usuario: Number(usuarioActual?.id) || null,
+            id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+            id_condicion: null,
+            forma_pago: '',
+            vigencia_hasta: vigenciaHasta || null,
+            observaciones: observaciones || '',
+            plazo_entrega: plazoEntrega || '',
+            costo_envio: normalizarNumero(costoEnvio) || 0,
+            estado: 'borrador',
+            productos
+          };
+        })();
+
+      // Asegurar que la prioridad UI se refleje: diasPago (select) > diasPagoExtra (input) > null
+      const diasUi = typeof diasPago === 'string' ? diasPago.trim() : (diasPago != null ? String(diasPago).trim() : '');
+      const diasExtraUi = typeof diasPagoExtra === 'string' ? diasPagoExtra.trim() : (diasPagoExtra != null ? String(diasPagoExtra).trim() : '');
+      const diasRaw = diasUi !== '' ? diasUi : (diasExtraUi !== '' ? diasExtraUi : null);
+      const diasNum = diasRaw !== null ? Number(diasRaw) : null;
+      payload.dias_pago = Number.isFinite(diasNum) ? diasNum : null;
+
+      // Incluir id_condicion cuando corresponda (mantener forma_pago si no hay id)
+      if (condicionSeleccionada && typeof condicionSeleccionada === 'object' && (condicionSeleccionada.id || condicionSeleccionada.id === 0)) {
+        payload.id_condicion = condicionSeleccionada.id;
+        payload.forma_pago = condicionSeleccionada.forma_pago ?? '';
+      } else if (condicionSeleccionada && typeof condicionSeleccionada === 'string') {
+        payload.forma_pago = condicionSeleccionada;
+      } else if (condicionSeleccionada && condicionSeleccionada.forma_pago) {
+        payload.forma_pago = condicionSeleccionada.forma_pago;
       }
 
+      // Logs de verificación antes de enviar
+      console.log('➡️ payload actualizar (pre-check):', {
+        idCotizacionActual,
+        diasUi,
+        diasExtraUi,
+        diasPayload: payload.dias_pago,
+        condicionSeleccionada,
+        productosCount: Array.isArray(payload.productos) ? payload.productos.length : 0,
+        payloadSample: (Array.isArray(payload.productos) && payload.productos.length) ? payload.productos.slice(0, 3) : []
+      });
+
+      // Validaciones mínimas
+      if (!payload.id_cliente) {
+        setMensajeError('Seleccioná un cliente válido antes de actualizar');
+        setMensajeExito('');
+        return;
+      }
+      if (!Array.isArray(payload.productos) || payload.productos.length === 0) {
+        setMensajeError('El carrito está vacío');
+        setMensajeExito('');
+        return;
+      }
+
+      // Validación de markups por línea antes de enviar
+      if (typeof validarAntesDeEnviar === 'function') {
+        const ok = validarAntesDeEnviar();
+        if (!ok) {
+          // validarAntesDeEnviar ya setea erroresProductos y un mensaje global corto
+          console.log('⛔ Actualizar cancelado: productos con markup fuera de rango');
+          return;
+        }
+      }
+
+      // Enviar actualización
+      const res = await axios.put(
+        `/api/cotizaciones/${idCotizacionActual}/actualizar`,
+        payload,
+        { withCredentials: true }
+      );
+
+      setMensajeExito('Cotización actualizada correctamente');
       setMensajeError('');
+      console.log('✅ Actualizada:', idCotizacionActual, 'response:', res?.data);
     } catch (error) {
-      console.error('Error al guardar borrador:', error.response?.data || error.message || error);
-      setMensajeError('No se pudo guardar la cotización');
-      setMensajeExito('');
+      console.error('Error al actualizar cotización:', error.response?.status, error.response?.data || error.message || error);
+
+      const backendMsg = error.response?.data?.error || error.response?.data?.message || error.message || '';
+
+      // Regex para detectar mensajes tipo:
+      // "El markup del producto 6 (55%) supera el máximo permitido (20%)"
+      const perProductRegex = /El markup del producto\s+([^\s)]+).*supera el máximo permitido/i;
+
+      if (perProductRegex.test(backendMsg)) {
+        const match = backendMsg.match(/El markup del producto\s+([^\s)]+)/i);
+        const keyRaw = match ? match[1] : null;
+        const key = keyRaw ? String(keyRaw) : null;
+
+        // vuelco SOLO en erroresProductos (no detallar en mensajeError)
+        setErroresProductos(prev => ({ ...(prev || {}), ...(key ? { [key]: backendMsg } : {}) }));
+
+        // resumen corto en footer
+        setMensajeError(prev => {
+          const prevCount = Object.keys((prev && typeof prev === 'object') ? prev : {}).length;
+          const total = prevCount + (key ? 1 : 0);
+          return `Hay ${total} producto(s) con valores fuera de rango`;
+        });
+
+        setMensajeExito('');
+      } else {
+        // Mensaje global corto y seguro
+        setMensajeError(backendMsg || 'No se pudo actualizar la cotización');
+        setMensajeExito('');
+      }
+    } finally {
+      // Log final para confirmar qué se envió (intento seguro de reconstrucción)
+      try {
+        const payloadFinal = (typeof buildPayload === 'function') ? buildPayload('borrador') : null;
+        console.log('🧪 Enviando productos formateados y dias (final check):', {
+          productos: payloadFinal?.productos ?? (Array.isArray(carrito) ? carrito.slice(0, 3) : []),
+          dias_pago: payloadFinal?.dias_pago ?? (Number.isFinite(payload.dias_pago) ? payload.dias_pago : payload.dias_pago),
+          condicionSeleccionada
+        });
+      } catch (e) {
+        console.log('🧪 Enviando productos formateados (no se pudo reconstruir payload final):', e);
+      }
     }
   };
 
+
+
+
+  // Cancelar creación o edición de cotización
+  const handleCancelarCreacion = () => {
+    // Acción sugerida: navegar al menú principal o limpiar el formulario
+    navigate('/menu'); // o la ruta que corresponda
+  };
+
+  const handleCancelarEdicion = () => {
+    // Acción sugerida: volver al listado de cotizaciones
+    navigate('/menu'); // o la ruta que corresponda
+  };
+
+
+
+  // Finalizar cotización (botón Finalizar)
+  const handleFinalizarCotizacion = async () => {
+    // chequear datos obligatorios para finalizar
+    console.log({
+      clienteSeleccionado,
+      id_usuario: usuarioActual?.id,
+      id_direccion_cliente: direccionIdSeleccionada,
+      contacto,
+      condicionSeleccionada,
+      vencimiento,
+      carritoLength: Array.isArray(carrito) ? carrito.length : 0
+    });
+
+    if (
+      !clienteSeleccionado ||
+      !usuarioActual?.id ||
+      !direccionIdSeleccionada ||
+      !contacto ||
+      !condicionSeleccionada ||
+      !vencimiento ||
+      !carrito?.length
+    ) {
+      setMensajeError('Faltan datos obligatorios para finalizar la cotización');
+      setMensajeExito('');
+      return;
+    }
+
+    // calcular vigencia_hasta según vencimiento
+    const hoy = new Date();
+    hoy.setDate(hoy.getDate() + Number(vencimiento));
+    const fechaVencimiento = hoy.toISOString().slice(0, 10);
+    setVigenciaHasta(fechaVencimiento);
+
+    // construir payload (usar buildPayload si existe, con override de vigencia)
+    const payload = (typeof buildPayload === 'function')
+      ? buildPayload('pendiente', { vigencia_hasta: fechaVencimiento, vencimiento })
+      : (() => {
+        const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+        const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
+          id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
+          cantidad: normalizarNumero(p.cantidad) || 1,
+          precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+          descuento: Number(p.descuento ?? 0) || 0,
+          markup: Number(p.markup ?? p.markup_ingresado ?? 0) || 0,
+          tasa_iva: Number(p.tasa_iva ?? 21) || 21
+        })).filter(x => Number.isFinite(x.id_producto));
+        return {
+          id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+          id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+          id_usuario: Number(usuarioActual?.id) || null,
+          id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+          id_condicion: (condicionSeleccionada && typeof condicionSeleccionada === 'object') ? (condicionSeleccionada.id ?? null) : null,
+          forma_pago: (condicionSeleccionada && typeof condicionSeleccionada === 'object') ? (condicionSeleccionada.forma_pago ?? '') : (String(condicionSeleccionada || '') || ''),
+          vigencia_hasta: fechaVencimiento,
+          observaciones: observaciones || '',
+          plazo_entrega: plazoEntrega || '',
+          costo_envio: Number(costoEnvio) || 0,
+          estado: 'pendiente',
+          productos
+        };
+      })();
+
+    console.log('➡️ payload finalizar:', payload);
+
+    // antes de finalizar: validar markups por línea si existe la función
+    if (typeof validarAntesDeEnviar === 'function') {
+      const ok = validarAntesDeEnviar();
+      if (!ok) {
+        console.log('⛔ Finalizar cancelado: productos con markup fuera de rango');
+        return;
+      }
+    }
+
+    try {
+      if (idCotizacionActual) {
+        await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, payload, {
+  withCredentials: true,
+  headers: {
+    Authorization: `Bearer ${usuarioActual?.token}`
+  }
+});
+        setIdCotizacionActual(idCotizacionActual);
+      } else {
+        const res = await axios.post('/api/cotizaciones/iniciar', payload, { withCredentials: true });
+        setIdCotizacionActual(res.data?.id_cotizacion ?? res.data?.id ?? null);
+        setNumeroCotizacion(res.data?.numero_cotizacion ?? '');
+      }
+
+      setEstadoCotizacion('pendiente');
+      setMensajeExito('Cotización finalizada y enviada al cliente');
+      setMensajeError('');
+      navigate('/menu');
+    } catch (error) {
+      console.error('Error al finalizar cotización:', error.response?.data || error.message || error);
+
+      const backendMsg = error.response?.data?.error || error.response?.data?.message || error.message || '';
+
+      // Regex para detectar mensajes por producto como:
+      // "El markup del producto 6 (55%) supera el máximo permitido (20%)"
+      const perProductRegex = /El markup del producto\s+([^\s)]+).*supera el máximo permitido/i;
+
+      if (perProductRegex.test(backendMsg)) {
+        const match = backendMsg.match(/El markup del producto\s+([^\s)]+)/i);
+        const keyRaw = match ? match[1] : null;
+        const key = keyRaw ? String(keyRaw) : null;
+
+        // vuelco SOLO en erroresProductos (no detallar en mensajeError)
+        setErroresProductos(prev => ({ ...(prev || {}), ...(key ? { [key]: backendMsg } : {}) }));
+
+        // resumen corto en footer
+        setMensajeError(prev => {
+          const prevCount = Object.keys((prev && typeof prev === 'object') ? prev : {}).length;
+          const total = prevCount + (key ? 1 : 0);
+          return `Hay ${total} producto(s) con valores fuera de rango`;
+        });
+
+        setMensajeExito('');
+      } else {
+        // Mensaje global corto y seguro
+        setMensajeError(backendMsg || 'No se pudo finalizar la cotización');
+        setMensajeExito('');
+      }
+    }
+  };
 
 
 
@@ -718,162 +1542,278 @@ console.log('🧪 ID de condición:', getCondicionId(condicionSeleccionada));
   };
 
 
-  // Actualizar cotización existente
-  const handleActualizarCotizacion = async () => {
-    if (!idCotizacionActual) {
-      setMensajeError('No hay cotización activa para actualizar');
+
+
+
+  // Enviar cotización al cliente (botón Enviar al cliente)
+  // Enviar cotización al cliente (botón Enviar al cliente)
+  // Enviar cotización al cliente (botón Enviar al cliente)
+  const handleEnviarCotizacion = async () => {
+    // construir payload usando buildPayload si existe
+    const payload = (typeof buildPayload === 'function') ? buildPayload('pendiente') : (() => {
+      const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+      const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
+        id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
+        cantidad: normalizarNumero(p.cantidad) || 1,
+        precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+        descuento: Number(p.descuento ?? 0) || 0,
+        markup: Number(p.markup ?? p.markup_ingresado ?? 0) || 0,
+        tasa_iva: Number(p.tasa_iva ?? 21) || 21
+      })).filter(x => Number.isFinite(x.id_producto));
+      return {
+        id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+        id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+        id_usuario: Number(usuarioActual?.id) || null,
+        id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+        id_condicion: (condicionSeleccionada && typeof condicionSeleccionada === 'object') ? (condicionSeleccionada.id ?? null) : null,
+        forma_pago: (condicionSeleccionada && typeof condicionSeleccionada === 'object') ? (condicionSeleccionada.forma_pago ?? '') : (String(condicionSeleccionada || '') || ''),
+        vigencia_hasta: vigenciaHasta || null,
+        observaciones: observaciones || '',
+        plazo_entrega: plazoEntrega || '',
+        costo_envio: Number(costoEnvio) || 0,
+        estado: 'pendiente',
+        productos
+      };
+    })();
+
+    console.log('➡️ payload enviar:', payload);
+
+    // validación básica
+    if (!payload.id_cliente) {
+      setMensajeError('Seleccioná un cliente válido antes de enviar la cotización');
+      setMensajeExito('');
+      return;
+    }
+    if (!payload.id_direccion_cliente) {
+      setMensajeError('Seleccioná una dirección del cliente antes de enviar');
+      setMensajeExito('');
+      return;
+    }
+    if (!payload.productos || payload.productos.length === 0) {
+      setMensajeError('La cotización debe tener al menos un producto para enviar');
+      setMensajeExito('');
       return;
     }
 
-    try {
-      console.log('🧪 Enviando productos:', productosSeleccionados);
-      await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, {
-        id_cliente: clienteSeleccionado,
-        id_contacto: contactoSeleccionado,
-        id_direccion_cliente: direccionIdSeleccionada,
-        id_condicion: getCondicionId(condicionSeleccionada),
-        vigencia_hasta: vigenciaHasta,
-        observaciones,
-        plazo_entrega: plazoEntrega,
-        costo_envio: costoEnvio,
-        estado: 'borrador',
-        id_usuario: usuarioActual?.id,
-        productos: formatearProductosParaGuardar(carrito)
-      });
-
-      setMensajeExito('Cotización actualizada correctamente');
-      setMensajeError('');
-    } catch (error) {
-
-      setMensajeError('No se pudo actualizar la cotización');
-      setMensajeExito('');
-    } console.log('🧪 Enviando productos formateados:', formatearProductosParaGuardar(carrito));
-  };
-
-
-  // Cancelar creación o edición de cotización
-  const handleCancelarCreacion = () => {
-    // Acción sugerida: navegar al menú principal o limpiar el formulario
-    navigate('/menu'); // o la ruta que corresponda
-  };
-
-  const handleCancelarEdicion = () => {
-    // Acción sugerida: volver al listado de cotizaciones
-    navigate('/menu'); // o la ruta que corresponda
-  };
-
-
-  
-const handleFinalizarCotizacion = async () => {
-  alert('Finalizar cotización ejecutado');
- // 👇 Agregá esto para ver qué valores están llegando
-  console.log({
-    clienteSeleccionado,
-    id_usuario: usuarioActual?.id,
-    id_direccion_cliente: direccionIdSeleccionada,
-    contacto,
-    condicionSeleccionada,
-    vencimiento,
-    carritoLength: carrito.length
-  });
-
-  if (
-    !clienteSeleccionado ||
-    ! usuarioActual?.id ||
-    !direccionIdSeleccionada ||
-    !contacto ||
-    !condicionSeleccionada ||
-    !vencimiento ||
-    carrito.length === 0
-  ) {
-    setMensajeError('Faltan datos obligatorios para finalizar la cotización');
-    setMensajeExito('');
-    return;
-  }
-
-  // Calcular vigencia_hasta a partir de vencimiento
-  const hoy = new Date();
-  hoy.setDate(hoy.getDate() + Number(vencimiento));
-  const fechaVencimiento = hoy.toISOString().slice(0, 10);
-  setVigenciaHasta(fechaVencimiento); // opcional si querés mostrarla en tiempo real
-
-  const payload = {
-    id_cliente: clienteSeleccionado,
-   id_usuario: usuarioActual?.id,
-    id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
-    id_direccion_cliente: direccionIdSeleccionada,
-    id_condicion: condicionSeleccionada,
-    vigencia_hasta: fechaVencimiento,
-    vencimiento,
-    observaciones,
-    plazo_entrega: plazoEntrega,
-    costo_envio: costoEnvio,
-    estado: 'pendiente',
-    productos: formatearProductosParaGuardar(carrito)
-  };
-
-  try {
-    if (idCotizacionActual) {
-      await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, payload);
-    } else {
-      const res = await axios.post('/api/cotizaciones/iniciar', payload);
-      setIdCotizacionActual(res.data.id_cotizacion);
-      setNumeroCotizacion(res.data.numero_cotizacion);
+    // validar markups por línea antes de enviar
+    if (typeof validarAntesDeEnviar === 'function') {
+      const ok = validarAntesDeEnviar();
+      if (!ok) {
+        console.log('⛔ Enviar cancelado: productos con markup fuera de rango');
+        return;
+      }
     }
-
-    setEstadoCotizacion('pendiente');
-    setMensajeExito('Cotización finalizada y enviada al cliente');
-    setMensajeError('');
-    navigate('/menu');
-  } catch (error) {
-    console.error('Error al finalizar cotización:', error);
-    setMensajeError('No se pudo finalizar la cotización');
-    setMensajeExito('');
-  }
-};
-
-
-  const handleEnviarCotizacion = async () => {
-    const datosCotizacion = {
-      id_cliente: clienteSeleccionado,
-      id_contacto: typeof contacto === 'object' ? contacto.id : contacto,
-      id_usuario: usuarioActual?.id,
-      id_direccion_cliente: direccionIdSeleccionada,
-      id_condicion: condicionSeleccionada,
-      vigencia_hasta: vigenciaHasta,
-      observaciones,
-      plazo_entrega: plazoEntrega,
-      costo_envio: costoEnvio,
-      productos: formatearProductosParaGuardar(carrito)
-    };
 
     try {
       if (idCotizacionActual) {
-        await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, {
-          ...datosCotizacion,
-          estado: 'pendiente'
-        });
+        await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, { ...payload, estado: 'pendiente' }, { withCredentials: true });
       } else {
-        const res = await axios.post('/api/cotizaciones/iniciar', {
-          ...datosCotizacion,
-          estado: 'pendiente'
-        });
-        setIdCotizacionActual(res.data.id_cotizacion);
-        setNumeroCotizacion(res.data.numero_cotizacion);
-        setEstadoCotizacion(res.data.estado);
+        const res = await axios.post('/api/cotizaciones/iniciar', { ...payload, estado: 'pendiente' }, { withCredentials: true });
+        setIdCotizacionActual(res.data?.id_cotizacion ?? res.data?.id ?? null);
+        setNumeroCotizacion(res.data?.numero_cotizacion ?? '');
+        setEstadoCotizacion(res.data?.estado ?? '');
       }
 
       setMensajeExito('Cotización enviada al cliente');
       setMensajeError('');
-      navigate('/menu');
+      if (typeof navigate === 'function') {
+        navigate('/menu');
+      } else {
+        window.location.href = '/menu';
+      }
     } catch (error) {
-      console.error('❌ Error al enviar cotización:', error);
-      setMensajeError('No se pudo enviar la cotización');
-      setMensajeExito('');
+      console.error('❌ Error al enviar cotización:', error.response?.data || error.message || error);
+
+      const backendMsg = error.response?.data?.error || error.response?.data?.message || error.message || '';
+
+      // Regex para detectar mensajes por producto tipo:
+      // "El markup del producto 6 (55%) supera el máximo permitido (20%)"
+      const perProductRegex = /El markup del producto\s+([^\s)]+).*supera el máximo permitido/i;
+
+      if (perProductRegex.test(backendMsg)) {
+        const match = backendMsg.match(/El markup del producto\s+([^\s)]+)/i);
+        const keyRaw = match ? match[1] : null;
+        const key = keyRaw ? String(keyRaw) : null;
+
+        // volcar SOLO en erroresProductos y calcular el resumen real desde el objeto resultante
+        setErroresProductos(prev => {
+          const next = { ...(prev || {}), ...(key ? { [key]: backendMsg } : {}) };
+          setMensajeError(`Hay ${Object.keys(next).length} producto(s) con valores fuera de rango`);
+          setMensajeExito('');
+          return next;
+        });
+      } else {
+        // Mensaje global corto y seguro
+        setMensajeError(backendMsg || 'No se pudo enviar la cotización');
+        setMensajeExito('');
+      }
     }
   };
 
+  // Guardar cotización como borrador
+  // Guardar cotización como borrador
+  const handleGuardarBorrador = async () => {
+    // utilitarios locales
+    const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+    const normalizarProducto = p => ({
+      id_producto: normalizarNumero(p.id_producto ?? p.id),
+      cantidad: normalizarNumero(p.cantidad) || 1,
+      precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+      descuento: Number(p.descuento ?? 0) || 0,
+      // mantener el campo markup como número consistente
+      markup: Number(p.markup ?? p.markup_ingresado ?? 0) || 0,
+      tasa_iva: Number(p.tasa_iva ?? 21) || 21
+    });
 
+    // validar usuario
+    if (!usuarioActual?.id) {
+      setMensajeError('No se pudo identificar al vendedor');
+      setMensajeExito('');
+      return;
+    }
+
+    // intentar resolver id_condicion; si no se resuelve y hay lista de condiciones,
+    // intentamos mapear por texto (case-insensitive, trim)
+    let idCondFinal = normalizarNumero(getCondicionId(condicionSeleccionada));
+    let formaFinal = typeof condicionSeleccionada === 'object'
+      ? (condicionSeleccionada.forma_pago ?? condicionSeleccionada.nombre ?? '').toString().trim()
+      : (String(condicionSeleccionada || '')).trim();
+
+    if (!idCondFinal && typeof condicionSeleccionada === 'string' && Array.isArray(condiciones) && condiciones.length > 0) {
+      const buscar = formaFinal.toLowerCase();
+      const byName = condiciones.find(c => ((c.forma_pago ?? c.nombre) + '').toString().trim().toLowerCase() === buscar);
+      if (byName) {
+        idCondFinal = normalizarNumero(byName.id);
+        formaFinal = (byName.forma_pago ?? byName.nombre ?? '').toString().trim();
+        setCondicionSeleccionada({ id: idCondFinal, forma_pago: formaFinal });
+      }
+    }
+
+    // construir payload normalizado usando copia local de carrito
+    const carritoLocal = Array.isArray(carrito) ? carrito : [];
+    const productos = carritoLocal.map(normalizarProducto).filter(p => Number.isFinite(p.id_producto));
+
+    // ---- NUEVA LÓGICA: determinar dias_pago con prioridad ----
+    // prioridad: diasPago (select) > diasPagoExtra (input) > null
+    const diasStrSelect = typeof diasPago === 'string' ? diasPago.trim() : (diasPago != null ? String(diasPago).trim() : '');
+    const diasStrExtra = typeof diasPagoExtra === 'string' ? diasPagoExtra.trim() : (diasPagoExtra != null ? String(diasPagoExtra).trim() : '');
+    const diasFinalRaw = diasStrSelect && diasStrSelect !== '' ? diasStrSelect
+      : (diasStrExtra && diasStrExtra !== '' ? diasStrExtra : null);
+    const diasFinalNum = diasFinalRaw !== null ? Number(diasFinalRaw) : null;
+    const diasPagoPayload = Number.isFinite(diasFinalNum) ? diasFinalNum : null;
+    // --------------------------------------------------------
+
+    const payload = {
+      id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+      id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+      id_usuario: normalizarNumero(usuarioActual?.id),
+      id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+      id_condicion: idCondFinal || null,
+      forma_pago: formaFinal || '',
+      vigencia_hasta: vigenciaHasta || null,
+      observaciones: observaciones || '',
+      plazo_entrega: plazoEntrega || '',
+      costo_envio: normalizarNumero(costoEnvio) || 0,
+      estado: 'borrador',
+      productos,
+      // agregar dias_pago calculado
+      dias_pago: diasPagoPayload
+    };
+
+    console.log('➡️ payload a enviar (borrador):', payload);
+    console.log('debug estados: condicionSeleccionada (raw):', condicionSeleccionada, '-> resolved id:', idCondFinal, 'condiciones:', condiciones);
+    console.log('debug dias: diasPago (select) =', diasStrSelect, 'diasPagoExtra (input) =', diasStrExtra, '-> payload.dias_pago =', diasPagoPayload);
+
+    // validaciones previas
+    if (!payload.id_cliente) {
+      setMensajeError('Debés seleccionar un cliente válido antes de guardar la cotización');
+      setMensajeExito('');
+      return;
+    }
+    if (!payload.id_direccion_cliente) {
+      setMensajeError('Debés seleccionar una dirección del cliente antes de guardar la cotización');
+      setMensajeExito('');
+      return;
+    }
+    if (!payload.productos || payload.productos.length === 0) {
+      setMensajeError('La cotización debe tener al menos un producto');
+      setMensajeExito('');
+      return;
+    }
+
+    // validación de markups por línea (si tenés la función global validarAntesDeEnviar)
+    // Esto previene guardar si hay productos con markup > máximo
+    if (typeof validarAntesDeEnviar === 'function') {
+      const ok = validarAntesDeEnviar();
+      if (!ok) {
+        // validarAntesDeEnviar ya setea erroresProductos y mensaje global corto
+        return;
+      }
+    }
+    try {
+      if (idCotizacionActual) {
+        // actualizar borrador existente
+        await axios.put(
+          `/api/cotizaciones/${idCotizacionActual}/actualizar`,
+          payload,
+          { withCredentials: true }
+        );
+        setMensajeExito('Cotización actualizada como borrador');
+        console.log('✅ Borrador actualizado:', idCotizacionActual);
+      } else {
+        // crear nuevo borrador
+        const res = await axios.post(
+          '/api/cotizaciones/iniciar',
+          payload,
+          { withCredentials: true }
+        );
+        const idResp = res.data?.id_cotizacion ?? res.data?.id ?? null;
+        setIdCotizacionActual(idResp);
+        if (idResp) localStorage.setItem('idCotizacionActual', idResp);
+        setNumeroCotizacion(res.data?.numero_cotizacion ?? '');
+        setEstadoCotizacion(res.data?.estado ?? '');
+        setMensajeExito('Cotización guardada como borrador');
+        console.log('✅ Borrador creado:', res.data);
+      }
+
+      setMensajeError('');
+    } catch (error) {
+      console.error('Error al guardar borrador:', error.response?.data || error.message || error);
+
+      const backendMsg = error.response?.data?.error || error.response?.data?.message || error.message || '';
+
+      // Regex para detectar mensajes por producto como:
+      // "El markup del producto 6 (55%) supera el máximo permitido (20%)"
+      const perProductRegex = /El markup del producto\s+([^\s)]+).*supera el máximo permitido/i;
+
+      if (perProductRegex.test(backendMsg)) {
+        const match = backendMsg.match(/El markup del producto\s+([^\s)]+)/i);
+        const keyRaw = match ? match[1] : null;
+        const key = keyRaw ? String(keyRaw) : null;
+
+        // vuelco SOLO en erroresProductos (no detallar en mensajeError)
+        setErroresProductos(prev => ({ ...(prev || {}), ...(key ? { [key]: backendMsg } : {}) }));
+
+        // resumen corto en footer
+        setMensajeError(prev => {
+          const prevCount = Object.keys((prev && typeof prev === 'object') ? prev : {}).length;
+          const total = prevCount + (key ? 1 : 0);
+          return `Hay ${total} producto(s) con valores fuera de rango`;
+        });
+
+        setMensajeExito('');
+      } else {
+        // Mensaje global seguro
+        setMensajeError(backendMsg || 'No se pudo guardar la cotización');
+        setMensajeExito('');
+      }
+    }
+
+
+  }
+
+
+  
   return (
 
     <div className="bg-light d-flex flex-column min-vh-100">
@@ -1076,16 +2016,64 @@ const handleFinalizarCotizacion = async () => {
               <div className="row g-3">
                 <div className="col-md-4">
                   <label className="form-label">Forma de pago</label>
+                  {/* Select construido desde condiciones cargadas */}
+
                   <select
                     className="form-select"
-                    value={formaPago}
-                    onChange={(e) => setFormaPago(e.target.value)}
+                    value={condicionSeleccionada && condicionSeleccionada.id ? String(condicionSeleccionada.id) : (condicionSeleccionada && condicionSeleccionada.forma_pago ? '__custom_sel' : '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) {
+                        setCondicionSeleccionada('');
+                        setFormaPago('');
+                        return;
+                      }
+                      if (val === '__custom_sel') return;
+
+                      const seleccionado = Array.isArray(condiciones) ? condiciones.find(c => Number(c.id) === Number(val)) : undefined;
+
+                      if (seleccionado) {
+                        const forma = String(seleccionado.forma_pago ?? seleccionado.nombre ?? '').trim();
+                        setCondicionSeleccionada({ id: seleccionado.id, forma_pago: forma });
+                        setFormaPago(forma);
+
+                        if (seleccionado.dias_pago !== undefined && seleccionado.dias_pago !== null) {
+                          const diasStr = String(seleccionado.dias_pago ?? '').trim();
+                          if (typeof setDiasPendiente === 'function') {
+                            setDiasPendiente(diasStr);
+                          } else {
+                            const opciones = Array.isArray(opcionesDiasPago) ? opcionesDiasPago.map(x => String(x ?? '').trim()) : [];
+                            if (diasStr && opciones.includes(diasStr)) { setDiasPago(diasStr); setDiasPagoExtra(''); }
+                            else if (diasStr) { setDiasPago(''); setDiasPagoExtra(diasStr); }
+                            diasResueltoRef.current = true;
+                          }
+                        }
+                      } else {
+                        const text = e.target.options[e.target.selectedIndex]?.text ?? '';
+                        setCondicionSeleccionada({ id: null, forma_pago: String(text).trim() });
+                        setFormaPago(String(text).trim());
+                        // NO tocar dias aquí
+                      }
+                    }}
                   >
                     <option value="">Seleccioná...</option>
-                    <option>Transferencia</option>
-                    <option>Cheque</option>
-                    <option>Tarjeta de crédito</option>
+
+                    {Array.isArray(condiciones) && condiciones.length > 0
+                      ? condiciones.map(c => (
+                        <option key={c.id} value={String(c.id)}>
+                          {String(c.forma_pago ?? c.nombre ?? '').trim()}
+                        </option>
+                      ))
+                      : null
+                    }
+
+                    {condicionSeleccionada && (condicionSeleccionada.id === null || condicionSeleccionada.id === undefined) && condicionSeleccionada.forma_pago ? (
+                      <option key="__custom_sel" value="__custom_sel" disabled>
+                        {String(condicionSeleccionada.forma_pago).trim()}
+                      </option>
+                    ) : null}
                   </select>
+
 
                   <div className="d-flex flex-wrap gap-3 mb-3">
                     {/* Plazo de entrega */}
@@ -1136,7 +2124,7 @@ const handleFinalizarCotizacion = async () => {
 
 
 
-
+                {/*Tipo de cambio */}
                 <div className="col-md-4">
                   <label className="form-label">Tipo de cambio</label>
                   <input
@@ -1148,33 +2136,52 @@ const handleFinalizarCotizacion = async () => {
                   />
                 </div>
 
-
+                {/*Plazo de pago */}
                 <div className="col-md-4">
                   <label className="form-label">Plazo de pago</label>
                   <div className="input-group">
                     <select
                       className="form-select"
-                      value={diasPago}
-                      onChange={(e) => setDiasPago(e.target.value)}
+                      value={String(diasPago ?? '')}
+                      onChange={(e) => {
+                        const val = String(e.target.value || '').trim();
+                        userInteractedRef.current = true;
+                        diasResueltoRef.current = true;
+
+
+                        setDiasPago(val);
+                        setDiasPagoExtra('');
+                      }}
                     >
                       <option value="">Seleccioná...</option>
-                      {opcionesDiasPago.map((opcion, idx) => (
-                        <option key={idx} value={opcion}>{opcion}</option>
+                      {Array.isArray(opcionesDiasPago) && opcionesDiasPago.map((opcion, idx) => (
+                        <option key={idx} value={String(opcion).trim()}>
+                          {String(opcion).trim()}
+                        </option>
                       ))}
                     </select>
 
 
 
-
                     {/* Mostrar campo extra solo si el valor actual no está en el select */}
+                    {/* campo extra como text para manejo de string/trim (puedes volver a number en producción) */}
                     <input
-                      type="number"
+                      type="text"
                       className="form-control"
                       placeholder="Otro valor"
-                      value={diasPagoExtra}
-                      onChange={(e) => setDiasPagoExtra(e.target.value)}
+                      value={String(diasPagoExtra ?? '')}
+                      onChange={(e) => {
+                        const val = String(e.target.value || '').trim();
+                        console.log('ONCHANGE extra ->', val);
+                        setDiasPagoExtra(val);
+                        setDiasPago('');
+                      }}
                     />
                   </div>
+
+
+
+                  {/*observaciones */}
                   <div className="mb-3">
                     <label htmlFor="observaciones" className="form-label">Observaciones</label>
                     <input
@@ -1259,7 +2266,6 @@ const handleFinalizarCotizacion = async () => {
                           <td>{p.part_number}</td>
                           <td>{p.detalle}</td>
 
-
                           {/* Cantidad editable */}
                           <td>
                             <input
@@ -1269,16 +2275,25 @@ const handleFinalizarCotizacion = async () => {
                               value={p.cantidad}
                               className="form-control form-control-sm"
                               onChange={(e) => {
-                                const v = Math.min(Math.max(1, num(e.target.value)), p.stock);
+                                const v = Math.min(Math.max(1, (typeof num === 'function' ? num(e.target.value) : Number(e.target.value) || 1)), Number(p.stock || Infinity));
                                 const nuevo = [...carrito];
                                 nuevo[i] = { ...nuevo[i], cantidad: v };
                                 setCarrito(nuevo);
+
+                                if (typeof userInteractedRef !== 'undefined' && userInteractedRef) userInteractedRef.current = true;
+
+                                const productKey = String(getProductKey(nuevo[i], i));
+                                console.log('DEBUG cantidad onChange -> key:', productKey, 'cantidad:', v);
+
+                                if (typeof recalcTotals === 'function') recalcTotals(nuevo);
                               }}
                             />
                           </td>
 
                           {/* Precio NO editable */}
-                          <td>{num(p.precio).toFixed(2)}</td>
+                          <td>{Number(p.precio || 0).toFixed(2)}</td>
+
+
 
                           {/* Margen editable */}
                           <td>
@@ -1289,35 +2304,74 @@ const handleFinalizarCotizacion = async () => {
                               className="form-control form-control-sm"
                               onChange={(e) => {
                                 const nuevo = [...carrito];
-                                nuevo[i] = { ...nuevo[i], markup: Math.max(0, num(e.target.value)) };
+                                const nuevoMarkup = Math.max(0, (typeof num === 'function' ? num(e.target.value) : Number(e.target.value) || 0));
+                                nuevo[i] = { ...nuevo[i], markup: nuevoMarkup };
                                 setCarrito(nuevo);
+
+                                if (typeof userInteractedRef !== 'undefined' && userInteractedRef) userInteractedRef.current = true;
+
+                                // usar la versión actualizada del producto para generar la clave
+                                const productKey = String(getProductKey(nuevo[i], i));
+
+                                // DEBUG
+                                console.log(
+                                  'DEBUG validate call -> key:',
+                                  productKey,
+                                  'nuevoMarkup:',
+                                  nuevoMarkup,
+                                  'markUpMaximoServer:',
+                                  markUpMaximoServer,
+                                  'erroresProductos:',
+                                  erroresProductos
+                                );
+
+                                validateMarkupForProduct(productKey, nuevoMarkup);
                               }}
                             />
+
+                            {/* Mostrar error INLINE usando la misma clave */}
+                            {(() => {
+                              const productKey = String(getProductKey(p, i));
+                              return erroresProductos && erroresProductos[productKey] ? (
+                                <div className="text-danger small mt-1" role="alert" aria-live="polite">
+                                  {erroresProductos[productKey]}
+                                </div>
+                              ) : null;
+                            })()}
                           </td>
 
                           {/* Precio final */}
-                          <td>{precioFinal.toFixed(2)}</td>
+                          <td>{Number(precioFinal || 0).toFixed(2)}</td>
 
                           {/* Descuento editable */}
                           <td>
                             <input
                               type="number"
                               min="0"
-                              value={p.descuento}
+                              step="0.01"
+                              value={Number(p.descuento || 0)}
                               className="form-control form-control-sm"
                               onChange={(e) => {
                                 const nuevo = [...carrito];
-                                nuevo[i] = { ...nuevo[i], descuento: Math.max(0, num(e.target.value)) };
+                                const descuento = Math.max(0, (typeof num === 'function' ? num(e.target.value) : Number(e.target.value) || 0));
+                                nuevo[i] = { ...nuevo[i], descuento };
                                 setCarrito(nuevo);
+
+                                if (typeof userInteractedRef !== 'undefined' && userInteractedRef) userInteractedRef.current = true;
+
+                                const productKey = String(getProductKey(nuevo[i], i));
+                                console.log('DEBUG descuento onChange -> key:', productKey, 'descuento:', descuento);
+
+                                if (typeof recalcTotals === 'function') recalcTotals(nuevo);
                               }}
                             />
                           </td>
 
                           {/* Base */}
-                          <td>{baseLinea.toFixed(2)}</td>
+                          <td>{Number(baseLinea || 0).toFixed(2)}</td>
 
                           {/* IVA NO editable */}
-                          <td>{p.tasa_iva}%</td>
+                          <td>{Number(p.tasa_iva ?? 0)}%</td>
 
                           {/* Eliminar */}
                           <td className="text-center">

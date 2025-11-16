@@ -64,9 +64,3 @@ router.get('/completo/:cuit', obtenerClienteCompletoPorCuit);
 router.put('/direcciones/:cuit', actualizarDireccionesCliente);
 
 export default router; 
-
-
-
-
-
-
