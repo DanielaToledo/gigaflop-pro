@@ -9,6 +9,7 @@ import productosRoutes from './routes/productosRoutes.js'; // Importa las rutas 
 import cotizacionRoutes from './routes/cotizacionRoutes.js';
 import contactosRoutes from './routes/contactosRoutes.js';
 
+import estadosRoutes from './routes/estadosRoutes.js';
 
 
 const app = express();
@@ -31,6 +32,7 @@ app.use("/api/clientes", clientesRoutes);
 app.use("/api", productosRoutes); // Usa las rutas de productos
 app.use("/api/cotizaciones", cotizacionRoutes);
 app.use("/api", contactosRoutes);
+app.use('/api/estados', estadosRoutes);
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {

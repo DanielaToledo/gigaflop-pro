@@ -4,6 +4,17 @@ import { aMySQLDateTime, aMySQLDate, sumarDias } from '../utils/helperDeFecha.js
 
 
 
+// helpers: agregar al inicio del archivo controllers/cotizacionController.js
+async function getEstadoId(db, nombre) {
+  const [rows] = await db.query(`SELECT id FROM estados WHERE nombre = ? LIMIT 1`, [nombre]);
+  return rows && rows[0] ? Number(rows[0].id) : null;
+}
+
+// Helpers locales
+function observationsOrEmpty(v) {
+  // Aceptar '' como texto vacío; evitar undefined
+  return v === undefined ? '' : v;
+}
 
 const toNumberOrNull = v => {
   if (v === null || v === undefined || v === '') return null;
@@ -47,7 +58,6 @@ export async function iniciarCotizacion(req, res) {
     vencimiento
   } = req.body;
 
-  // helpers locales
   const aNumeroONuloLocal = v => {
     if (v === null || v === undefined || v === '') return null;
     const n = Number(v);
@@ -93,7 +103,6 @@ export async function iniciarCotizacion(req, res) {
         condicionSeleccionada = prefRows[0];
       }
     } else {
-      // si vino id_condicion, leemos sus datos
       const [cRows] = await db.query(
         `SELECT id, forma_pago, tipo_cambio, dias_pago, mark_up_maximo, observaciones
          FROM condiciones_comerciales WHERE id = ? LIMIT 1`,
@@ -123,7 +132,7 @@ export async function iniciarCotizacion(req, res) {
     const productosBody = Array.isArray(productos) ? productos : [];
     if (maximoMarkup !== null && productosBody.length > 0) {
       for (const p of productosBody) {
-        const ingreso = normalizarNumero(p.markup_ingresado ?? p.markup ?? 0) ?? 0;
+       const ingreso = normalizarNumero(p.markup_ingresado); 
         if (ingreso > maximoMarkup) {
           return res.status(400).json({
             error: `El markup del producto ${p.id_producto ?? p.id} (${ingreso}%) supera el máximo permitido (${maximoMarkup}%)`
@@ -136,21 +145,28 @@ export async function iniciarCotizacion(req, res) {
     const numero = await cotizacionModel.generarNumeroCotizacion();
     const fechaMysql = aMySQLDateTime(fechaAhora);
 
+    // resolver id_estado de 'borrador'
+    const idEstadoBorrador = await getEstadoId(db, 'borrador');
+    if (!idEstadoBorrador) {
+      return res.status(500).json({ error: 'Estado borrador no configurado en la base de datos' });
+    }
+
     const nuevaCabecera = {
       numero_cotizacion: numero,
       id_cliente: idClienteNum,
       id_contacto: idContactoNum,
       id_condicion: idCondFinal ?? null,
       fecha: fechaMysql,
-      vigencia_hasta: vigenciaMySQL,
+      // para borrador preferimos no persistir vigencia/vencimiento salvo que lo quieras explícito
+      vigencia_hasta: null,
       observaciones: observaciones ?? '',
       plazo_entrega: plazo_entrega ?? '',
       costo_envio: costo_envio ?? 0,
-      estado: 'borrador',
+      id_estado: idEstadoBorrador,
       id_direccion_cliente: idDireccionNum ?? null,
       id_usuario: usuarioAutenticadoId,
       modalidad_envio: nuloSiUndefinedLocal(modalidad_envio),
-      vencimiento: nuloSiUndefinedLocal(vencimiento)
+      vencimiento: null
     };
 
     // Persistir cabecera + detalle dentro de transacción
@@ -160,7 +176,7 @@ export async function iniciarCotizacion(req, res) {
         `INSERT INTO cotizaciones (
           numero_cotizacion, id_cliente, id_contacto, id_condicion, fecha,
           vigencia_hasta, observaciones, plazo_entrega, costo_envio,
-          estado, id_direccion_cliente, id_usuario, modalidad_envio, vencimiento
+          id_estado, id_direccion_cliente, id_usuario, modalidad_envio, vencimiento
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           nuevaCabecera.numero_cotizacion,
@@ -172,7 +188,7 @@ export async function iniciarCotizacion(req, res) {
           nuevaCabecera.observaciones,
           nuevaCabecera.plazo_entrega,
           nuevaCabecera.costo_envio,
-          nuevaCabecera.estado,
+          nuevaCabecera.id_estado,
           nuevaCabecera.id_direccion_cliente,
           nuevaCabecera.id_usuario,
           nuevaCabecera.modalidad_envio,
@@ -183,13 +199,12 @@ export async function iniciarCotizacion(req, res) {
       const idCotizacion = result.insertId;
 
       // Insertar productos (reemplazarProductos persiste markup_ingresado),
-      // pero aquí los insertamos directamente para mantener la transacción
       if (productosBody.length > 0) {
         for (const item of productosBody) {
           const cantidad = Number(item.cantidad || 1);
           const precio_unitario = Number(item.precio_unitario ?? item.precio ?? 0);
           const descuento = Number(item.descuento ?? 0);
-          const markup_ingresado = Number(item.markup_ingresado ?? item.markup ?? 0);
+          const markup_ingresado = aNumeroONuloLocal(item.markup_ingresado);
           const subtotal = (precio_unitario - descuento) * cantidad;
           const iva = 0;
           const total = subtotal;
@@ -294,7 +309,7 @@ export async function finalizarCotizacion(req, res) {
   }
 
   try {
-    // Si no vino id_condicion, intentar obtener la condición por defecto del cliente
+    // resolver id_condicion por defecto si no vino
     let idCondFinal = idCondNum;
     if (!idCondFinal) {
       const [prefRows] = await db.query(
@@ -323,7 +338,7 @@ export async function finalizarCotizacion(req, res) {
 
     // Validar markups en productos
     for (const p of productos) {
-      const markupIngresado = toNumberOrNull(p.markup_ingresado ?? p.markup) ?? 0;
+      const markupIngresado = toNumberOrNull(p.markup_ingresado);
       if (markUpMaximo !== null && markupIngresado > markUpMaximo) {
         return res.status(400).json({
           error: `El markup del producto ${p.id_producto} (${markupIngresado}%) supera el máximo permitido (${markUpMaximo}%)`
@@ -331,7 +346,7 @@ export async function finalizarCotizacion(req, res) {
       }
     }
 
-    // Determinar id_usuario final (preferir body, si no usar usuario autenticado, si no leer DB)
+    // Determinar id_usuario final (preferir body, si no usar usuario autenticado)
     const usuarioAutenticadoId = req.user?.id ?? null;
     let idUsuarioFinal = toNumberOrNull(id_usuario) ?? usuarioAutenticadoId;
     if (!idUsuarioFinal) {
@@ -342,21 +357,47 @@ export async function finalizarCotizacion(req, res) {
       return res.status(400).json({ error: 'No se pudo determinar el usuario responsable de la cotización' });
     }
 
-    // Actualizar cabecera (guardamos id_condicion y campos obligatorios)
+    // --- calcular vigencia_hasta correctamente ---
+    let vigenciaHastaSQL = null;
+    const vencimientoDias = toNumberOrNull(vencimiento ?? null);
+
+    if (vencimientoDias !== null) {
+      const [rowFecha] = await db.query('SELECT fecha FROM cotizaciones WHERE id = ? LIMIT 1', [cotizacionId]);
+      const fechaOrigen = (rowFecha && rowFecha[0] && rowFecha[0].fecha) ? new Date(rowFecha[0].fecha) : new Date();
+      const fechaVence = sumarDias(fechaOrigen, vencimientoDias);
+      vigenciaHastaSQL = aMySQLDate(fechaVence); // YYYY-MM-DD
+    } else if (vigencia_hasta) {
+      const parsed = new Date(vigencia_hasta);
+      if (!isNaN(parsed.getTime())) {
+        vigenciaHastaSQL = aMySQLDate(parsed);
+      } else {
+        return res.status(400).json({ error: 'vigencia_hasta inválida' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Debe indicarse vencimiento (días) o vigencia_hasta para finalizar la cotización' });
+    }
+
+    // resolver id_estado pendiente
+    const idEstadoPendiente = await getEstadoId(db, 'pendiente');
+    if (!idEstadoPendiente) {
+      return res.status(500).json({ error: 'Estado pendiente no configurado en la base de datos' });
+    }
+
+    // Actualizar cabecera con id_estado numérico y vigencia_hasta calculada
     await cotizacionModel.actualizarCabecera(cotizacionId, {
       id_cliente: idClienteNum,
       id_contacto: idContactoNum,
       id_condicion: idCondFinal,
       fecha: new Date(),
-      vigencia_hasta: vigencia_hasta ?? null,
+      vigencia_hasta: vigenciaHastaSQL,
       observaciones: observationsOrEmpty(observaciones),
       plazo_entrega: plazo_entrega ?? '',
       costo_envio: costo_envio ?? 0,
-      estado: 'pendiente',
+      id_estado: idEstadoPendiente,
       id_direccion_cliente: idDireccionNum,
       id_usuario: idUsuarioFinal,
       modalidad_envio: nullOr(modalidad_envio),
-      vencimiento: nullOr(vencimiento)
+      vencimiento: vencimientoDias !== null ? vencimientoDias : null
     });
 
     // Reemplazar productos (detalle debe persistir markup_ingresado)
@@ -368,6 +409,9 @@ export async function finalizarCotizacion(req, res) {
     res.status(500).json({ error: 'Error al finalizar cotización' });
   }
 }
+
+
+
 
 // Devuelve toda la información de una cotización (cabecera + productos + condiciones)
 export async function verCotizacionCompleta(req, res) {
@@ -430,13 +474,12 @@ export async function actualizarCotizacionBorrador(req, res) {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
 
-    // Helpers locales
+    // Helpers de normalización
     const aNumeroONuloLocal = v => {
       if (v === null || v === undefined || v === '') return null;
-      const n = Number(v);
+      const n = Number(String(v).replace(',', '.').trim());
       return Number.isFinite(n) ? n : null;
     };
-    const nuloSiUndefinedLocal = v => (v === undefined ? null : v);
     const normalizarNumero = raw => {
       if (raw === null || raw === undefined || raw === '') return null;
       const n = parseFloat(String(raw).replace(',', '.').trim());
@@ -444,24 +487,20 @@ export async function actualizarCotizacionBorrador(req, res) {
     };
 
     const idClienteNum = aNumeroONuloLocal(data.id_cliente);
-    // no sobrescribimos la direccion si no viene en body: fallback
     let idDireccionNum = aNumeroONuloLocal(data.id_direccion_cliente);
     const idCondNum = aNumeroONuloLocal(data.id_condicion);
     const idContactoNum = typeof data.id_contacto === 'object'
       ? aNumeroONuloLocal(data.id_contacto.id)
       : aNumeroONuloLocal(data.id_contacto);
 
-    // Requeridos para guardar/actualizar borrador: cliente y contacto
     if (!idClienteNum) return res.status(400).json({ error: 'id_cliente es obligatorio para guardar un borrador' });
     if (!idContactoNum) return res.status(400).json({ error: 'id_contacto es obligatorio para guardar un borrador' });
 
-    // fallback: si no viene idDireccionNum, leemos el valor actual en DB para no sobrescribirlo
     if (idDireccionNum === null) {
       const [cur] = await db.query('SELECT id_direccion_cliente FROM cotizaciones WHERE id = ? LIMIT 1', [id]);
       if (cur && cur[0]) idDireccionNum = cur[0].id_direccion_cliente ?? null;
     }
 
-    // fallback para id_condicion y obtener datos de la condición (mark_up_maximo)
     let idCondFinal = idCondNum;
     let condicionSeleccionada = null;
     if (idCondFinal === null) {
@@ -477,7 +516,6 @@ export async function actualizarCotizacionBorrador(req, res) {
       if (cRows && cRows[0]) condicionSeleccionada = cRows[0];
     }
 
-    // calcular vigencia_hasta según días si vienen
     const diasVenc = aNumeroONuloLocal(data.dias_vencimiento ?? data.plazo_entrega_dias) ?? null;
     let vigenciaMySQL = null;
     if (diasVenc !== null) {
@@ -487,12 +525,10 @@ export async function actualizarCotizacionBorrador(req, res) {
     } else if (data.vigencia_hasta) {
       vigenciaMySQL = aMySQLDate(new Date(data.vigencia_hasta));
     } else {
-      // mantener la vigencia actual si no viene en body
       const [cur3] = await db.query('SELECT vigencia_hasta FROM cotizaciones WHERE id = ? LIMIT 1', [id]);
       if (cur3 && cur3[0]) vigenciaMySQL = cur3[0].vigencia_hasta ?? null;
     }
 
-    // Determinar id_usuario final (preferir data.id_usuario, si no usar usuario autenticado)
     let idUsuarioFinal = aNumeroONuloLocal(data.id_usuario) ?? usuarioAutenticadoId;
     if (!idUsuarioFinal) {
       const [row] = await db.query('SELECT id_usuario FROM cotizaciones WHERE id = ? LIMIT 1', [id]);
@@ -502,7 +538,16 @@ export async function actualizarCotizacionBorrador(req, res) {
       return res.status(400).json({ error: 'No se pudo determinar el usuario responsable de la cotización' });
     }
 
-    // Preparar cabecera para update (guardamos id_condicion si existe; resto flexible)
+    let idEstadoFinal = null;
+    if (data.id_estado !== undefined && data.id_estado !== null) {
+      idEstadoFinal = aNumeroONuloLocal(data.id_estado);
+    } else if (data.estado) {
+      idEstadoFinal = await getEstadoId(db, data.estado);
+    } else {
+      const [cur4] = await db.query('SELECT id_estado FROM cotizaciones WHERE id = ? LIMIT 1', [id]);
+      if (cur4 && cur4[0]) idEstadoFinal = cur4[0].id_estado ?? null;
+    }
+
     const cabecera = {
       id_cliente: idClienteNum,
       id_contacto: idContactoNum,
@@ -513,23 +558,21 @@ export async function actualizarCotizacionBorrador(req, res) {
       observaciones: data.observaciones ?? '',
       plazo_entrega: data.plazo_entrega ?? '',
       costo_envio: data.costo_envio ?? 0,
-      estado: data.estado || 'borrador',
+      id_estado: idEstadoFinal,
       id_usuario: idUsuarioFinal,
       modalidad_envio: data.modalidad_envio ?? null,
       vencimiento: data.vencimiento ?? null
     };
 
-    // Obtener productos recibidos
     const productosBody = Array.isArray(data.productos) ? data.productos : [];
 
-    // Normalizar maximo de markup y validar productos antes de persistir
     const maxRaw = condicionSeleccionada?.mark_up_maximo ?? null;
-    const maximoMarkup = normalizarNumero(maxRaw); // null => no validar
+    const maximoMarkup = normalizarNumero(maxRaw);
 
     if (maximoMarkup !== null && productosBody.length > 0) {
       for (const p of productosBody) {
-        const ingreso = normalizarNumero(p.markup_ingresado ?? p.markup ?? 0) ?? 0;
-        if (ingreso > maximoMarkup) {
+        const ingreso = aNumeroONuloLocal(p.markup_ingresado);
+        if (ingreso !== null && ingreso > maximoMarkup) {
           return res.status(400).json({
             error: `El markup del producto ${p.id_producto ?? p.id} (${ingreso}%) supera el máximo permitido (${maximoMarkup}%)`
           });
@@ -537,14 +580,9 @@ export async function actualizarCotizacionBorrador(req, res) {
       }
     }
 
-    // Persistir cabecera + detalle dentro de transacción
     await db.query('START TRANSACTION');
     try {
-      // actualizar cabecera
       await cotizacionModel.actualizarCabecera(id, cabecera);
-
-      // reemplazar productos: borramos detalle y reinsertamos incluyendo markup_ingresado
-      // usamos queries directas dentro de la transacción para asegurar atomicidad
       await db.query('DELETE FROM detalle_cotizacion WHERE id_cotizacion = ?', [id]);
 
       if (productosBody.length > 0) {
@@ -552,7 +590,7 @@ export async function actualizarCotizacionBorrador(req, res) {
           const cantidad = Number(item.cantidad || 1);
           const precio_unitario = Number(item.precio_unitario ?? item.precio ?? 0);
           const descuento = Number(item.descuento ?? 0);
-          const markup_ingresado = Number(item.markup_ingresado ?? item.markup ?? 0);
+          const markup_ingresado = aNumeroONuloLocal(item.markup_ingresado);
           const subtotal = parseFloat(((precio_unitario - descuento) * cantidad).toFixed(2));
           const iva = 0;
           const total = subtotal;
@@ -578,7 +616,51 @@ export async function actualizarCotizacionBorrador(req, res) {
       }
 
       await db.query('COMMIT');
-      return res.json({ mensaje: 'Cotización actualizada como borrador' });
+
+      const [prodRows] = await db.query(
+        `SELECT
+           dc.id AS id_detalle,
+           dc.id_producto,
+           dc.cantidad,
+           dc.precio_unitario,
+           dc.descuento,
+           dc.subtotal,
+           p.tasa_iva AS tasa_iva,
+           p.part_number,
+           p.detalle AS detalle,
+           dc.markup_ingresado
+         FROM detalle_cotizacion dc
+         LEFT JOIN productos p ON p.id = dc.id_producto
+         WHERE dc.id_cotizacion = ? ORDER BY dc.id`,
+        [id]
+      );
+
+      const productosResp = (prodRows || []).map(r => ({
+        id_detalle: r.id_detalle,
+        id_producto: r.id_producto,
+        cantidad: r.cantidad,
+        precio_unitario: r.precio_unitario,
+        descuento: r.descuento,
+        subtotal: r.subtotal,
+        tasa_iva: r.tasa_iva ?? null,
+        part_number: r.part_number ?? null,
+        detalle: r.detalle ?? null,
+        markup_ingresado: r.markup_ingresado
+      }));
+
+      // ✅ Enriquecer cabecera decorativa
+      const { cabecera: cabeceraDecorada } = await cotizacionModel.obtenerCotizacionParaEdicion(id);
+
+      return res.json({
+        mensaje: 'Cotización actualizada como borrador',
+        cotizacion: {
+          id: Number(id),
+          cabecera: cabeceraDecorada,
+          productos: productosResp
+        }
+      });
+
+      
     } catch (err) {
       await db.query('ROLLBACK');
       console.error('❌ Error al persistir actualización en transacción:', err);
@@ -590,8 +672,3 @@ export async function actualizarCotizacionBorrador(req, res) {
   }
 }
 
-// Helpers locales
-function observationsOrEmpty(v) {
-  // Aceptar '' como texto vacío; evitar undefined
-  return v === undefined ? '' : v;
-}

@@ -3,7 +3,7 @@
 import pool from '../config/db.js';
 
 export class Cotizacion {
-  constructor(db) {
+  constructor(db = pool) {
     this.db = db;
   }
 
@@ -26,8 +26,8 @@ export class Cotizacion {
   // Crear la cabecera de una nueva cotización (ajustada a las columnas reales)
   async crearCabecera({
     numero_cotizacion,
-    fecha,
-    estado,
+    fecha = null,
+    id_estado,
     id_usuario,
     id_cliente,
     id_contacto,
@@ -40,27 +40,29 @@ export class Cotizacion {
     modalidad_envio = null,
     vencimiento = null
   }) {
+    const fechaInsert = fecha ?? new Date();
+
     const [result] = await this.db.query(
       `INSERT INTO cotizaciones (
         numero_cotizacion, id_cliente, id_contacto, id_condicion, fecha,
         vigencia_hasta, observaciones, plazo_entrega, costo_envio,
-        estado, id_direccion_cliente, id_usuario, modalidad_envio, vencimiento
+        id_estado, id_direccion_cliente, id_usuario, modalidad_envio, vencimiento
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         numero_cotizacion,
         id_cliente,
         id_contacto,
         id_condicion,
-        fecha,
-        vigencia_hasta,
-        observaciones,
-        plazo_entrega,
-        costo_envio,
-        estado,
-        id_direccion_cliente,
-        id_usuario,
-        modalidad_envio,
-        vencimiento
+        fechaInsert,
+        vigencia_hasta ?? null,
+        observaciones ?? '',
+        plazo_entrega ?? '',
+        costo_envio ?? 0,
+        id_estado,
+        id_direccion_cliente ?? null,
+        id_usuario ?? null,
+        modalidad_envio ?? null,
+        vencimiento ?? null
       ]
     );
 
@@ -73,18 +75,18 @@ export class Cotizacion {
       `UPDATE cotizaciones SET
         id_cliente = ?, id_contacto = ?, id_condicion = ?,
         fecha = ?, vigencia_hasta = ?, observaciones = ?, plazo_entrega = ?, costo_envio = ?,
-        estado = ?, id_direccion_cliente = ?, id_usuario = ?, modalidad_envio = ?, vencimiento = ?
+        id_estado = ?, id_direccion_cliente = ?, id_usuario = ?, modalidad_envio = ?, vencimiento = ?
       WHERE id = ?`,
       [
-        data.id_cliente,
-        data.id_contacto,
+        data.id_cliente ?? null,
+        data.id_contacto ?? null,
         data.id_condicion ?? null,
         data.fecha ?? null,
         data.vigencia_hasta ?? null,
         data.observaciones ?? '',
         data.plazo_entrega ?? '',
         data.costo_envio ?? 0,
-        data.estado,
+        data.id_estado,
         data.id_direccion_cliente ?? null,
         data.id_usuario ?? null,
         data.modalidad_envio ?? null,
@@ -109,14 +111,13 @@ export class Cotizacion {
       const cantidad = Number(item.cantidad || 1);
 
       const subtotal = (precioConIva - descuento) * cantidad;
-      const iva = 0; // según tu comentario el precio ya incluye IVA
+      const iva = 0;
       const total = subtotal;
 
       await this.db.query(
         `INSERT INTO detalle_cotizacion (
           id_cotizacion, id_producto, cantidad, precio_unitario,
           descuento, subtotal, iva, total_iva_incluido, markup_ingresado
-
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           idCotizacion,
@@ -184,105 +185,170 @@ export class Cotizacion {
         c.id,
         c.numero_cotizacion,
         c.fecha,
-        c.estado,
+        e.nombre AS estado_nombre,
         cl.razon_social AS cliente_nombre,
         u.nombre AS usuario_nombre,
         ct.nombre_contacto AS contacto_nombre,
         ct.apellido AS contacto_apellido,
         c.vigencia_hasta,
-        SUM(dp.precio_unitario * dp.cantidad * (1 - dp.descuento / 100)) AS total
+        COALESCE(SUM(dp.precio_unitario * dp.cantidad * (1 - dp.descuento / 100)), 0) AS total
       FROM cotizaciones c
+      LEFT JOIN estados e ON c.id_estado = e.id
       LEFT JOIN cliente cl ON c.id_cliente = cl.id
       LEFT JOIN usuarios u ON c.id_usuario = u.id
       LEFT JOIN contactos ct ON c.id_contacto = ct.id
       LEFT JOIN detalle_cotizacion dp ON c.id = dp.id_cotizacion
-      WHERE c.estado = 'borrador' AND c.id_usuario = ?
+      WHERE c.id_estado = (SELECT id FROM estados WHERE nombre = 'borrador' LIMIT 1)
+        AND c.id_usuario = ?
       GROUP BY c.id
       ORDER BY c.fecha DESC;`,
       [id_usuario]
     );
 
-    return rows;
+    const normalized = (rows || []).map(r => ({
+      ...r,
+      fecha: r.fecha ? new Date(r.fecha).toISOString() : null,
+      vigencia_hasta: r.vigencia_hasta ? new Date(r.vigencia_hasta).toISOString() : null
+    }));
+
+    return normalized;
   }
 
   // Devuelve la cabecera + productos con datos enriquecidos (incluye mark_up_maximo desde condiciones_comerciales)
- // Devuelve la cabecera + productos con datos enriquecidos (incluye mark_up_maximo desde condiciones_comerciales)
-async obtenerCotizacionCompleta(idCotizacion) {
-  const [cabeceraRows] = await this.db.query(
-    `SELECT c.*,
+  async obtenerCotizacionCompleta(idCotizacion) {
+    const [cabeceraRows] = await this.db.query(
+      `SELECT c.*,
+       e.nombre AS estado_nombre,
        cl.razon_social AS cliente_nombre, cl.cuit,
        u.nombre AS usuario_nombre, u.apellido AS usuario_apellido,
        cc.forma_pago, cc.tipo_cambio, cc.dias_pago, cc.mark_up_maximo, cc.observaciones AS condiciones_observaciones,
-       dc.locacion, dc.localidad, dc.provincia
-     FROM cotizaciones c
-     JOIN cliente cl ON c.id_cliente = cl.id
-     JOIN usuarios u ON c.id_usuario = u.id
-     LEFT JOIN condiciones_comerciales cc ON c.id_condicion = cc.id
-     LEFT JOIN direccion_cliente dc ON c.id_direccion_cliente = dc.id
-     WHERE c.id = ?`,
-    [idCotizacion]
-  );
+       dc.locacion, dc.localidad, dc.provincia,
+       con.nombre_contacto AS nombre_contacto,
+       CONCAT_WS(' ', dir.calle, dir.numeracion, dir.piso, dir.depto, '-', dir.localidad, '-', dir.provincia) AS direccion_cliente
+FROM cotizaciones c
+LEFT JOIN estados e ON c.id_estado = e.id
+JOIN cliente cl ON c.id_cliente = cl.id
+JOIN usuarios u ON c.id_usuario = u.id
+LEFT JOIN condiciones_comerciales cc ON c.id_condicion = cc.id
+LEFT JOIN direccion_cliente dc ON c.id_direccion_cliente = dc.id
+LEFT JOIN contactos con ON con.id = c.id_contacto
+LEFT JOIN direccion_cliente dir ON dir.id = c.id_direccion_cliente
+WHERE c.id = ?`,
+      [idCotizacion]
+    );
 
-  const cabeceraRaw = cabeceraRows[0] ?? null;
+    const cabeceraRaw = cabeceraRows[0] ?? null;
+    let cabecera = cabeceraRaw;
 
-  // normalizar mark_up_maximo a Number o null
-  let cabecera = cabeceraRaw;
-  if (cabecera) {
-    const rawMark = cabecera.mark_up_maximo;
-    if (rawMark === null || rawMark === undefined || rawMark === '') {
-      cabecera.mark_up_maximo = null;
-    } else {
-      const parsed = parseFloat(String(rawMark).replace(',', '.').trim());
-      cabecera.mark_up_maximo = Number.isFinite(parsed) ? parsed : null;
+    const [contactosCliente] = await this.db.query(
+      `SELECT id, nombre_contacto FROM contactos WHERE id_cliente = ?`,
+      [cabecera.id_cliente]
+    );
+
+    const [direccionesCliente] = await this.db.query(
+      `SELECT id,
+          CONCAT_WS(' ', calle, numeracion, piso, depto, '-', localidad, '-', provincia) AS texto
+   FROM direccion_cliente
+   WHERE id_cliente = ?`,
+      [cabecera.id_cliente]
+    );
+
+    cabecera.contactos = contactosCliente ?? [];
+    cabecera.direcciones = direccionesCliente ?? [];
+
+    if (cabecera) {
+      const rawMark = cabecera.mark_up_maximo;
+      if (rawMark === null || rawMark === undefined || rawMark === '') {
+        cabecera.mark_up_maximo = null;
+      } else {
+        const parsed = parseFloat(String(rawMark).replace(',', '.').trim());
+        cabecera.mark_up_maximo = Number.isFinite(parsed) ? parsed : null;
+      }
+
+      cabecera.fecha = cabecera.fecha ? new Date(cabecera.fecha).toISOString() : null;
+      cabecera.vigencia_hasta = cabecera.vigencia_hasta ? new Date(cabecera.vigencia_hasta).toISOString() : null;
     }
-  }
 
-  const [detalleRows] = await this.db.query(
-    `SELECT dc.*, p.detalle, p.part_number, p.marca, p.categoria, p.subcategoria, p.tasa_iva, p.precio
-     FROM detalle_cotizacion dc
-     JOIN productos p ON dc.id_producto = p.id
-     WHERE dc.id_cotizacion = ?`,
-    [idCotizacion]
-  );
+    const [detalleRows] = await this.db.query(
+      `SELECT dc.*, p.detalle, p.part_number, p.marca, p.categoria, p.subcategoria, p.tasa_iva, p.precio
+       FROM detalle_cotizacion dc
+       JOIN productos p ON dc.id_producto = p.id
+       WHERE dc.id_cotizacion = ?`,
+      [idCotizacion]
+    );
 
-  const productos = (detalleRows || []).map(item => {
-    const tasa = Number(item.tasa_iva ?? 21);
-    const precio_unitario_raw = Number(item.precio_unitario ?? item.precio ?? 0);
-    const precio_unitario = parseFloat(precio_unitario_raw.toFixed(2));
-    const descuento = parseFloat(Number(item.descuento ?? 0).toFixed(2));
-    const subtotal = parseFloat(Number(item.subtotal ?? (precio_unitario - descuento) * Number(item.cantidad ?? 1)).toFixed(2));
-    const ivaDesglosado = tasa > 0 ? precio_unitario * (tasa / (100 + tasa)) : 0;
+    const productos = (detalleRows || []).map(item => {
+      const tasa = Number(item.tasa_iva ?? 21);
+      const precio_unitario_raw = Number(item.precio_unitario ?? item.precio ?? 0);
+      const precio_unitario = parseFloat(precio_unitario_raw.toFixed(2));
+      const descuento = parseFloat(Number(item.descuento ?? 0).toFixed(2));
+      const cantidad = Number(item.cantidad ?? 1);
+      const subtotal = parseFloat(Number(item.subtotal ?? (precio_unitario - descuento) * cantidad).toFixed(2));
+      const ivaDesglosado = tasa > 0 ? precio_unitario * (tasa / (100 + tasa)) : 0;
+
+      return {
+        ...item,
+        precio_unitario,
+        descuento,
+        cantidad,
+        subtotal,
+        iva_desglosado: parseFloat(ivaDesglosado.toFixed(2)),
+        markup_ingresado: item.markup_ingresado !== undefined && item.markup_ingresado !== null
+          ? Number(item.markup_ingresado)
+          : 0
+      };
+    });
 
     return {
-      ...item,
-      precio_unitario,
-      descuento,
-      subtotal,
-      iva_desglosado: parseFloat(ivaDesglosado.toFixed(2)),
-      // asegurar markup_ingresado numérico y consistente
-      markup_ingresado: item.markup_ingresado !== undefined && item.markup_ingresado !== null
-        ? Number(item.markup_ingresado)
-        : 0
+      cabecera,
+      productos
     };
-  });
+  }
 
-  return {
-    cabecera,
-    productos
-  };
-}
+  // Obtener cotización para edición (cabecera + productos) — devuelve estado_nombre y fechas normalizadas
+  
 
-// Devuelve la cabecera y los productos para edición
 async obtenerCotizacionParaEdicion(id) {
   const [cabeceraRows] = await this.db.query(
-    `SELECT c.*, cl.razon_social, cl.cuit
+    `SELECT c.*,
+            e.nombre AS estado_nombre,
+            cl.razon_social AS cliente_nombre,
+            cl.cuit,
+            con.nombre_contacto AS nombre_contacto,
+            CONCAT_WS(' ', dir.calle, dir.numeracion, dir.piso, dir.depto, '-', dir.localidad, '-', dir.provincia) AS direccion_cliente
      FROM cotizaciones c
+     LEFT JOIN estados e ON c.id_estado = e.id
      JOIN cliente cl ON c.id_cliente = cl.id
+     LEFT JOIN contactos con ON con.id = c.id_contacto
+     LEFT JOIN direccion_cliente dir ON dir.id = c.id_direccion_cliente
      WHERE c.id = ?`,
     [id]
   );
 
-  const cabecera = cabeceraRows[0] ?? null;
+  const cabeceraRaw = cabeceraRows[0] ?? null;
+  let cabecera = cabeceraRaw;
+
+  if (cabecera) {
+    cabecera.fecha = cabecera.fecha ? new Date(cabecera.fecha).toISOString() : null;
+    cabecera.vigencia_hasta = cabecera.vigencia_hasta ? new Date(cabecera.vigencia_hasta).toISOString() : null;
+
+    // Enriquecer con arrays decorativos
+    const [contactosCliente] = await this.db.query(
+      `SELECT id, nombre_contacto FROM contactos WHERE id_cliente = ?`,
+      [cabecera.id_cliente]
+    );
+
+    const [direccionesCliente] = await this.db.query(
+      `SELECT id,
+              CONCAT_WS(' ', calle, numeracion, piso, depto, '-', localidad, '-', provincia) AS texto
+       FROM direccion_cliente
+       WHERE id_cliente = ?`,
+      [cabecera.id_cliente]
+    );
+
+    cabecera.contactos = contactosCliente ?? [];
+    cabecera.direcciones = direccionesCliente ?? [];
+  }
 
   const [rows] = await this.db.query(
     `SELECT
@@ -298,13 +364,15 @@ async obtenerCotizacionParaEdicion(id) {
     const precio_unitario_raw = Number(item.precio_unitario ?? item.precio ?? 0);
     const precio_unitario = parseFloat(precio_unitario_raw.toFixed(2));
     const descuento = parseFloat(Number(item.descuento ?? 0).toFixed(2));
-    const subtotal = parseFloat(Number(item.subtotal ?? (precio_unitario - descuento) * Number(item.cantidad ?? 1)).toFixed(2));
+    const cantidad = Number(item.cantidad ?? 1);
+    const subtotal = parseFloat(Number(item.subtotal ?? (precio_unitario - descuento) * cantidad).toFixed(2));
     const ivaDesglosado = tasa > 0 ? precio_unitario * (tasa / (100 + tasa)) : 0;
 
     return {
       ...item,
       precio_unitario,
       descuento,
+      cantidad,
       subtotal,
       iva_desglosado: parseFloat(ivaDesglosado.toFixed(2)),
       markup_ingresado: item.markup_ingresado !== undefined && item.markup_ingresado !== null

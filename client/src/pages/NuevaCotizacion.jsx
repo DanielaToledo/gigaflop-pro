@@ -80,6 +80,12 @@ const NuevaCotizacion = () => {
   const condicionesCargadasRef = useRef(false);   // marca que cargarCondiciones ya terminó
   const userInteractedRef = useRef(false);
 
+  //Estados para los estados de las cotizaciones
+  const [estados, setEstados] = useState([]);
+
+
+
+
 
 
   // Otros estados como mpstrar modal, año, productos, etc.
@@ -112,22 +118,53 @@ const NuevaCotizacion = () => {
   const { usuario: usuarioActual } = useUser();
 
   // Normalizadores
+
+  //Helper para resolver id_estado por nombre o devolver valor numérico si ya viene id 
+  const resolveEstadoId = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    // ya es número
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    // string numérico
+    if (typeof v === 'string' && /^\d+$/.test(v.trim())) return Number(v.trim());
+    // buscar por nombre en estados cargados (case-insensitive, trim)
+    const name = (v && typeof v === 'object') ? (v.nombre ?? v.estado ?? '') : String(v);
+    const found = estados.find(e => (e.nombre ?? '').toString().trim().toLowerCase() === name.toString().trim().toLowerCase());
+    return found ? Number(found.id) : null;
+  };
+
+
+  //normalizar fecha 
+  const toYYYYMMDD = (dateOrIso) => {
+    if (!dateOrIso) return null;
+    const d = (typeof dateOrIso === 'string') ? new Date(dateOrIso) : dateOrIso;
+    if (!d || isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0, 10);
+  };
   const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
 
-  const normalizarProducto = p => ({
-    id_producto: normalizarNumero(p.id_producto ?? p.id),
-    cantidad: normalizarNumero(p.cantidad) || 1,
-    precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
-    descuento: Number(p.descuento ?? 0) || 0,
-    markup_ingresado: Number(p.markup_ingresado ?? p.markup ?? 0),
-    tasa_iva: Number(p.tasa_iva ?? 21) || 21,
-    part_number: p.part_number ?? p.partNumber ?? null,
-    detalle: p.detalle ?? p.nombre ?? null,
-    subtotal: Number(
-      p.subtotal ??
-      ((Number(p.precio_unitario ?? p.precio ?? 0) - Number(p.descuento ?? 0)) * (p.cantidad || 1))
-    ) || 0
-  });
+  const normalizeMarkup = v => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const normalizarProducto = p => {
+    const precioUnit = Number(p.precio_unitario ?? p.precio ?? 0) || 0;
+    const descuentoNum = Number(p.descuento ?? 0) || 0;
+    const cantidadNum = normalizarNumero(p.cantidad) || 1;
+
+    return {
+      id_producto: normalizarNumero(p.id_producto ?? p.id),
+      cantidad: cantidadNum,
+      precio_unitario: precioUnit,
+      descuento: descuentoNum,
+      markup_ingresado: normalizeMarkup(p.markup_ingresado),
+      tasa_iva: Number(p.tasa_iva ?? 21) || 21,
+      part_number: p.part_number ?? p.partNumber ?? null,
+      detalle: p.detalle ?? p.nombre ?? null,
+      subtotal: Number(p.subtotal ?? ((precioUnit - descuentoNum) * cantidadNum)) || 0
+    };
+  };
 
   // Devuelve id de condición como Number o null si no hay id
   const getCondicionId = (cond) => {
@@ -191,7 +228,7 @@ const NuevaCotizacion = () => {
   const productosExcedenMarkup = useMemo(() => {
     if (markUpMaximo === null) return [];
     return productosNormalizados.filter(p => {
-      const markup = Number(p.markup_ingresado ?? 0);
+      const markup = Number(p.markup_ingresado);
       return Number.isFinite(markup) && markup > markUpMaximo;
     });
   }, [productosNormalizados, markUpMaximo]);
@@ -203,7 +240,7 @@ const NuevaCotizacion = () => {
     const productosExceden = (Array.isArray(carrito) ? carrito : [])
       .map((p, i) => {
         const key = getProductKey(p, i);
-        const ingreso = Number(p.markup ?? p.markup_ingresado ?? 0);
+        const ingreso = Number(p.markup_ingresado);
         return { p, key, ingreso, excede: maxServer && !Number.isNaN(ingreso) && ingreso > maxServer };
       })
       .filter(x => x.excede);
@@ -229,26 +266,45 @@ const NuevaCotizacion = () => {
   };
 
   // Construir payload para enviar al servidor
-  const buildPayload = (estado = 'borrador', extra = {}) => {
+  const buildPayload = (estadoNombreOrId = 'borrador', extra = {}) => {
     const productos = (Array.isArray(carrito) ? carrito : [])
       .map(normalizarProducto)
       .filter(p => Number.isFinite(p.id_producto));
+
+    const resolvedIdCond = normalizarNumero(getCondicionId(condicionSeleccionada)) || null;
+
+    // resolver id_estado: aceptar que caller pase nombre o id
+    const resolvedEstadoId = resolveEstadoId(estadoNombreOrId);
 
     return {
       id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente) ?? null,
       id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
       id_usuario: normalizarNumero(usuarioActual?.id) ?? null,
       id_direccion_cliente: normalizarNumero(direccionIdSeleccionada) ?? null,
-      id_condicion: normalizarNumero(getCondicionId(condicionSeleccionada)) || null,
-      vigencia_hasta: vigenciaHasta || null,
+      id_condicion: resolvedIdCond || null,
+      vigencia_hasta: toYYYYMMDD(vigenciaHasta) || null,
       observaciones: observaciones || '',
       plazo_entrega: plazoEntrega || '',
       costo_envio: normalizarNumero(costoEnvio) || 0,
-      estado,
+      // reemplazo clave: enviamos id_estado en lugar de 'estado' textual
+      ...(resolvedEstadoId ? { id_estado: resolvedEstadoId } : {}),
       productos,
       ...extra
     };
   };
+
+  // cargar estados (una sola vez)
+  useEffect(() => {
+    axios.get('/api/estados', { headers: { 'Cache-Control': 'no-cache' } })
+      .then(({ data }) => {
+        // asumimos que devuelve array [{ id, nombre, ... }]
+        setEstados(Array.isArray(data) ? data : (data?.estados || []));
+      })
+      .catch(err => {
+        console.error('Error al cargar estados:', err);
+        setEstados([]);
+      });
+  }, []);
 
 
 
@@ -280,7 +336,7 @@ const NuevaCotizacion = () => {
       const formateados = productos.map(p => ({
         ...p,
         cantidad: p.quantity || 1,
-        markup: p.markup ?? 0,
+        markup_ingresado: p.markup_ingresado ?? p.markup ?? null,
         descuento: p.descuento ?? 0,
         precio: num(p.precio) || 0,
         tasa_iva: num(p.tasa_iva) || 21
@@ -288,7 +344,7 @@ const NuevaCotizacion = () => {
       setCarrito(formateados);
       setProductosSeleccionados(formateados);
       // validar cada producto para precargar errores inline
-      formateados.forEach((p, idx) => validateMarkupForProduct(getProductKey(p, idx), p.markup));
+      formateados.forEach((p, idx) => validateMarkupForProduct(getProductKey(p, idx), p.markup_ingresado));
 
 
     } else {
@@ -299,7 +355,7 @@ const NuevaCotizacion = () => {
           const formateados = productos.map(p => ({
             ...p,
             cantidad: 1,
-            markup: 0,
+            markup_ingresado: null,
             descuento: 0
           }));
           setCarrito(formateados);
@@ -357,7 +413,7 @@ const NuevaCotizacion = () => {
     const nuevo = {
       ...producto,
       cantidad: 1,
-      markup: 0,
+      markup_ingresado: null,
       descuento: 0,
       precio: num(producto.precio) || 0,
       tasa_iva: num(producto.tasa_iva) || 21
@@ -374,7 +430,7 @@ const NuevaCotizacion = () => {
     const nuevos = productosSeleccionados.map(p => ({
       ...p,
       cantidad: 1,
-      markup: 0,
+      markup_ingresado: null,
       descuento: 0,
       precio: num(p.precio) || 0,
       tasa_iva: num(p.tasa_iva) || 21
@@ -437,118 +493,150 @@ const NuevaCotizacion = () => {
 
 
   const getProductKey = (p, i) => String(p.id_producto ?? p.id ?? p.part_number ?? `idx_${i}`);
+
   const validateMarkupForProduct = (productKey, valorMarkup) => {
     const maxServer = Number(markUpMaximoServer ?? 0);
-    const ingreso = Number(valorMarkup ?? 0);
+    const ingreso = Number(valorMarkup);
+
     setErroresProductos(prev => {
       const nuevo = { ...(prev || {}) };
-      if (!maxServer || Number.isNaN(ingreso)) {
+
+      if (!maxServer || valorMarkup === null || valorMarkup === undefined || Number.isNaN(ingreso)) {
         delete nuevo[String(productKey)];
         return nuevo;
       }
+
       if (ingreso > maxServer) {
         nuevo[String(productKey)] = `El markup del producto ${productKey} (${ingreso}%) supera el máximo permitido (${maxServer}%)`;
       } else {
         delete nuevo[String(productKey)];
       }
+
       return nuevo;
     });
   };
 
 
-  const cargarCotizacionExistente = async (id) => {
-    const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
-    const norm = s => String(s ?? '').trim().toLowerCase();
+ const cargarCotizacionExistente = async (id) => {
+  const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+  const norm = s => String(s ?? '').trim().toLowerCase();
 
-    try {
-      const res = await axios.get(`/api/cotizaciones/borrador/retomar/${id}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      console.log('Respuesta completa de cotización:', res.data);
-      const { cabecera, productos } = res.data;
+  try {
+    const res = await axios.get(`/api/cotizaciones/borrador/retomar/${id}`, {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    console.log('Respuesta completa de cotización:', res.data);
+    const { cabecera, productos } = res.data;
 
-      if (!cabecera?.id_cliente) {
-        console.error('❌ cabecera.id_cliente está vacío o undefined');
-        return;
-      }
+    console.log('🧪 productos retomados:', productos);
+    console.log('📦 cabecera completa desde backend:', cabecera);
 
-      // 1) Setear cliente seleccionado (id) temprano
-      setClienteSeleccionado(cabecera.id_cliente);
+    if (!cabecera?.id_cliente) {
+      console.error('❌ cabecera.id_cliente está vacío o undefined');
+      return;
+    }
 
-      // Reconstruir clienteObjeto para mostrar en UI
-      let clienteEncontrado = Array.isArray(clientesDisponibles)
-        ? clientesDisponibles.find(c => Number(c.id) === Number(cabecera.id_cliente))
-        : undefined;
+    // 1) Setear cliente seleccionado (id) temprano
+    setClienteSeleccionado(cabecera.id_cliente);
 
-      if (!clienteEncontrado && cabecera?.razon_social && cabecera?.cuit) {
-        clienteEncontrado = {
-          id: cabecera.id_cliente,
-          razon_social: String(cabecera.razon_social).trim(),
-          cuit: String(cabecera.cuit).trim()
-        };
+    // Reconstruir clienteObjeto para mostrar en UI
+    let clienteEncontrado = Array.isArray(clientesDisponibles)
+      ? clientesDisponibles.find(c => Number(c.id) === Number(cabecera.id_cliente))
+      : undefined;
 
-        setClientesDisponibles(prev => {
-          const prevArr = Array.isArray(prev) ? prev : [];
-          const yaExiste = prevArr.some(x => Number(x.id) === Number(clienteEncontrado.id));
-          return yaExiste ? prevArr : [...prevArr, clienteEncontrado];
-        });
-      }
-
-      setClienteObjeto(clienteEncontrado || null);
-      setBusquedaCliente(clienteEncontrado ? `${clienteEncontrado.razon_social} – CUIT: ${clienteEncontrado.cuit}` : '');
-
-      // ------------------------------------------------------------
-      // CARGAR Y NORMALIZAR CONDICIONES (fuente de verdad local)
-      // ------------------------------------------------------------
-      const condicionesLoaded = await cargarCondiciones(cabecera.id_cliente);
-
-      // Normalizar posibles formatos de retorno
-      let condicionesFuente = [];
-      if (Array.isArray(condicionesLoaded)) {
-        condicionesFuente = condicionesLoaded;
-      } else if (condicionesLoaded && typeof condicionesLoaded === 'object') {
-        if (Array.isArray(condicionesLoaded.lista)) condicionesFuente = condicionesLoaded.lista;
-        else if (Array.isArray(condicionesLoaded.listaCondiciones)) condicionesFuente = condicionesLoaded.listaCondiciones;
-        else if (Array.isArray(condicionesLoaded.lista_condiciones)) condicionesFuente = condicionesLoaded.lista_condiciones;
-        else if (Array.isArray(condicionesLoaded.condiciones)) condicionesFuente = condicionesLoaded.condiciones;
-        else {
-          const maybe = condicionesLoaded;
-          if (maybe && (maybe.id || maybe.forma_pago)) condicionesFuente = [maybe];
-        }
-      }
-
-      // fallback: usar estado si no vino nada
-      if (!Array.isArray(condicionesFuente) || condicionesFuente.length === 0) {
-        condicionesFuente = Array.isArray(condiciones) && condiciones.length > 0 ? condiciones : [];
-      }
-
-      // dedupe defensivo por id (prioriza entradas con dias_pago no vacíos y prioriza la última)
-      const dedupeCondiciones = (arr = []) => {
-        const map = new Map();
-        for (let i = arr.length - 1; i >= 0; i--) {
-          const c = arr[i] ?? {};
-          const id = String(c?.id ?? c?.id_condicion ?? '');
-          if (!id) continue;
-          if (!map.has(id)) map.set(id, c);
-          else {
-            const existing = map.get(id);
-            const existingDias = String(existing?.dias_pago ?? existing?.dias ?? '').trim();
-            const currentDias = String(c?.dias_pago ?? c?.dias ?? '').trim();
-            if ((!existingDias || existingDias === '') && currentDias) map.set(id, c);
-          }
-        }
-        return Array.from(map.values()).reverse();
+    if (!clienteEncontrado && cabecera?.cliente_nombre && cabecera?.cuit) {
+      clienteEncontrado = {
+        id: cabecera.id_cliente,
+        razon_social: String(cabecera.cliente_nombre).trim(),
+        cuit: String(cabecera.cuit).trim(),
+        contactos: cabecera.contactos ?? [],
+        direcciones: cabecera.direcciones ?? []
       };
 
-      condicionesFuente = dedupeCondiciones(condicionesFuente);
+      setClientesDisponibles(prev => {
+        const prevArr = Array.isArray(prev) ? prev : [];
+        const yaExiste = prevArr.some(x => Number(x.id) === Number(clienteEncontrado.id));
+        return yaExiste ? prevArr : [...prevArr, clienteEncontrado];
+      });
+    }
 
-      // Guardar en estado y marcar como cargadas
-      if (typeof setCondiciones === 'function') setCondiciones(condicionesFuente);
-      if (typeof condicionesCargadasRef !== 'undefined' && condicionesCargadasRef && 'current' in condicionesCargadasRef) {
-        condicionesCargadasRef.current = true;
+    setClienteObjeto(clienteEncontrado || null);
+    setBusquedaCliente(
+      clienteEncontrado
+        ? `${clienteEncontrado.razon_social} – CUIT: ${clienteEncontrado.cuit}`
+        : ''
+    );
+console.log('📦 productosDisponibles al enriquecer:', productosDisponibles);
+    // ✅ Enriquecer productos con decorativos desde catálogo
+    const productosEnriquecidos = productos.map(p => {
+      const decorado = productosDisponibles?.find(prod =>
+        prod.id === p.id_producto || prod.id === p.id
+      ) ?? {};
+
+      return {
+        ...p,
+        detalle: p.detalle ?? decorado.nombre ?? '',
+        marca: p.marca ?? decorado.marca ?? '',
+        categoria: p.categoria ?? decorado.categoria ?? '',
+        subcategoria: p.subcategoria ?? decorado.subcategoria ?? ''
+      };
+    });
+
+    setCarrito(productosEnriquecidos);
+
+    // ------------------------------------------------------------
+    // CARGAR Y NORMALIZAR CONDICIONES (fuente de verdad local)
+    // ------------------------------------------------------------
+    const condicionesLoaded = await cargarCondiciones(cabecera.id_cliente);
+
+    // Normalizar posibles formatos de retorno
+    let condicionesFuente = [];
+    if (Array.isArray(condicionesLoaded)) {
+      condicionesFuente = condicionesLoaded;
+    } else if (condicionesLoaded && typeof condicionesLoaded === 'object') {
+      if (Array.isArray(condicionesLoaded.lista)) condicionesFuente = condicionesLoaded.lista;
+      else if (Array.isArray(condicionesLoaded.listaCondiciones)) condicionesFuente = condicionesLoaded.listaCondiciones;
+      else if (Array.isArray(condicionesLoaded.lista_condiciones)) condicionesFuente = condicionesLoaded.lista_condiciones;
+      else if (Array.isArray(condicionesLoaded.condiciones)) condicionesFuente = condicionesLoaded.condiciones;
+      else {
+        const maybe = condicionesLoaded;
+        if (maybe && (maybe.id || maybe.forma_pago)) condicionesFuente = [maybe];
       }
+    }
 
-      console.log('AFTER cargarCondiciones -> condicionesFuente (post-dedupe):', condicionesFuente);
+    // fallback: usar estado si no vino nada
+    if (!Array.isArray(condicionesFuente) || condicionesFuente.length === 0) {
+      condicionesFuente = Array.isArray(condiciones) && condiciones.length > 0 ? condiciones : [];
+    }
+
+    // dedupe defensivo por id (prioriza entradas con dias_pago no vacíos y prioriza la última)
+    const dedupeCondiciones = (arr = []) => {
+      const map = new Map();
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const c = arr[i] ?? {};
+        const id = String(c?.id ?? c?.id_condicion ?? '');
+        if (!id) continue;
+        if (!map.has(id)) map.set(id, c);
+        else {
+          const existing = map.get(id);
+          const existingDias = String(existing?.dias_pago ?? existing?.dias ?? '').trim();
+          const currentDias = String(c?.dias_pago ?? c?.dias ?? '').trim();
+          if ((!existingDias || existingDias === '') && currentDias) map.set(id, c);
+        }
+      }
+      return Array.from(map.values()).reverse();
+    };
+
+    condicionesFuente = dedupeCondiciones(condicionesFuente);
+
+    // Guardar en estado y marcar como cargadas
+    if (typeof setCondiciones === 'function') setCondiciones(condicionesFuente);
+    if (typeof condicionesCargadasRef !== 'undefined' && condicionesCargadasRef && 'current' in condicionesCargadasRef) {
+      condicionesCargadasRef.current = true;
+    }
+
+    console.log('AFTER cargarCondiciones -> condicionesFuente (post-dedupe):', condicionesFuente);
+
 
       // ------------------------------------------------------------
       // Decidir si usar el valor de la cabecera como diasPendiente
@@ -604,6 +692,10 @@ const NuevaCotizacion = () => {
         if (typeof diasResueltoRef !== 'undefined' && diasResueltoRef && 'current' in diasResueltoRef) diasResueltoRef.current = true;
         return true;
       };
+
+
+
+
 
       // ------------------------------------------------------------
       // Aplicar condición preferente desde condicionesFuente (sin depender del state)
@@ -778,8 +870,9 @@ const NuevaCotizacion = () => {
         id: p.id_producto ?? p.id,
         id_producto: p.id_producto ?? p.id,
         cantidad: Number(p.cantidad ?? 1),
-        markup_ingresado: Number(p.markup_ingresado ?? p.markup ?? 0),
-        markup: Number(p.markup ?? p.markup_ingresado ?? 0),
+        markup_ingresado: p.markup_ingresado !== undefined && p.markup_ingresado !== null
+          ? Number(p.markup_ingresado)
+          : null,
         descuento: Number(p.descuento ?? 0),
         precio: Number(p.precio) || 0,
         precio_unitario: Number(p.precio_unitario ?? p.precio ?? 0),
@@ -792,7 +885,8 @@ const NuevaCotizacion = () => {
       setProductosSeleccionados(formateados);
       setCarrito(formateados);
       // validar cada producto para precargar errores inline
-      formateados.forEach((p, idx) => validateMarkupForProduct(getProductKey(p, idx), p.markup));
+      formateados.forEach((p, idx) => validateMarkupForProduct(getProductKey(p, idx), p.markup_ingresado));
+
 
 
       // Limpiar errores por producto
@@ -1031,7 +1125,7 @@ const NuevaCotizacion = () => {
         forma_pago: (r.forma_pago ?? r.nombre ?? '').toString().trim(),
         tipo_cambio: r.tipo_cambio ?? '',
         dias_pago: r.dias_pago ?? r.dias ?? '',
-        mark_up_maximo: r.mark_up_maximo ?? r.markup_maximo ?? r.markup ?? null,
+        mark_up_maximo: r.mark_up_maximo ?? r.markup_maximo ?? null,
         ...r
       }));
 
@@ -1198,18 +1292,50 @@ const NuevaCotizacion = () => {
   }, [carrito, costoEnvio]);
   console.log('Carrito actualizado:', carrito);
 
-
   const formatearProductosParaGuardar = (productos) => {
     return (productos || []).map(p => ({
       id_producto: p.id_producto || p.id,
       cantidad: Number(p.cantidad) || 1,
       precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
       descuento: Number(p.descuento) || 0,
-      // persistir el valor que editó el vendedor
-      markup: Number(p.markup_ingresado ?? p.markup ?? 0),
+      markup_ingresado: p.markup_ingresado !== undefined && p.markup_ingresado !== null
+        ? Number(p.markup_ingresado)
+        : null,
       tasa_iva: Number(p.tasa_iva) || 21
     }));
   };
+
+
+
+
+
+
+
+
+  //ESTA FUNCION PARA COMPARTIR ❌
+  const enviarCotizacionAlCliente = async (payloadEnviar, idCotizacion, token) => {
+    try {
+      const sendResp = await axios.put(`/api/cotizaciones/finalizar/${idCotizacion}`, payloadEnviar, {
+        withCredentials: true,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      return { ok: true, data: sendResp.data };
+    } catch (error) {
+      console.error('Error al enviar la cotización:', error.response?.data || error.message || error);
+      return {
+        ok: false,
+        error: error.response?.data?.error || error.response?.data?.message || 'No se pudo enviar la cotización'
+      };
+    }
+  };
+
+
+
+
+
+
+
 
 
 
@@ -1233,8 +1359,6 @@ const NuevaCotizacion = () => {
   };
 
 
-
-  // Actualizar cotización existente
   const handleActualizarCotizacion = async () => {
     if (!idCotizacionActual) {
       setMensajeError('No hay cotización activa para actualizar');
@@ -1243,19 +1367,36 @@ const NuevaCotizacion = () => {
     }
 
     try {
-      // Construir payload desde helper central si existe, sino fallback simple
+      // resolver id_estado 'borrador' localmente si está disponible
+      const idEstadoBorradorLocal = (typeof resolveEstadoId === 'function') ? resolveEstadoId('borrador') : null;
+
+      // helpers locales
+      const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+      const normalizeMarkup = v => {
+        if (v === null || v === undefined || v === '') return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+
+      // Construir payload (preferir buildPayload si existe)
       const payload = (typeof buildPayload === 'function')
-        ? buildPayload('borrador')
+        ? buildPayload(idEstadoBorradorLocal ?? 'borrador')
         : (() => {
-          const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
           const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
             id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
             cantidad: normalizarNumero(p.cantidad) || 1,
             precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
             descuento: Number(p.descuento ?? 0) || 0,
-            markup: Number(p.markup ?? p.markup_ingresado ?? 0) || 0,
-            tasa_iva: Number(p.tasa_iva ?? 21) || 21
+            // PRIORIDAD: markup_ingresado (input) > markup (modelo) > null
+            markup_ingresado: normalizeMarkup(p.markup_ingresado),
+            tasa_iva: Number(p.tasa_iva ?? 21) || 21,
+            part_number: p.part_number ?? p.partNumber ?? null,
+            detalle: p.detalle ?? p.nombre ?? null,
+            subtotal: Number(p.subtotal ?? ((Number(p.precio_unitario ?? p.precio ?? 0) - Number(p.descuento ?? 0)) * (p.cantidad || 1))) || 0,
+            // si existe id_detalle local (temporal o real), mandarlo para ayudar al backend a casar
+            id_detalle: p.id_detalle ?? null
           })).filter(x => Number.isFinite(x.id_producto));
+
           return {
             id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
             id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
@@ -1263,23 +1404,23 @@ const NuevaCotizacion = () => {
             id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
             id_condicion: null,
             forma_pago: '',
-            vigencia_hasta: vigenciaHasta || null,
+            vigencia_hasta: (typeof toYYYYMMDD === 'function') ? toYYYYMMDD(vigenciaHasta) : (vigenciaHasta || null),
             observaciones: observaciones || '',
             plazo_entrega: plazoEntrega || '',
             costo_envio: normalizarNumero(costoEnvio) || 0,
-            estado: 'borrador',
+            ...(idEstadoBorradorLocal ? { id_estado: idEstadoBorradorLocal } : {}),
             productos
           };
         })();
 
-      // Asegurar que la prioridad UI se refleje: diasPago (select) > diasPagoExtra (input) > null
+      // Prioridad diasPago select > diasPagoExtra input
       const diasUi = typeof diasPago === 'string' ? diasPago.trim() : (diasPago != null ? String(diasPago).trim() : '');
       const diasExtraUi = typeof diasPagoExtra === 'string' ? diasPagoExtra.trim() : (diasPagoExtra != null ? String(diasPagoExtra).trim() : '');
       const diasRaw = diasUi !== '' ? diasUi : (diasExtraUi !== '' ? diasExtraUi : null);
       const diasNum = diasRaw !== null ? Number(diasRaw) : null;
       payload.dias_pago = Number.isFinite(diasNum) ? diasNum : null;
 
-      // Incluir id_condicion cuando corresponda (mantener forma_pago si no hay id)
+      // Incluir id_condicion / forma_pago cuando corresponda
       if (condicionSeleccionada && typeof condicionSeleccionada === 'object' && (condicionSeleccionada.id || condicionSeleccionada.id === 0)) {
         payload.id_condicion = condicionSeleccionada.id;
         payload.forma_pago = condicionSeleccionada.forma_pago ?? '';
@@ -1297,7 +1438,7 @@ const NuevaCotizacion = () => {
         diasPayload: payload.dias_pago,
         condicionSeleccionada,
         productosCount: Array.isArray(payload.productos) ? payload.productos.length : 0,
-        payloadSample: (Array.isArray(payload.productos) && payload.productos.length) ? payload.productos.slice(0, 3) : []
+        payloadSample: (Array.isArray(payload.productos) && payload.productos.length) ? payload.productos.slice(0, 5) : []
       });
 
       // Validaciones mínimas
@@ -1316,8 +1457,7 @@ const NuevaCotizacion = () => {
       if (typeof validarAntesDeEnviar === 'function') {
         const ok = validarAntesDeEnviar();
         if (!ok) {
-          // validarAntesDeEnviar ya setea erroresProductos y un mensaje global corto
-          console.log('⛔ Actualizar cancelado: productos con markup fuera de rango');
+          console.log('⛔ Actualizar cancelado: validación previa falló');
           return;
         }
       }
@@ -1329,16 +1469,107 @@ const NuevaCotizacion = () => {
         { withCredentials: true }
       );
 
+      // Mensaje y estado
       setMensajeExito('Cotización actualizada correctamente');
       setMensajeError('');
+      setEstadoCotizacion(res.data?.estado_nombre ?? res.data?.estado ?? (payload.id_estado ? String(payload.id_estado) : ''));
+
       console.log('✅ Actualizada:', idCotizacionActual, 'response:', res?.data);
+      console.log('🧪 Backend cotizacion.productos:', res.data?.cotizacion?.productos ?? res.data?.productos ?? []);
+
+    // Sincronizar carrito local con lo que devuelve el backend; si backend no devuelve productos, usar lo enviado
+const returnedCot = res.data?.cotizacion ?? res.data;
+
+const productosResp = (returnedCot?.productos || []).map(p => ({
+  id_detalle: p.id_detalle ?? p.id_detalle ?? null,
+  id_producto: p.id_producto ?? p.id,
+  cantidad: p.cantidad ?? 1,
+  precio_unitario: p.precio_unitario ?? p.precio ?? 0,
+  descuento: p.descuento ?? 0,
+  subtotal: p.subtotal ?? ((p.precio_unitario ?? p.precio ?? 0) - (p.descuento ?? 0)) * (p.cantidad ?? 1),
+  markup_ingresado: p.markup_ingresado !== undefined && p.markup_ingresado !== null
+    ? Number(p.markup_ingresado)
+    : null,
+  tasa_iva: p.tasa_iva ?? 21,
+  part_number: p.part_number ?? p.partNumber ?? null,
+  detalle: p.detalle ?? null,
+  // decorativos (pueden venir vacíos del backend)
+  marca: p.marca ?? '',
+  categoria: p.categoria ?? '',
+  subcategoria: p.subcategoria ?? ''
+}));
+
+// ✅ Enriquecer decorativos desde catálogo si faltan
+const productosRespEnriquecidos = productosResp.map(p => {
+  const decorado = productosDisponibles?.find(prod =>
+    Number(prod.id) === Number(p.id_producto)
+  ) ?? {};
+
+  return {
+    ...p,
+    marca: p.marca?.trim() || decorado.marca?.trim() || '',
+    categoria: p.categoria?.trim() || decorado.categoria?.trim() || '',
+    subcategoria: p.subcategoria?.trim() || decorado.subcategoria?.trim() || ''
+  };
+});
+
+if (productosRespEnriquecidos.length) {
+  // merge por id_detalle manteniendo campos locales no enviados (ej. inputs, flags)
+  setCarrito(prev => {
+    const prevArr = Array.isArray(prev) ? prev : [];
+    const byDetalle = Object.fromEntries(productosRespEnriquecidos.filter(x => x.id_detalle).map(x => [String(x.id_detalle), x]));
+    const byProdFirst = Object.fromEntries(productosRespEnriquecidos.map(x => [String(x.id_producto), x]));
+
+    const merged = prevArr.map(old => {
+      const oldDetalle = old.id_detalle ? String(old.id_detalle) : null;
+      if (oldDetalle && byDetalle[oldDetalle]) {
+        return { ...old, ...byDetalle[oldDetalle] };
+      }
+      const byProd = byProdFirst[String(old.id_producto)];
+      if (byProd) return { ...old, ...byProd };
+      return old;
+    });
+
+    const existingDetalleKeys = new Set(merged.map(m => String(m.id_detalle ?? '')));
+    for (const p of productosRespEnriquecidos) {
+      const key = String(p.id_detalle ?? '');
+      if (key && !existingDetalleKeys.has(key)) {
+        merged.push(p);
+        existingDetalleKeys.add(key);
+      }
+    }
+
+    return merged;
+  });
+} else {
+  // fallback: actualizar solo campos relevantes en prev sin reescribir todo
+  setCarrito(prev => {
+    const prevArr = Array.isArray(prev) ? prev : [];
+    const bySent = Object.fromEntries((payload.productos || []).map(p => [String(p.id_producto), p]));
+    return prevArr.map(old => {
+      const sent = bySent[String(old.id_producto)];
+      if (!sent) return old;
+      return {
+        ...old,
+        cantidad: sent.cantidad ?? old.cantidad,
+        precio_unitario: sent.precio_unitario ?? old.precio_unitario,
+        descuento: sent.descuento ?? old.descuento,
+        markup_ingresado: sent.markup_ingresado ?? old.markup_ingresado ?? null,
+        subtotal: sent.subtotal ?? old.subtotal
+      };
+    });
+  });
+}
+
+      // limpiar errores de producto si existían
+      setErroresProductos({});
+      setMensajeError('');
     } catch (error) {
       console.error('Error al actualizar cotización:', error.response?.status, error.response?.data || error.message || error);
 
       const backendMsg = error.response?.data?.error || error.response?.data?.message || error.message || '';
 
-      // Regex para detectar mensajes tipo:
-      // "El markup del producto 6 (55%) supera el máximo permitido (20%)"
+      // Regex para detectar errores por producto
       const perProductRegex = /El markup del producto\s+([^\s)]+).*supera el máximo permitido/i;
 
       if (perProductRegex.test(backendMsg)) {
@@ -1346,10 +1577,8 @@ const NuevaCotizacion = () => {
         const keyRaw = match ? match[1] : null;
         const key = keyRaw ? String(keyRaw) : null;
 
-        // vuelco SOLO en erroresProductos (no detallar en mensajeError)
         setErroresProductos(prev => ({ ...(prev || {}), ...(key ? { [key]: backendMsg } : {}) }));
 
-        // resumen corto en footer
         setMensajeError(prev => {
           const prevCount = Object.keys((prev && typeof prev === 'object') ? prev : {}).length;
           const total = prevCount + (key ? 1 : 0);
@@ -1358,17 +1587,16 @@ const NuevaCotizacion = () => {
 
         setMensajeExito('');
       } else {
-        // Mensaje global corto y seguro
         setMensajeError(backendMsg || 'No se pudo actualizar la cotización');
         setMensajeExito('');
       }
     } finally {
-      // Log final para confirmar qué se envió (intento seguro de reconstrucción)
+      // Log final para confirmar lo que se envió (intento seguro de reconstrucción)
       try {
         const payloadFinal = (typeof buildPayload === 'function') ? buildPayload('borrador') : null;
         console.log('🧪 Enviando productos formateados y dias (final check):', {
-          productos: payloadFinal?.productos ?? (Array.isArray(carrito) ? carrito.slice(0, 3) : []),
-          dias_pago: payloadFinal?.dias_pago ?? (Number.isFinite(payload.dias_pago) ? payload.dias_pago : payload.dias_pago),
+          productos: payloadFinal?.productos ?? (Array.isArray(carrito) ? carrito.slice(0, 5) : []),
+          dias_pago: payloadFinal?.dias_pago ?? null,
           condicionSeleccionada
         });
       } catch (e) {
@@ -1376,9 +1604,6 @@ const NuevaCotizacion = () => {
       }
     }
   };
-
-
-
 
   // Cancelar creación o edición de cotización
   const handleCancelarCreacion = () => {
@@ -1394,8 +1619,9 @@ const NuevaCotizacion = () => {
 
 
   // Finalizar cotización (botón Finalizar)
+  // Finalizar cotización (botón Finalizar)
+  // Guardar/Finalizar cotización. Param enviar = true => además la enviamos (cambia a pendiente)
   const handleFinalizarCotizacion = async () => {
-    // chequear datos obligatorios para finalizar
     console.log({
       clienteSeleccionado,
       id_usuario: usuarioActual?.id,
@@ -1420,44 +1646,60 @@ const NuevaCotizacion = () => {
       return;
     }
 
-    // calcular vigencia_hasta según vencimiento
     const hoy = new Date();
     hoy.setDate(hoy.getDate() + Number(vencimiento));
-    const fechaVencimiento = hoy.toISOString().slice(0, 10);
+    const fechaVencimientoRaw = hoy.toISOString().slice(0, 10);
+    const fechaVencimiento = (typeof toYYYYMMDD === 'function') ? toYYYYMMDD(fechaVencimientoRaw) : fechaVencimientoRaw;
     setVigenciaHasta(fechaVencimiento);
 
-    // construir payload (usar buildPayload si existe, con override de vigencia)
-    const payload = (typeof buildPayload === 'function')
-      ? buildPayload('pendiente', { vigencia_hasta: fechaVencimiento, vencimiento })
+    const idEstadoBorradorLocal = (typeof resolveEstadoId === 'function') ? resolveEstadoId('borrador') : null;
+
+    const payloadBorrador = (typeof buildPayload === 'function')
+      ? buildPayload(idEstadoBorradorLocal ?? 'borrador', { vigencia_hasta: fechaVencimiento, vencimiento })
       : (() => {
         const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
-        const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
-          id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
-          cantidad: normalizarNumero(p.cantidad) || 1,
-          precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
-          descuento: Number(p.descuento ?? 0) || 0,
-          markup: Number(p.markup ?? p.markup_ingresado ?? 0) || 0,
-          tasa_iva: Number(p.tasa_iva ?? 21) || 21
-        })).filter(x => Number.isFinite(x.id_producto));
-        return {
+      
+      const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
+  id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
+  cantidad: normalizarNumero(p.cantidad) || 1,
+  precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+  descuento: Number(p.descuento ?? 0) || 0,
+  markup_ingresado: (p.markup_ingresado !== null && p.markup_ingresado !== undefined)
+    ? Number(p.markup_ingresado)
+    : null,
+  tasa_iva: Number(p.tasa_iva ?? 21) || 21,
+  // ✅ decorativos
+  detalle: p.detalle ?? p.nombre ?? '',
+  marca: p.marca ?? '',
+  categoria: p.categoria ?? '',
+  subcategoria: p.subcategoria ?? ''
+})).filter(x => Number.isFinite(x.id_producto));
+
+        const resolvedIdCond = normalizarNumero(getCondicionId(condicionSeleccionada)) || null;
+
+        const basePayload = {
           id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
           id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
           id_usuario: Number(usuarioActual?.id) || null,
           id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
-          id_condicion: (condicionSeleccionada && typeof condicionSeleccionada === 'object') ? (condicionSeleccionada.id ?? null) : null,
-          forma_pago: (condicionSeleccionada && typeof condicionSeleccionada === 'object') ? (condicionSeleccionada.forma_pago ?? '') : (String(condicionSeleccionada || '') || ''),
+          id_condicion: resolvedIdCond,
+          forma_pago: (condicionSeleccionada && typeof condicionSeleccionada === 'object')
+            ? (condicionSeleccionada.forma_pago ?? '')
+            : (String(condicionSeleccionada || '') || ''),
           vigencia_hasta: fechaVencimiento,
           observaciones: observaciones || '',
           plazo_entrega: plazoEntrega || '',
           costo_envio: Number(costoEnvio) || 0,
-          estado: 'pendiente',
           productos
         };
+
+        if (idEstadoBorradorLocal) basePayload.id_estado = idEstadoBorradorLocal;
+        basePayload.vencimiento = Number.isFinite(Number(vencimiento)) ? Number(vencimiento) : null;
+        return basePayload;
       })();
 
-    console.log('➡️ payload finalizar:', payload);
+    console.log('📤 Payload borrador (pre-send):', payloadBorrador);
 
-    // antes de finalizar: validar markups por línea si existe la función
     if (typeof validarAntesDeEnviar === 'function') {
       const ok = validarAntesDeEnviar();
       if (!ok) {
@@ -1465,33 +1707,147 @@ const NuevaCotizacion = () => {
         return;
       }
     }
-
     try {
+      let respSave;
+
+
       if (idCotizacionActual) {
-        await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, payload, {
-  withCredentials: true,
-  headers: {
-    Authorization: `Bearer ${usuarioActual?.token}`
-  }
-});
+        respSave = await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, payloadBorrador, {
+          withCredentials: true,
+          headers: { Authorization: `Bearer ${usuarioActual?.token}` }
+        });
         setIdCotizacionActual(idCotizacionActual);
       } else {
-        const res = await axios.post('/api/cotizaciones/iniciar', payload, { withCredentials: true });
-        setIdCotizacionActual(res.data?.id_cotizacion ?? res.data?.id ?? null);
-        setNumeroCotizacion(res.data?.numero_cotizacion ?? '');
+        respSave = await axios.post('/api/cotizaciones/iniciar', payloadBorrador, { withCredentials: true });
+        const newId = respSave.data?.id_cotizacion ?? respSave.data?.id ?? null;
+        setIdCotizacionActual(newId);
+        if (newId) localStorage.setItem('idCotizacionActual', newId);
+        setNumeroCotizacion(respSave.data?.numero_cotizacion ?? '');
       }
 
-      setEstadoCotizacion('pendiente');
-      setMensajeExito('Cotización finalizada y enviada al cliente');
+      setMensajeExito('Cotización guardada como borrador');
       setMensajeError('');
-      navigate('/menu');
+      setEstadoCotizacion(respSave?.data?.estado_nombre ?? respSave?.data?.estado ?? 'borrador');
+
+      try {
+        window.dispatchEvent(new CustomEvent('cotizacionActualizada', {
+          detail: { id: idCotizacionActual ?? respSave?.data?.id_cotizacion ?? respSave?.data?.id }
+        }));
+      } catch (e) { /* noop */ }
+
+      // ✅ Cabecera defensiva
+      const cabecera = respSave?.data?.cabecera ?? {};
+
+      // ✅ ID de dirección defensivo
+      const direccionIdFinal = direccionIdSeleccionada
+        ?? payloadBorrador.id_direccion_cliente
+        ?? cabecera?.id_direccion_cliente
+        ?? null;
+
+      // ✅ Contacto y dirección desde clienteObjeto si están disponibles
+      const contactoDesdeCliente = clienteObjeto?.contactos?.find(c => c.id === Number(contacto));
+      const direccionDesdeCliente = clienteObjeto?.direcciones?.find(d => d.id === Number(direccionIdFinal));
+
+      // ✅ Contacto desde contactosCliente como fallback
+      const contactoSeleccionadoFinal = typeof contacto === 'object'
+        ? contacto
+        : contactosCliente?.find(c => c.id === Number(contacto));
+
+      // ✅ Dirección desde direcciones como fallback
+      const direccionSeleccionadaObj = direcciones?.find(d => d.id === Number(direccionIdFinal));
+
+      // ✅ Carga defensiva de direccionesCliente si está vacío
+      let direccionesClienteFinal = direccionesCliente;
+      if ((!direccionesClienteFinal || !direccionesClienteFinal.length) && clienteObjeto?.id) {
+        try {
+          const { data } = await axios.get(`/api/clientes/${clienteObjeto.id}/direcciones`);
+          if (Array.isArray(data)) {
+            direccionesClienteFinal = data;
+          }
+        } catch (err) {
+          console.error('Error al cargar direcciones del cliente:', err);
+        }
+      }
+
+      // ✅ Dirección desde direccionesCliente como último recurso
+      const direccionDesdeClienteObjeto = direccionesClienteFinal?.find(
+        d => (d.id ?? d.id_direccion) === Number(direccionIdFinal)
+      );
+
+      // ✅ Resolución decorativa final (blindada)
+      const contactoNombreFinal =
+        typeof cabecera?.nombre_contacto === 'string' && cabecera.nombre_contacto.trim() !== ''
+          ? cabecera.nombre_contacto
+          : contactoDesdeCliente?.nombre_contacto
+          ?? contactoSeleccionadoFinal?.nombre_contacto
+          ?? (typeof contacto === 'string' ? contacto : '')
+          ?? 'Sin contacto';
+
+      const direccionTexto =
+        typeof cabecera?.direccion_cliente === 'string' && cabecera.direccion_cliente.trim() !== ''
+          ? cabecera.direccion_cliente
+          : direccionDesdeCliente?.texto
+          ?? direccionSeleccionadaObj?.texto
+          ?? (direccionDesdeClienteObjeto
+            ? `${direccionDesdeClienteObjeto.calle} ${direccionDesdeClienteObjeto.numeracion}${direccionDesdeClienteObjeto.piso ? ' piso ' + direccionDesdeClienteObjeto.piso : ''}${direccionDesdeClienteObjeto.depto ? ' depto ' + direccionDesdeClienteObjeto.depto : ''} – ${direccionDesdeClienteObjeto.localidad}, ${direccionDesdeClienteObjeto.provincia}`
+            : 'Sin dirección');
+
+      // ✅ Otros datos decorativos
+      const fechaHoy = new Date().toISOString().slice(0, 10);
+      const vendedor = `${usuarioActual?.nombre ?? ''} ${usuarioActual?.apellido ?? ''}`.trim() || 'Sin vendedor';
+      const numeroCotizacionFinal =
+        respSave?.data?.numero_cotizacion ?? cabecera?.numero_cotizacion ?? '';
+
+      // ✅ Cliente para resumen
+      const clienteResumen = {
+        nombre: cabecera?.cliente_nombre ?? clienteObjeto?.razon_social ?? 'Sin nombre',
+        contacto: contactoNombreFinal,
+        direccion: direccionTexto,
+        fecha_emision: fechaHoy,
+        vendedor
+      };
+
+      // ✅ Productos enriquecidos
+      const productosEnriquecidos = carrito.map(p => ({
+        ...p,
+        id_producto: p.id_producto ?? p.id,
+        cantidad: p.cantidad,
+        precio_unitario: p.precio_unitario ?? p.precio,
+        descuento: p.descuento ?? 0,
+        markup_ingresado: p.markup_ingresado ?? null,
+        tasa_iva: p.tasa_iva ?? 21,
+        detalle: p.detalle ?? p.nombre ?? '',
+        marca: p.marca || '',
+        categoria: p.categoria || '',
+        subcategoria: p.subcategoria || ''
+      }));
+
+      console.log('🧪 direccionIdFinal:', direccionIdFinal);
+      console.log('🧪 direccionDesdeClienteObjeto:', direccionDesdeClienteObjeto);
+      console.log('clienteResumen:', clienteResumen);
+      console.log('🧪 direccionesClienteFinal:', direccionesClienteFinal);
+      console.log('🧪 dirección buscada:', direccionIdFinal);
+      console.log('🧪 dirección encontrada:', direccionDesdeClienteObjeto);
+
+      // ✅ Navegación con resumen completo
+      navigate('/resumen-cotizacion', {
+        state: {
+          cotizacion: {
+            ...payloadBorrador,
+            productos: productosEnriquecidos,
+            cliente: clienteResumen,
+            forma_pago: cabecera?.forma_pago ?? payloadBorrador.forma_pago ?? '-',
+            vigencia_hasta: payloadBorrador.vigencia_hasta || cabecera?.vigencia_hasta || '-',
+            id_cotizacion: idCotizacionActual ?? respSave?.data?.id_cotizacion ?? respSave?.data?.id,
+            numero_cotizacion: numeroCotizacionFinal
+          }
+        }
+      });
+
     } catch (error) {
       console.error('Error al finalizar cotización:', error.response?.data || error.message || error);
 
       const backendMsg = error.response?.data?.error || error.response?.data?.message || error.message || '';
-
-      // Regex para detectar mensajes por producto como:
-      // "El markup del producto 6 (55%) supera el máximo permitido (20%)"
       const perProductRegex = /El markup del producto\s+([^\s)]+).*supera el máximo permitido/i;
 
       if (perProductRegex.test(backendMsg)) {
@@ -1499,10 +1855,8 @@ const NuevaCotizacion = () => {
         const keyRaw = match ? match[1] : null;
         const key = keyRaw ? String(keyRaw) : null;
 
-        // vuelco SOLO en erroresProductos (no detallar en mensajeError)
         setErroresProductos(prev => ({ ...(prev || {}), ...(key ? { [key]: backendMsg } : {}) }));
 
-        // resumen corto en footer
         setMensajeError(prev => {
           const prevCount = Object.keys((prev && typeof prev === 'object') ? prev : {}).length;
           const total = prevCount + (key ? 1 : 0);
@@ -1511,169 +1865,41 @@ const NuevaCotizacion = () => {
 
         setMensajeExito('');
       } else {
-        // Mensaje global corto y seguro
         setMensajeError(backendMsg || 'No se pudo finalizar la cotización');
         setMensajeExito('');
       }
     }
+
   };
 
-
-
-  const handleSeleccionCliente = async (cliente) => {
-    // 🛡️ Evita recargar si ya está seleccionado
-    if (cliente?.id === clienteSeleccionado) return;
-
-    setCliente(cliente.id);
-    setClienteSeleccionado(cliente.id);
-    setClienteObjeto(cliente);
-    setBusquedaCliente(cliente.razon_social);
-
-    try {
-      const { data } = await axios.get(`/api/clientes/${cliente.id}/contactos`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      setContactosCliente(Array.isArray(data) ? data : []);
-      setContacto('');
-    } catch (err) {
-      console.error('Error al cargar contactos del cliente', err);
-      setContactosCliente([]);
-    }
-  };
-
-
-
-
-
-  // Enviar cotización al cliente (botón Enviar al cliente)
-  // Enviar cotización al cliente (botón Enviar al cliente)
-  // Enviar cotización al cliente (botón Enviar al cliente)
-  const handleEnviarCotizacion = async () => {
-    // construir payload usando buildPayload si existe
-    const payload = (typeof buildPayload === 'function') ? buildPayload('pendiente') : (() => {
-      const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
-      const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
-        id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
-        cantidad: normalizarNumero(p.cantidad) || 1,
-        precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
-        descuento: Number(p.descuento ?? 0) || 0,
-        markup: Number(p.markup ?? p.markup_ingresado ?? 0) || 0,
-        tasa_iva: Number(p.tasa_iva ?? 21) || 21
-      })).filter(x => Number.isFinite(x.id_producto));
-      return {
-        id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
-        id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
-        id_usuario: Number(usuarioActual?.id) || null,
-        id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
-        id_condicion: (condicionSeleccionada && typeof condicionSeleccionada === 'object') ? (condicionSeleccionada.id ?? null) : null,
-        forma_pago: (condicionSeleccionada && typeof condicionSeleccionada === 'object') ? (condicionSeleccionada.forma_pago ?? '') : (String(condicionSeleccionada || '') || ''),
-        vigencia_hasta: vigenciaHasta || null,
-        observaciones: observaciones || '',
-        plazo_entrega: plazoEntrega || '',
-        costo_envio: Number(costoEnvio) || 0,
-        estado: 'pendiente',
-        productos
-      };
-    })();
-
-    console.log('➡️ payload enviar:', payload);
-
-    // validación básica
-    if (!payload.id_cliente) {
-      setMensajeError('Seleccioná un cliente válido antes de enviar la cotización');
-      setMensajeExito('');
-      return;
-    }
-    if (!payload.id_direccion_cliente) {
-      setMensajeError('Seleccioná una dirección del cliente antes de enviar');
-      setMensajeExito('');
-      return;
-    }
-    if (!payload.productos || payload.productos.length === 0) {
-      setMensajeError('La cotización debe tener al menos un producto para enviar');
-      setMensajeExito('');
-      return;
-    }
-
-    // validar markups por línea antes de enviar
-    if (typeof validarAntesDeEnviar === 'function') {
-      const ok = validarAntesDeEnviar();
-      if (!ok) {
-        console.log('⛔ Enviar cancelado: productos con markup fuera de rango');
-        return;
-      }
-    }
-
-    try {
-      if (idCotizacionActual) {
-        await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, { ...payload, estado: 'pendiente' }, { withCredentials: true });
-      } else {
-        const res = await axios.post('/api/cotizaciones/iniciar', { ...payload, estado: 'pendiente' }, { withCredentials: true });
-        setIdCotizacionActual(res.data?.id_cotizacion ?? res.data?.id ?? null);
-        setNumeroCotizacion(res.data?.numero_cotizacion ?? '');
-        setEstadoCotizacion(res.data?.estado ?? '');
-      }
-
-      setMensajeExito('Cotización enviada al cliente');
-      setMensajeError('');
-      if (typeof navigate === 'function') {
-        navigate('/menu');
-      } else {
-        window.location.href = '/menu';
-      }
-    } catch (error) {
-      console.error('❌ Error al enviar cotización:', error.response?.data || error.message || error);
-
-      const backendMsg = error.response?.data?.error || error.response?.data?.message || error.message || '';
-
-      // Regex para detectar mensajes por producto tipo:
-      // "El markup del producto 6 (55%) supera el máximo permitido (20%)"
-      const perProductRegex = /El markup del producto\s+([^\s)]+).*supera el máximo permitido/i;
-
-      if (perProductRegex.test(backendMsg)) {
-        const match = backendMsg.match(/El markup del producto\s+([^\s)]+)/i);
-        const keyRaw = match ? match[1] : null;
-        const key = keyRaw ? String(keyRaw) : null;
-
-        // volcar SOLO en erroresProductos y calcular el resumen real desde el objeto resultante
-        setErroresProductos(prev => {
-          const next = { ...(prev || {}), ...(key ? { [key]: backendMsg } : {}) };
-          setMensajeError(`Hay ${Object.keys(next).length} producto(s) con valores fuera de rango`);
-          setMensajeExito('');
-          return next;
-        });
-      } else {
-        // Mensaje global corto y seguro
-        setMensajeError(backendMsg || 'No se pudo enviar la cotización');
-        setMensajeExito('');
-      }
-    }
-  };
 
   // Guardar cotización como borrador
   // Guardar cotización como borrador
   const handleGuardarBorrador = async () => {
-    // utilitarios locales
     const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
-    const normalizarProducto = p => ({
-      id_producto: normalizarNumero(p.id_producto ?? p.id),
-      cantidad: normalizarNumero(p.cantidad) || 1,
-      precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
-      descuento: Number(p.descuento ?? 0) || 0,
-      // mantener el campo markup como número consistente
-      markup: Number(p.markup ?? p.markup_ingresado ?? 0) || 0,
-      tasa_iva: Number(p.tasa_iva ?? 21) || 21
-    });
 
-    // validar usuario
+  const normalizarProducto = p => ({
+  id_producto: normalizarNumero(p.id_producto ?? p.id),
+  cantidad: normalizarNumero(p.cantidad) || 1,
+  precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+  descuento: Number(p.descuento ?? 0) || 0,
+  markup_ingresado: (p.markup_ingresado !== null && p.markup_ingresado !== undefined)
+    ? Number(p.markup_ingresado)
+    : null,
+  tasa_iva: Number(p.tasa_iva ?? 21) || 21,
+  // ✅ decorativos
+  detalle: p.detalle ?? p.nombre ?? '',
+  marca: p.marca ?? '',
+  categoria: p.categoria ?? '',
+  subcategoria: p.subcategoria ?? ''
+});
+
     if (!usuarioActual?.id) {
       setMensajeError('No se pudo identificar al vendedor');
       setMensajeExito('');
       return;
     }
 
-    // intentar resolver id_condicion; si no se resuelve y hay lista de condiciones,
-    // intentamos mapear por texto (case-insensitive, trim)
     let idCondFinal = normalizarNumero(getCondicionId(condicionSeleccionada));
     let formaFinal = typeof condicionSeleccionada === 'object'
       ? (condicionSeleccionada.forma_pago ?? condicionSeleccionada.nombre ?? '').toString().trim()
@@ -1689,42 +1915,46 @@ const NuevaCotizacion = () => {
       }
     }
 
-    // construir payload normalizado usando copia local de carrito
     const carritoLocal = Array.isArray(carrito) ? carrito : [];
     const productos = carritoLocal.map(normalizarProducto).filter(p => Number.isFinite(p.id_producto));
 
-    // ---- NUEVA LÓGICA: determinar dias_pago con prioridad ----
-    // prioridad: diasPago (select) > diasPagoExtra (input) > null
     const diasStrSelect = typeof diasPago === 'string' ? diasPago.trim() : (diasPago != null ? String(diasPago).trim() : '');
     const diasStrExtra = typeof diasPagoExtra === 'string' ? diasPagoExtra.trim() : (diasPagoExtra != null ? String(diasPagoExtra).trim() : '');
     const diasFinalRaw = diasStrSelect && diasStrSelect !== '' ? diasStrSelect
       : (diasStrExtra && diasStrExtra !== '' ? diasStrExtra : null);
     const diasFinalNum = diasFinalRaw !== null ? Number(diasFinalRaw) : null;
     const diasPagoPayload = Number.isFinite(diasFinalNum) ? diasFinalNum : null;
-    // --------------------------------------------------------
 
-    const payload = {
-      id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
-      id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
-      id_usuario: normalizarNumero(usuarioActual?.id),
-      id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
-      id_condicion: idCondFinal || null,
-      forma_pago: formaFinal || '',
-      vigencia_hasta: vigenciaHasta || null,
-      observaciones: observaciones || '',
-      plazo_entrega: plazoEntrega || '',
-      costo_envio: normalizarNumero(costoEnvio) || 0,
-      estado: 'borrador',
-      productos,
-      // agregar dias_pago calculado
-      dias_pago: diasPagoPayload
-    };
+    const vigenciaNormalized = (typeof toYYYYMMDD === 'function') ? toYYYYMMDD(vigenciaHasta) : (vigenciaHasta || null);
+    const idEstadoBorradorLocal = (typeof resolveEstadoId === 'function') ? resolveEstadoId('borrador') : null;
+
+    const payload = (typeof buildPayload === 'function')
+      ? buildPayload(idEstadoBorradorLocal ?? 'borrador', { dias_pago: diasPagoPayload, vigencia_hasta: vigenciaNormalized })
+      : {
+        id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+        id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+        id_usuario: normalizarNumero(usuarioActual?.id),
+        id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+        id_condicion: idCondFinal || null,
+        forma_pago: formaFinal || '',
+        vigencia_hasta: vigenciaNormalized || null,
+        observaciones: observaciones || '',
+        plazo_entrega: plazoEntrega || '',
+        costo_envio: normalizarNumero(costoEnvio) || 0,
+        ...(idEstadoBorradorLocal ? { id_estado: idEstadoBorradorLocal } : {}),
+        productos: productos.map(p => ({
+          ...p,
+          markup_ingresado: (p.markup_ingresado !== null && p.markup_ingresado !== undefined)
+            ? Number(p.markup_ingresado)
+            : null
+        })),
+        dias_pago: diasPagoPayload
+      };
 
     console.log('➡️ payload a enviar (borrador):', payload);
     console.log('debug estados: condicionSeleccionada (raw):', condicionSeleccionada, '-> resolved id:', idCondFinal, 'condiciones:', condiciones);
     console.log('debug dias: diasPago (select) =', diasStrSelect, 'diasPagoExtra (input) =', diasStrExtra, '-> payload.dias_pago =', diasPagoPayload);
 
-    // validaciones previas
     if (!payload.id_cliente) {
       setMensajeError('Debés seleccionar un cliente válido antes de guardar la cotización');
       setMensajeExito('');
@@ -1741,27 +1971,22 @@ const NuevaCotizacion = () => {
       return;
     }
 
-    // validación de markups por línea (si tenés la función global validarAntesDeEnviar)
-    // Esto previene guardar si hay productos con markup > máximo
     if (typeof validarAntesDeEnviar === 'function') {
       const ok = validarAntesDeEnviar();
-      if (!ok) {
-        // validarAntesDeEnviar ya setea erroresProductos y mensaje global corto
-        return;
-      }
+      if (!ok) return;
     }
+
     try {
       if (idCotizacionActual) {
-        // actualizar borrador existente
-        await axios.put(
+        const resp = await axios.put(
           `/api/cotizaciones/${idCotizacionActual}/actualizar`,
           payload,
           { withCredentials: true }
         );
         setMensajeExito('Cotización actualizada como borrador');
+        setEstadoCotizacion(resp.data?.estado_nombre ?? resp.data?.estado ?? (payload.id_estado ? String(payload.id_estado) : ''));
         console.log('✅ Borrador actualizado:', idCotizacionActual);
       } else {
-        // crear nuevo borrador
         const res = await axios.post(
           '/api/cotizaciones/iniciar',
           payload,
@@ -1771,7 +1996,7 @@ const NuevaCotizacion = () => {
         setIdCotizacionActual(idResp);
         if (idResp) localStorage.setItem('idCotizacionActual', idResp);
         setNumeroCotizacion(res.data?.numero_cotizacion ?? '');
-        setEstadoCotizacion(res.data?.estado ?? '');
+        setEstadoCotizacion(res.data?.estado_nombre ?? res.data?.estado ?? (payload.id_estado ? String(payload.id_estado) : ''));
         setMensajeExito('Cotización guardada como borrador');
         console.log('✅ Borrador creado:', res.data);
       }
@@ -1781,9 +2006,6 @@ const NuevaCotizacion = () => {
       console.error('Error al guardar borrador:', error.response?.data || error.message || error);
 
       const backendMsg = error.response?.data?.error || error.response?.data?.message || error.message || '';
-
-      // Regex para detectar mensajes por producto como:
-      // "El markup del producto 6 (55%) supera el máximo permitido (20%)"
       const perProductRegex = /El markup del producto\s+([^\s)]+).*supera el máximo permitido/i;
 
       if (perProductRegex.test(backendMsg)) {
@@ -1791,29 +2013,21 @@ const NuevaCotizacion = () => {
         const keyRaw = match ? match[1] : null;
         const key = keyRaw ? String(keyRaw) : null;
 
-        // vuelco SOLO en erroresProductos (no detallar en mensajeError)
         setErroresProductos(prev => ({ ...(prev || {}), ...(key ? { [key]: backendMsg } : {}) }));
-
-        // resumen corto en footer
         setMensajeError(prev => {
           const prevCount = Object.keys((prev && typeof prev === 'object') ? prev : {}).length;
           const total = prevCount + (key ? 1 : 0);
           return `Hay ${total} producto(s) con valores fuera de rango`;
         });
-
         setMensajeExito('');
       } else {
-        // Mensaje global seguro
         setMensajeError(backendMsg || 'No se pudo guardar la cotización');
         setMensajeExito('');
       }
     }
+  };
 
 
-  }
-
-
-  
   return (
 
     <div className="bg-light d-flex flex-column min-vh-100">
@@ -2112,6 +2326,13 @@ const NuevaCotizacion = () => {
                         min={1}
                         placeholder="Ej: 15"
                       />
+
+                      {/* Mostrar fecha calculada */}
+                      {vigenciaHasta && (
+                        <div className="text-muted small mt-1">
+                          Fecha estimada de vencimiento: <strong>{vigenciaHasta}</strong>
+                        </div>
+                      )}
                     </div>
 
 
@@ -2258,7 +2479,7 @@ const NuevaCotizacion = () => {
 
 
                     {carrito.map((p, i) => {
-                      const precioFinal = num(p.precio) * (1 + num(p.markup) / 100);
+                      const precioFinal = num(p.precio) * (1 + num(p.markup_ingresado) / 100);
                       const baseLinea = Math.max(0, (num(p.cantidad) || 1) * precioFinal - num(p.descuento));
 
                       return (
@@ -2299,32 +2520,23 @@ const NuevaCotizacion = () => {
                           <td>
                             <input
                               type="number"
-                              min="0"
-                              value={p.markup}
                               className="form-control form-control-sm"
+
+                              min="0"
+                              value={p.markup_ingresado ?? ''}
                               onChange={(e) => {
                                 const nuevo = [...carrito];
-                                const nuevoMarkup = Math.max(0, (typeof num === 'function' ? num(e.target.value) : Number(e.target.value) || 0));
-                                nuevo[i] = { ...nuevo[i], markup: nuevoMarkup };
+                                const nuevoMarkup = Math.max(0, num(e.target.value));
+                                nuevo[i] = {
+                                  ...nuevo[i],
+                                  markup_ingresado: e.target.value === '' ? null : nuevoMarkup
+                                };
                                 setCarrito(nuevo);
 
-                                if (typeof userInteractedRef !== 'undefined' && userInteractedRef) userInteractedRef.current = true;
+                                if (userInteractedRef?.current !== undefined) userInteractedRef.current = true;
 
-                                // usar la versión actualizada del producto para generar la clave
                                 const productKey = String(getProductKey(nuevo[i], i));
-
-                                // DEBUG
-                                console.log(
-                                  'DEBUG validate call -> key:',
-                                  productKey,
-                                  'nuevoMarkup:',
-                                  nuevoMarkup,
-                                  'markUpMaximoServer:',
-                                  markUpMaximoServer,
-                                  'erroresProductos:',
-                                  erroresProductos
-                                );
-
+                                console.log('DEBUG validate call -> key:', productKey, 'nuevoMarkup:', nuevoMarkup);
                                 validateMarkupForProduct(productKey, nuevoMarkup);
                               }}
                             />
@@ -2431,7 +2643,7 @@ const NuevaCotizacion = () => {
 
           {/* Acciones / Guardar, Finalizar, Enviar, Cancelar */}
           <div className="d-flex justify-content-between align-items-center my-3 flex-wrap gap-2">
-            {estadoCotizacion === 'borrador' && idCotizacionActual ? (
+            {idCotizacionActual ? (
               <>
                 {/* Cancelar edición */}
                 <button className="btn btn-sm btn-outline-danger" onClick={handleCancelarEdicion}>
@@ -2443,15 +2655,13 @@ const NuevaCotizacion = () => {
                   <button className="btn btn-sm btn-outline-warning" onClick={handleActualizarCotizacion}>
                     <i className="bi bi-pencil-square me-1"></i> Actualizar
                   </button>
-                  <button className="btn btn-sm btn-outline-primary" onClick={handleFinalizarCotizacion}>
+
+                  <button className="btn btn-sm btn-outline-primary" onClick={() => handleFinalizarCotizacion(false)}>
                     <i className="bi bi-check2-circle me-1"></i> Finalizar
                   </button>
                 </div>
 
-                {/* Enviar */}
-                <button className="btn btn-sm btn-success" onClick={handleEnviarCotizacion}>
-                  <i className="bi bi-send-check me-1"></i> Enviar al cliente
-                </button>
+
               </>
             ) : (
               <>
@@ -2465,15 +2675,12 @@ const NuevaCotizacion = () => {
                   <button className="btn btn-sm btn-outline-secondary" onClick={handleGuardarBorrador}>
                     <i className="bi bi-save me-1"></i> Guardar borrador
                   </button>
-                  <button className="btn btn-sm btn-outline-primary" onClick={handleFinalizarCotizacion}>
+                  <button className="btn btn-sm btn-outline-primary" onClick={() => handleFinalizarCotizacion(false)}>
                     <i className="bi bi-check2-circle me-1"></i> Finalizar
                   </button>
                 </div>
 
-                {/* Enviar */}
-                <button className="btn btn-sm btn-success" onClick={handleEnviarCotizacion}>
-                  <i className="bi bi-send-check me-1"></i> Enviar al cliente
-                </button>
+
               </>
             )}
 
@@ -2491,7 +2698,6 @@ const NuevaCotizacion = () => {
               )}
             </div>
           </div>
-
 
 
 

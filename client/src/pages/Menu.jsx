@@ -14,27 +14,30 @@ const Menu = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [deletedCotizacion, setDeletedCotizacion] = useState(null);
   const [undoTimer, setUndoTimer] = useState(null);
-  // ✅ Esperar a que cargue el usuario
-  useEffect(() => {
 
+  useEffect(() => {
     if (cargando || !usuario?.id) return;
 
     const cargarCotizaciones = async () => {
       try {
-        const res = await axios.get(`/api/cotizaciones/borrador/${usuario.id}`, );
+        const res = await axios.get(`/api/cotizaciones/borrador/${usuario.id}`);
         console.log('Cotizaciones recibidas:', res.data);
 
-        const transformadas = res.data.map(c => ({
+        // transformamos sin asumir que backend devuelve "estado" textual;
+        // preferimos estado_nombre (nuevo backend) y guardamos vigencia_hasta cruda (ISO o null)
+        const transformadas = (Array.isArray(res.data) ? res.data : []).map(c => ({
           id: c.id,
           numero: c.numero_cotizacion,
-          fecha: new Date(c.fecha).toLocaleDateString(),
-          vendedor: `${usuario.nombre} ${usuario.apellido}`, // ✅ usa nombre del usuario actual
-          estado: c.estado,
+          fecha: c.fecha || c.created_at || c.fecha_creacion || null, // guardamos raw ISO (si existe)
+          vigencia_hasta: c.vigencia_hasta ?? c.vencimiento ?? null, // posible campo nuevo
+          vendedor: `${usuario.nombre} ${usuario.apellido}`,
+          // preferir estado_nombre si el backend lo envía; si no, usar el texto antiguo 'estado'
+          estado: c.estado_nombre ?? c.estado ?? (c.id_estado ?? null),
           cliente: c.cliente_nombre || '—',
           contacto: c.contacto_nombre && c.contacto_apellido
             ? `${c.contacto_nombre} ${c.contacto_apellido}`
             : '—',
-          total: c.total || 0
+          total: c.total ?? 0
         }));
         setCotizaciones(transformadas);
       } catch (error) {
@@ -45,15 +48,20 @@ const Menu = () => {
     cargarCotizaciones();
   }, [cargando, usuario]);
 
+  // filtrar defensivamente (proteger toLowerCase)
+  const safeToLower = v => String(v ?? '').toLowerCase();
+
   const filteredCotizaciones = cotizaciones.filter(cotizacion =>
-    cotizacion.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(cotizacion.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cotizacion.vendedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cotizacion.cliente.toLowerCase().includes(searchTerm.toLowerCase())
+    safeToLower(cotizacion.numero).includes(safeToLower(searchTerm)) ||
+    safeToLower(String(cotizacion.id)).includes(safeToLower(searchTerm)) ||
+    safeToLower(cotizacion.vendedor).includes(safeToLower(searchTerm)) ||
+    safeToLower(cotizacion.cliente).includes(safeToLower(searchTerm))
   );
 
+  // getColor ahora es null-safe
   const getColor = (estado) => {
-    switch (estado.toLowerCase()) {
+    const key = safeToLower(estado);
+    switch (key) {
       case 'aprobada': return '#198754';
       case 'pendiente': return '#ffc107';
       case 'rechazada': return '#dc3545';
@@ -151,17 +159,28 @@ const Menu = () => {
                 </thead>
                 <tbody>
                   {filteredCotizaciones.map((cotizacion, index) => {
+                    // fecha: aceptar que venga ISO o ya formateada; defensivamente parsear
+                    const fechaIso = cotizacion.fecha ? new Date(cotizacion.fecha) : null;
+                    const fechaDisplay = fechaIso && !isNaN(fechaIso.getTime())
+                      ? fechaIso.toLocaleDateString('es-AR')
+                      : (cotizacion.fecha ? String(cotizacion.fecha) : '—');
+
                     const fechaVencimiento = cotizacion.vigencia_hasta
                       ? new Date(cotizacion.vigencia_hasta)
                       : null;
 
                     const hoy = new Date();
-                    const diferenciaDias = fechaVencimiento
+                    const diferenciaDias = fechaVencimiento && !isNaN(fechaVencimiento.getTime())
                       ? Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24))
                       : null;
 
                     const vencida = diferenciaDias !== null && diferenciaDias < 0;
                     const vencePronto = diferenciaDias !== null && diferenciaDias >= 0 && diferenciaDias <= 3;
+
+                    // estado para mostrar: puede ser nombre o id; mostrar texto si hay nombre, si no mostrar id o '—'
+                    const estadoDisplay = (cotizacion.estado === null || cotizacion.estado === undefined)
+                      ? '—'
+                      : String(cotizacion.estado);
 
                     return (
                       <tr key={index} className="fila-cotizacion">
@@ -170,9 +189,9 @@ const Menu = () => {
                             {cotizacion.numero}
                           </button>
                         </td>
-                        <td>{new Date(cotizacion.fecha).toLocaleDateString('es-AR')}</td>
+                        <td>{fechaDisplay}</td>
                         <td className={
-                          cotizacion.estado === 'pendiente'
+                          estadoDisplay.toLowerCase() === 'pendiente'
                             ? vencida
                               ? 'text-danger fw-bold'
                               : vencePronto
@@ -180,13 +199,13 @@ const Menu = () => {
                                 : ''
                             : ''
                         }>
-                          {cotizacion.estado === 'pendiente' && fechaVencimiento
+                          {estadoDisplay.toLowerCase() === 'pendiente' && fechaVencimiento && !isNaN(fechaVencimiento.getTime())
                             ? fechaVencimiento.toLocaleDateString('es-AR')
                             : '—'}
                         </td>
                         <td>{cotizacion.vendedor}</td>
-                        <td style={{ color: getColor(cotizacion.estado), fontWeight: 500 }}>
-                          {cotizacion.estado}
+                        <td style={{ color: getColor(estadoDisplay), fontWeight: 500 }}>
+                          {estadoDisplay}
                         </td>
                         <td>{cotizacion.cliente}</td>
                         <td>{cotizacion.contacto}</td>

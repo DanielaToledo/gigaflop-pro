@@ -6,6 +6,7 @@ import RutaProtegida from '../components/RutaProtegida';
 import Home from "../pages/Home";
 import Productos from "../pages/Productos"; // asegurate de que la ruta sea correcta
 import NuevaCotizacion from "../pages/NuevaCotizacion";
+import ResumenCotizacion from "../pages/ResumenCotizacion";
 
 
 
@@ -30,15 +31,22 @@ export const router = createBrowserRouter([
         path: '/clientes',
         element: <Clientes />,
       },
-      { path: '/productos',
+      {
+        path: '/productos',
         element: <Productos />
       },
-      { path: '/nuevacotizacion',
-         element: <NuevaCotizacion />
+      {
+        path: '/nuevacotizacion',
+        element: <NuevaCotizacion />
       },
-      { path: '/nuevacotizacion/:idCotizacion',
-         element: <NuevaCotizacion />
+      {
+        path: '/nuevacotizacion/:idCotizacion',
+        element: <NuevaCotizacion />
       },
+      {
+        path: '/resumen-cotizacion',
+        element: <ResumenCotizacion />
+      }
 
 
     ],
