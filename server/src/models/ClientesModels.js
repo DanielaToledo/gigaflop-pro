@@ -10,6 +10,7 @@ export const crearCliente = async ({razon_social,cuit}) => { //recibe un objeto 
 }
 
 
+
 export const listarClientesPorTexto = async (texto) => {
   const query = texto.trim();
 
@@ -234,7 +235,21 @@ export const insertarContactoClienteCompleto = async (id_cliente, contacto) => {
 };
 
 
-
+// 💼 Inserta una condición comercial asociada al cliente completo
+export const insertarCondicionComercialClienteCompleto = async (id_cliente, condicion) => {
+  const query = `
+    INSERT INTO condiciones_comerciales 
+    (id_cliente, forma_pago, tipo_cambio, dias_pago, mark_up_maximo) 
+    VALUES (?, ?, ?, ?, ?)
+  `;
+  await pool.execute(query, [
+    id_cliente,
+    condicion.forma_pago,
+    condicion.tipo_cambio,
+    condicion.dias_pago,
+    condicion.mark_up_maximo
+  ]);
+};
 
 export const eliminarDireccionesPorCliente = async (id_cliente) => {
   await pool.query('DELETE FROM direccion_cliente WHERE id_cliente = ?', [id_cliente]);

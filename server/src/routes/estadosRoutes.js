@@ -12,7 +12,7 @@ const router = express.Router();
 
 router.get('/', listarEstados);
 router.get('/:id', obtenerEstado);
-router.post('/', crearEstado);      // proteger con middleware authAdmin en la app si aplica
+router.post('/', crearEstado);      
 router.put('/:id', actualizarEstado);
 router.delete('/:id', eliminarEstado);
 

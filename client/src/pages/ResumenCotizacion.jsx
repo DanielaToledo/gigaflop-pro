@@ -9,26 +9,97 @@ const ResumenCotizacion = () => {
     const navigate = useNavigate();
     const resumenRef = useRef();
     const cotizacion = state?.cotizacion;
+    const contactoTexto = `${cotizacion?.cliente?.contacto_nombre || ''} ${cotizacion?.cliente?.contacto_apellido || ''}`.trim() || 'Sin contacto';
+
+    const direccionTexto = typeof cotizacion?.cliente?.direccion === 'string'
+        ? cotizacion.cliente.direccion
+        : 'Sin dirección';
+
     const [mensajeExito, setMensajeExito] = useState('');
     const [mensajeError, setMensajeError] = useState('');
 
     if (!cotizacion) return <div>No hay datos para mostrar.</div>;
 
-    const handleEnviar = async () => {
+
+    const handleEnviarAlCliente = async () => {
+
+        if (!cotizacion.cliente?.email) {
+            setMensajeError('No se puede enviar la cotización: el contacto no tiene email definido');
+            return;
+        }
         try {
-            const res = await axios.put(
-                `/api/cotizaciones/finalizar/${cotizacion.id_cotizacion}`,
-                cotizacion,
-                { withCredentials: true }
-            );
-            setMensajeExito('Cotización enviada al cliente');
+            // 1. Finalizar cotización si aún no está finalizada
+            if (cotizacion.estado !== 'FINALIZADA') {
+                await axios.put(
+                    `/api/cotizaciones/finalizar/${cotizacion.id_cotizacion}`,
+                    cotizacion,
+                    { withCredentials: true }
+                );
+            }
+
+            // 2. Generar HTML desde el resumen
+            const htmlCotizacion = `
+  <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+    <h2 style="color: #004080;">Cotización Nº ${cotizacion.numero_cotizacion || 'Sin número'}</h2>
+    <p><strong>Fecha:</strong> ${cotizacion.cliente?.fecha_emision || new Date().toLocaleDateString()}</p>
+    <p><strong>Vendedor:</strong> ${cotizacion.cliente?.vendedor || '-'}</p>
+    <p><strong>Cliente:</strong> ${cotizacion.cliente?.nombre || '-'}</p>
+    <p><strong>Contacto:</strong> ${contactoTexto}</p>
+    <p><strong>Email:</strong> ${cotizacion.cliente?.email || 'Sin email definido'}</p>
+    <p><strong>Dirección:</strong> ${direccionTexto}</p>
+    <hr />
+    <h3 style="color: #004080;">Productos</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: #f0f0f0;">
+          <th style="border: 1px solid #ccc; padding: 6px;">Producto</th>
+          <th style="border: 1px solid #ccc; padding: 6px;">Cantidad</th>
+          <th style="border: 1px solid #ccc; padding: 6px;">Precio</th>
+          <th style="border: 1px solid #ccc; padding: 6px;">Descuento</th>
+          <th style="border: 1px solid #ccc; padding: 6px;">Total c/IVA</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${cotizacion.productos.map(p => {
+                const cantidad = Number(p.cantidad) || 0;
+                const unitario = Number(p.precio_unitario) || 0;
+                const descuento = Number(p.descuento) || 0;
+                const tasaIVA = Number(p.tasa_iva ?? 21);
+                const precioFinal = unitario - descuento;
+                const subtotal = precioFinal * cantidad;
+                const totalConIVA = subtotal * (1 + tasaIVA / 100);
+                return `
+            <tr>
+              <td style="border: 1px solid #ccc; padding: 6px;">${p.detalle || 'Sin nombre'}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">${cantidad}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">$${precioFinal.toFixed(2)}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">$${descuento.toFixed(2)}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">$${totalConIVA.toFixed(2)}</td>
+            </tr>
+          `;
+            }).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+
+            // 3. Enviar correo
+            await axios.post('/api/email/enviar', {
+                clienteEmail: cotizacion.cliente?.email,
+                asunto: `Cotización Nº ${cotizacion.numero_cotizacion || 'Sin número'}`,
+                htmlCotizacion
+            });
+
+            setMensajeExito('Cotización finalizada y enviada al cliente por correo electrónico');
             setMensajeError('');
         } catch (error) {
-            setMensajeError('Error al enviar la cotización');
+            console.error('Error al enviar cotización:', error);
+            setMensajeError('No se pudo enviar la cotización al cliente');
             setMensajeExito('');
-            console.error(error);
         }
     };
+
+
 
     const handleDescargarPDF = async () => {
         const pdf = new jsPDF('p', 'mm', 'a4');
@@ -47,12 +118,15 @@ const ResumenCotizacion = () => {
 
         pdf.setFontSize(10);
         pdf.setTextColor(50, 50, 50);
+
+
+
         const datos = [
             `Fecha: ${cotizacion.cliente?.fecha_emision || new Date().toLocaleDateString()}`,
             `Vendedor: ${cotizacion.cliente?.vendedor || '-'}`,
             `Vigencia hasta: ${cotizacion.vigencia_hasta || '-'}`,
             `Cliente: ${cotizacion.cliente?.nombre || '-'}`,
-            `Contacto: ${cotizacion.cliente?.contacto || '-'}`,
+            `Contacto: ${contactoTexto}`,
             `Dirección: ${cotizacion.cliente?.direccion || '-'}`
         ];
         datos.forEach(linea => {
@@ -131,13 +205,8 @@ const ResumenCotizacion = () => {
         pdf.save(`cotizacion_${cotizacion.numero_cotizacion || 'sin_numero'}.pdf`);
     };
 
-    const contactoTexto = typeof cotizacion.cliente?.contacto === 'string'
-        ? cotizacion.cliente.contacto
-        : 'Sin contacto';
 
-    const direccionTexto = typeof cotizacion.cliente?.direccion === 'string'
-        ? cotizacion.cliente.direccion
-        : 'Sin dirección';
+
 
     return (
         <div className="container mt-4">
@@ -161,6 +230,7 @@ const ResumenCotizacion = () => {
                         <div className="col-md-4">
                             <p><strong>Cliente:</strong> {cotizacion.cliente?.nombre || '-'}</p>
                             <p><strong>Contacto:</strong> {contactoTexto}</p>
+                            <p><strong>Email:</strong> {cotizacion.cliente?.email || 'Sin email definido'}</p>
                         </div>
                         <div className="col-md-4">
                             <p><strong>Dirección:</strong> {direccionTexto}</p>
@@ -234,13 +304,15 @@ const ResumenCotizacion = () => {
             {mensajeExito && <div className="alert alert-success mt-3">{mensajeExito}</div>}
             {mensajeError && <div className="alert alert-danger mt-3">{mensajeError}</div>}
 
+
             {/* Botones */}
             <div className="d-flex justify-content-end gap-2 mt-4">
                 <button className="btn btn-outline-secondary" onClick={handleDescargarPDF}>
                     <i className="bi bi-download me-1"></i> Descargar cotización
                 </button>
-                <button className="btn btn-primary" onClick={handleEnviar}>
-                    <i className="bi bi-send me-1"></i> Enviar cotización al cliente
+
+                <button className="btn btn-success" onClick={handleEnviarAlCliente}>
+                    <i className="bi bi-envelope me-1"></i> Enviar al cliente
                 </button>
                 <button className="btn btn-light border" onClick={() => navigate('/menu')}>
                     <i className="bi bi-arrow-left me-1"></i> Volver a mis cotizaciones

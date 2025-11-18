@@ -2,15 +2,17 @@ import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
 import usuariosRoutes from './routes/usuariosRoutes.js';
 import menuRoutes from "./routes/menuRoutes.js";
 import clientesRoutes from "./routes/clientesRoutes.js";
 import productosRoutes from './routes/productosRoutes.js'; // Importa las rutas de productos
 import cotizacionRoutes from './routes/cotizacionRoutes.js';
 import contactosRoutes from './routes/contactosRoutes.js';
-
 import estadosRoutes from './routes/estadosRoutes.js';
+import emailRoutes from './routes/emailRoutes.js';
 
+dotenv.config(); //Carga las variables antes de que se usen en cualquier parte del servidor
 
 const app = express();
 
@@ -33,6 +35,8 @@ app.use("/api", productosRoutes); // Usa las rutas de productos
 app.use("/api/cotizaciones", cotizacionRoutes);
 app.use("/api", contactosRoutes);
 app.use('/api/estados', estadosRoutes);
+app.use('/api', emailRoutes);
+
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {

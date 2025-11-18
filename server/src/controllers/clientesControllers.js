@@ -1,5 +1,5 @@
 import pool from "../config/db.js";
-import { crearCliente, listarClientesPorTexto, listarClientes, listarCliente, actualizarCliente, eliminarCliente} from "../models/ClientesModels.js";
+import { crearCliente, listarClientesPorTexto, listarClientes, listarCliente, actualizarCliente, eliminarCliente } from "../models/ClientesModels.js";
 import { obtenerCondicionesComerciales } from '../models/ClientesModels.js';
 import { obtenerDiasPagoPorCliente } from '../models/ClientesModels.js';
 import { obtenerDireccionesConZona } from '../models/ClientesModels.js';
@@ -10,28 +10,32 @@ import {
   crearClienteCompleto,
   eliminarDireccionesPorCliente,
   insertarDireccionClienteCompleto,
-  insertarContactoClienteCompleto
+  insertarContactoClienteCompleto, insertarCondicionComercialClienteCompleto
 } from '../models/ClientesModels.js';
-
-
-
-
 
 
 
 
 //controlador para crear cliente pasando razon_social y cuit
 export const crearClienteController = async (req, res) => {
-    const { razon_social, cuit  } = req.body;
+  const { razon_social, cuit } = req.body;
 
-    try {
-        const insertId = await crearCliente({ razon_social, cuit});
-        res.status(201).json({mensaje: "Cliente creado con exito!", id: insertId});
-    } catch (error) {
-        console.error('Error al crear cliente:', error);
-        res.status(500).json({error: "No se pudo crear el cliente"});
-    }
+  try {
+    const insertId = await crearCliente({ razon_social, cuit });
+    res.status(201).json({ mensaje: "Cliente creado con exito!", id: insertId });
+  } catch (error) {
+    console.error('Error al crear cliente:', error);
+    res.status(500).json({ error: "No se pudo crear el cliente" });
+  }
 }
+
+
+
+
+
+
+
+
 
 //controlador para buscar clientes por texto en razon_social o cuit
 export const buscarClientesPorTextoController = async (req, res) => {
@@ -54,7 +58,7 @@ export const buscarClientesPorTextoController = async (req, res) => {
 
 
 //controlador para listar a todos los clientes
-export const listarClientesController  = async (req, res) => {
+export const listarClientesController = async (req, res) => {
   try {
     const clientes = await listarClientes();
     res.status(200).json(clientes);
@@ -82,53 +86,53 @@ export const listarClienteController = async (req, res) => {
 
 // controlador para ACTUALIZAR un cliente por razon social o cuit o id 
 //export const listarClienteController = async (req, res) => {
-    //const { id = '', razon_social = '', cuit = '' } = req.query;
+//const { id = '', razon_social = '', cuit = '' } = req.query;
 
-  //try {
-    //const cliente = await listarCliente({ id, razon_social, cuit });
+//try {
+//const cliente = await listarCliente({ id, razon_social, cuit });
 
-    //if (!cliente) {
-    //  return res.status(404).json({ error: 'Cliente no encontrado' });
-    //}
+//if (!cliente) {
+//  return res.status(404).json({ error: 'Cliente no encontrado' });
+//}
 
-    //res.status(200).json(cliente);
-  //} catch (error) {
-    //console.error('Error al buscar cliente:', error);
-    //res.status(500).json({ error: 'Error en la búsqueda del cliente' });
- // }
+//res.status(200).json(cliente);
+//} catch (error) {
+//console.error('Error al buscar cliente:', error);
+//res.status(500).json({ error: 'Error en la búsqueda del cliente' });
+// }
 //};
 
 
 //controlador para actualizar un cliente por cuit lo buscamos por cuit y modificamos su razon_social   
-export const actualizarClienteController = async (req,res) => {
-    const {cuit} = req.params;
-    const {razon_social} = req.body;
-    try{
-        const filasAfectadas = await actualizarCliente(cuit, {razon_social});
-        if (filasAfectadas === 0) {
-            return res.status(404).json({error: "Cliente no encontrado o sin cambios", error});
-        }
-        res.status(200).json({mensaje: "Cliente actualizado con exito!"});
-        
-    }catch (error) {
-        console.error ("Error al actualizar cliente:", error);
-        res.status(500).json({error: "No se pudo actualizar el cliente"});
+export const actualizarClienteController = async (req, res) => {
+  const { cuit } = req.params;
+  const { razon_social } = req.body;
+  try {
+    const filasAfectadas = await actualizarCliente(cuit, { razon_social });
+    if (filasAfectadas === 0) {
+      return res.status(404).json({ error: "Cliente no encontrado o sin cambios", error });
     }
+    res.status(200).json({ mensaje: "Cliente actualizado con exito!" });
+
+  } catch (error) {
+    console.error("Error al actualizar cliente:", error);
+    res.status(500).json({ error: "No se pudo actualizar el cliente" });
+  }
 };
 
 //controlador para eliminar un cliente por cuit es decir lo buscamos por cuit
 export const eliminarClienteController = async (req, res) => {
-    const { cuit } = req.params;
-    try {
-        const filasAfectadas = await eliminarCliente(cuit);
-        if (filasAfectadas === 0) {
-            return res.status(404).json({ error: "Cliente no encontrado" });
-        }
-        res.status(200).json({ mensaje: "Cliente eliminado con éxito" });
-    } catch (error) {
-        console.error("Error al eliminar cliente:", error);
-        res.status(500).json({ error: "No se pudo eliminar el cliente" });
+  const { cuit } = req.params;
+  try {
+    const filasAfectadas = await eliminarCliente(cuit);
+    if (filasAfectadas === 0) {
+      return res.status(404).json({ error: "Cliente no encontrado" });
     }
+    res.status(200).json({ mensaje: "Cliente eliminado con éxito" });
+  } catch (error) {
+    console.error("Error al eliminar cliente:", error);
+    res.status(500).json({ error: "No se pudo eliminar el cliente" });
+  }
 };
 
 
@@ -160,9 +164,9 @@ export const getDiasPagoPorCliente = async (req, res) => {
     const dias = await obtenerDiasPagoPorCliente(id);
     res.json(dias);
   } catch (err) {
-  console.error('Error al obtener días de pago por cliente:', err.message);
-  res.status(500).json({ msg: 'Error interno del servidor' });
-}  
+    console.error('Error al obtener días de pago por cliente:', err.message);
+    res.status(500).json({ msg: 'Error interno del servidor' });
+  }
 };
 
 //controlador para obtener direccion de un cliente por su id
@@ -222,17 +226,17 @@ export const listarZonasConCostoController = async (req, res) => {
 
 
 
-//funcion para crear un cliente completo con todos sus datos (razon_social, cuit, email, direcciones y contactos)
-
+//funcion para crear un cliente completo con todos sus datos (razon_social, cuit, email, direcciones  contactos y condiciones com)
+// lo usamos en el componente Register.jsx para registrar un cliente 
 export const crearClienteCompletoController = async (req, res) => {
-  const { razon_social, cuit, direcciones, contactos } = req.body;
+  const { razon_social, cuit, direcciones, contactos, condiciones_comerciales } = req.body;
 
   try {
     if (await existeClienteCompletoPorCuit(cuit)) {
       return res.status(409).json({ error: 'El CUIT ya está registrado' });
     }
 
-    const id_cliente = await crearClienteCompleto({ razon_social, cuit});
+    const id_cliente = await crearClienteCompleto({ razon_social, cuit });
 
     for (const dir of direcciones) {
       await insertarDireccionClienteCompleto(id_cliente, dir);
@@ -241,6 +245,10 @@ export const crearClienteCompletoController = async (req, res) => {
     for (const c of contactos) {
       await insertarContactoClienteCompleto(id_cliente, c);
     }
+
+  for (const cond of condiciones_comerciales) {
+  await insertarCondicionComercialClienteCompleto(id_cliente, cond); // ✅ nombre correcto
+}
 
     res.status(201).json({ mensaje: 'Cliente completo creado con éxito', id_cliente });
   } catch (error) {

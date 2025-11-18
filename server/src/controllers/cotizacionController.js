@@ -1,14 +1,9 @@
 // controllers/cotizacionController.js
 import { Cotizacion } from '../models/CotizacionModels.js';
 import { aMySQLDateTime, aMySQLDate, sumarDias } from '../utils/helperDeFecha.js';
+import { getEstadoId } from './estadosControllers.js';
 
 
-
-// helpers: agregar al inicio del archivo controllers/cotizacionController.js
-async function getEstadoId(db, nombre) {
-  const [rows] = await db.query(`SELECT id FROM estados WHERE nombre = ? LIMIT 1`, [nombre]);
-  return rows && rows[0] ? Number(rows[0].id) : null;
-}
 
 // Helpers locales
 function observationsOrEmpty(v) {
@@ -132,7 +127,7 @@ export async function iniciarCotizacion(req, res) {
     const productosBody = Array.isArray(productos) ? productos : [];
     if (maximoMarkup !== null && productosBody.length > 0) {
       for (const p of productosBody) {
-       const ingreso = normalizarNumero(p.markup_ingresado); 
+        const ingreso = normalizarNumero(p.markup_ingresado);
         if (ingreso > maximoMarkup) {
           return res.status(400).json({
             error: `El markup del producto ${p.id_producto ?? p.id} (${ingreso}%) supera el máximo permitido (${maximoMarkup}%)`
@@ -198,6 +193,18 @@ export async function iniciarCotizacion(req, res) {
 
       const idCotizacion = result.insertId;
 
+      const [clienteRows] = await db.query(
+        'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+        [idClienteNum]
+      );
+      const clienteNombreReal = clienteRows[0]?.razon_social ?? '';
+
+      const [contactoRows] = await db.query(
+        `SELECT nombre_contacto, apellido AS contacto_apellido, email FROM contactos WHERE id = ?`,
+        [idContactoNum]
+      );
+      const contacto = contactoRows[0] ?? {};
+
       // Insertar productos (reemplazarProductos persiste markup_ingresado),
       if (productosBody.length > 0) {
         for (const item of productosBody) {
@@ -234,8 +241,17 @@ export async function iniciarCotizacion(req, res) {
       return res.status(201).json({
         id_cotizacion: idCotizacion,
         numero_cotizacion: numero,
-        estado: 'borrador'
+        estado: 'borrador',
+        cliente: {
+          nombre: clienteNombreReal, // ✅ nombre del cliente
+          contacto_nombre: contacto.nombre_contacto ?? '',
+          contacto_apellido: contacto.contacto_apellido ?? '',
+          email: contacto.email ?? ''
+        }
       });
+
+
+
     } catch (err) {
       await db.query('ROLLBACK');
       console.error('❌ Error al persistir cotización en transacción:', err);
@@ -285,7 +301,9 @@ export async function finalizarCotizacion(req, res) {
   } = req.body;
 
   const idClienteNum = toNumberOrNull(id_cliente);
-  const idContactoNum = toNumberOrNull(id_contacto);
+  const idContactoNum = typeof id_contacto === 'object'
+    ? toNumberOrNull(id_contacto.id)
+    : toNumberOrNull(id_contacto);
   const idUsuarioNum = toNumberOrNull(id_usuario);
   const idCondNum = toNumberOrNull(id_condicion);
   const idDireccionNum = toNumberOrNull(id_direccion_cliente);
@@ -403,7 +421,31 @@ export async function finalizarCotizacion(req, res) {
     // Reemplazar productos (detalle debe persistir markup_ingresado)
     await cotizacionModel.reemplazarProductos(cotizacionId, productos);
 
-    res.json({ mensaje: 'Cotización finalizada y enviada al cliente' });
+    const [clienteRows] = await db.query(
+      'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+      [idClienteNum]
+    );
+    const clienteNombreReal = clienteRows[0]?.razon_social ?? '';
+
+    // Obtener email del contacto
+    const [contactoRows] = await db.query(
+      `SELECT nombre_contacto, apellido AS contacto_apellido, email FROM contactos WHERE id = ?`,
+      [idContactoNum]
+    );
+    const contacto = contactoRows[0] ?? {};
+
+    res.json({
+      mensaje: 'Cotización finalizada y enviada al cliente',
+      estado: 'pendiente',
+      id_cotizacion: cotizacionId,
+      cliente: {
+        nombre: clienteNombreReal, // ✅ razón social del cliente
+        contacto_nombre: contacto.nombre_contacto ?? '',
+        contacto_apellido: contacto.contacto_apellido ?? '',
+        email: contacto.email ?? ''
+      }
+    });
+
   } catch (err) {
     console.error('❌ Error al finalizar cotización:', err);
     res.status(500).json({ error: 'Error al finalizar cotización' });
@@ -421,7 +463,51 @@ export async function verCotizacionCompleta(req, res) {
 
   try {
     const cotizacion = await cotizacionModel.obtenerCotizacionCompleta(id);
-    res.json(cotizacion);
+    let clienteNombreReal = '';
+    if (cotizacion?.cabecera?.id_cliente) {
+      const [clienteRows] = await db.query(
+        'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+        [cotizacion.cabecera.id_cliente]
+      );
+      clienteNombreReal = clienteRows[0]?.razon_social ?? '';
+    }
+
+    let contacto = {};
+    let idContactoNum = null;
+
+    if (typeof cotizacion?.cabecera?.id_contacto === 'object') {
+      idContactoNum = toNumberOrNull(cotizacion.cabecera.id_contacto.id);
+    } else {
+      idContactoNum = toNumberOrNull(cotizacion.cabecera.id_contacto);
+    }
+
+    if (idContactoNum) {
+      const [contactoRows] = await db.query(
+        `SELECT nombre_contacto, apellido AS contacto_apellido, email FROM contactos WHERE id = ?`,
+        [idContactoNum]
+      );
+      contacto = contactoRows[0] ?? {};
+    }
+
+
+    if (cotizacion?.cabecera?.id_contacto) {
+      const [contactoRows] = await db.query(
+        `SELECT nombre_contacto, apellido AS contacto_apellido, email FROM contactos WHERE id = ?`,
+        [cotizacion.cabecera.id_contacto]
+      );
+      contacto = contactoRows[0] ?? {};
+    }
+
+    res.json({
+      ...cotizacion,
+      cliente: {
+        nombre: clienteNombreReal, // ✅ razón social del cliente
+        contacto_nombre: contacto.nombre_contacto ?? '',
+        contacto_apellido: contacto.contacto_apellido ?? '',
+        email: contacto.email ?? ''
+      }
+    });
+
   } catch (err) {
     console.error('Error al obtener detalle de la cotización:', err);
     res.status(500).json({ error: 'Error al obtener detalle de la cotización' });
@@ -438,6 +524,15 @@ export async function obtenerCotizacionBorradorPorId(req, res) {
   try {
     const cotizacion = await cotizacionModel.obtenerCotizacionParaEdicion(id);
 
+    let clienteNombreReal = '';
+    if (cotizacion?.cabecera?.id_cliente) {
+      const [clienteRows] = await db.query(
+        'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+        [cotizacion.cabecera.id_cliente]
+      );
+      clienteNombreReal = clienteRows[0]?.razon_social ?? '';
+    }
+
     // intentar traer condiciones del cliente si existe cabecera y id_cliente
     let condicionesCliente = [];
     if (cotizacion?.cabecera?.id_cliente) {
@@ -450,7 +545,43 @@ export async function obtenerCotizacionBorradorPorId(req, res) {
       condicionesCliente = condRows || [];
     }
 
-    res.json({ ...cotizacion, condiciones: condicionesCliente });
+
+    let contacto = {};
+    let idContactoNum = null;
+
+    if (typeof cotizacion?.cabecera?.id_contacto === 'object') {
+      idContactoNum = Number(cotizacion.cabecera.id_contacto.id);
+    } else {
+      idContactoNum = Number(cotizacion.cabecera.id_contacto);
+    }
+
+    if (Number.isFinite(idContactoNum)) {
+      const [contactoRows] = await db.query(
+        `SELECT nombre_contacto, apellido AS contacto_apellido, email FROM contactos WHERE id = ?`,
+        [idContactoNum]
+      );
+      contacto = contactoRows[0] ?? {};
+    }
+
+
+    if (cotizacion?.cabecera?.id_contacto) {
+      const [contactoRows] = await db.query(
+        `SELECT nombre_contacto, apellido AS contacto_apellido, email FROM contactos WHERE id = ?`,
+        [cotizacion.cabecera.id_contacto]
+      );
+      contacto = contactoRows[0] ?? {};
+    }
+    res.json({
+      ...cotizacion,
+      condiciones: condicionesCliente,
+      cliente: {
+        nombre: clienteNombreReal, // ✅ razón social del cliente
+        contacto_nombre: contacto.nombre_contacto ?? '',
+        contacto_apellido: contacto.contacto_apellido ?? '',
+        email: contacto.email ?? ''
+      }
+    });
+
     console.log('Cotización recuperada:', cotizacion);
   } catch (err) {
     console.error('Error al obtener borrador:', err);
@@ -650,17 +781,52 @@ export async function actualizarCotizacionBorrador(req, res) {
 
       // ✅ Enriquecer cabecera decorativa
       const { cabecera: cabeceraDecorada } = await cotizacionModel.obtenerCotizacionParaEdicion(id);
+      let clienteNombreReal = '';
+      if (cabeceraDecorada?.id_cliente) {
+        const [clienteRows] = await db.query(
+          'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+          [cabeceraDecorada.id_cliente]
+        );
+        clienteNombreReal = clienteRows[0]?.razon_social ?? '';
+      }
 
+
+      let idContactoFinal = idContactoNum;
+
+      if (idContactoFinal === null) {
+        const [row] = await db.query('SELECT id_contacto FROM cotizaciones WHERE id = ? LIMIT 1', [id]);
+        if (row && row[0]) idContactoFinal = aNumeroONuloLocal(row[0].id_contacto);
+      }
+
+      let contacto = {};
+      if (idContactoFinal !== null) {
+        const [contactoRows] = await db.query(
+          `SELECT nombre_contacto, apellido AS contacto_apellido, email FROM contactos WHERE id = ?`,
+          [idContactoFinal]
+        );
+        contacto = contactoRows[0] ?? {};
+
+      }
+
+
+
+      //respuesta del backend 
       return res.json({
         mensaje: 'Cotización actualizada como borrador',
         cotizacion: {
           id: Number(id),
           cabecera: cabeceraDecorada,
-          productos: productosResp
+          productos: productosResp,
+          cliente: {
+            nombre: clienteNombreReal, // ✅ razón social del cliente
+            contacto_nombre: contacto.nombre_contacto ?? '',
+            contacto_apellido: contacto.contacto_apellido ?? '',
+            email: contacto.email ?? ''
+          }
         }
       });
 
-      
+
     } catch (err) {
       await db.query('ROLLBACK');
       console.error('❌ Error al persistir actualización en transacción:', err);
@@ -669,6 +835,24 @@ export async function actualizarCotizacionBorrador(req, res) {
   } catch (err) {
     console.error('❌ Error al actualizar borrador:', err);
     res.status(500).json({ error: 'Error al actualizar borrador' });
+  }
+}
+
+
+//cambiar estado de una cotizacion
+export async function marcarCotizacionComoPendiente(req, res) {
+  const db = req.app.get('db');
+  const { id } = req.params;
+
+  try {
+    const id_estado = await getEstadoId(db, 'PENDIENTE');
+    if (!id_estado) return res.status(404).json({ error: 'Estado "PENDIENTE" no encontrado' });
+
+    await db.query('UPDATE cotizaciones SET id_estado = ? WHERE id_cotizacion = ?', [id_estado, id]);
+    res.json({ mensaje: 'Cotización marcada como pendiente' });
+  } catch (err) {
+    console.error('Error al marcar como pendiente:', err);
+    res.status(500).json({ error: 'No se pudo actualizar el estado' });
   }
 }
 

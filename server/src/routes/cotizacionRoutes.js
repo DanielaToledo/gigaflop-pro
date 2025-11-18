@@ -4,8 +4,9 @@ import {
   iniciarCotizacion,
   obtenerCotizacionesBorrador,
   finalizarCotizacion, verCotizacionCompleta, obtenerCotizacionBorradorPorId,
-  actualizarCotizacionBorrador
+  actualizarCotizacionBorrador, marcarCotizacionComoPendiente
 } from '../controllers/cotizacionController.js';
+
 
 const router = Router();
 
@@ -15,6 +16,9 @@ router.get('/borrador/retomar/:id', authRequired, obtenerCotizacionBorradorPorId
 router.put('/finalizar/:id',authRequired, finalizarCotizacion);
 router.get('/ver/:id', authRequired, verCotizacionCompleta);
 router.put('/:id/actualizar', authRequired, actualizarCotizacionBorrador);
+router.put('/estado/pendiente/:id', marcarCotizacionComoPendiente);
+
+
 
 
 export default router;

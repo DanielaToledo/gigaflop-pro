@@ -73,6 +73,7 @@ const Clientes = () => {
       setMensajeError('No se pudo eliminar el cliente');
       setClienteAEliminar(null);
     }
+
   };
 
   // cancelar eliminacion
@@ -87,7 +88,7 @@ const Clientes = () => {
       const res = await axios.get(`http://localhost:4000/api/clientes/completo/${cliente.cuit}`);
       setClienteAEditar(res.data);
       setMensajeExito('');
-setMensajeError('');
+      setMensajeError('');
       setModalVisible(true);
     } catch (error) {
       console.error('Error al obtener cliente completo:', error);
@@ -102,7 +103,7 @@ setMensajeError('');
     }
   }, [modalVisible]);
 
-  
+
   // confirmar edicion
   const confirmarEdicion = async (e) => {
     e.preventDefault();
@@ -127,6 +128,11 @@ setMensajeError('');
       // 📍 Actualizar direcciones del cliente
       await axios.put(`http://localhost:4000/api/clientes/direcciones/${clienteAEditar.cuit}`, {
         direcciones: clienteAEditar.direcciones || []
+      });
+
+      //Actualizar condiciones Comerciales del cliente 
+      await axios.put(`http://localhost:4000/api/clientes/condiciones/${clienteAEditar.cuit}`, {
+        condiciones_comerciales: clienteAEditar.condiciones_comerciales
       });
 
 
@@ -229,6 +235,10 @@ setMensajeError('');
             </div>
           </div>
         </div>
+
+
+
+         {/* ESTO ES EL MODAL PARA EDITAR UN CLIENTE */}
         {modalVisible && clienteAEditar && (
           <div
             className="modal-backdrop"
@@ -252,21 +262,21 @@ setMensajeError('');
                 <h5 className="modal-title">
                   <i className="bi bi-pencil-square me-2"></i> Editar cliente: {clienteAEditar.razon_social}
                 </h5>
-                <button className="btn-close"onClick={() => {
-  setModalVisible(false);
-  setMensajeExito('');
-  setMensajeError('');
-  setClienteAEditar(null);
-}} ></button>
+                <button className="btn-close" onClick={() => {
+                  setModalVisible(false);
+                  setMensajeExito('');
+                  setMensajeError('');
+                  setClienteAEditar(null);
+                }} ></button>
               </div>
 
               <div className="modal-body">
-{mensajeExito && (
-  <div className="alert alert-success d-flex align-items-center">
-    <i className="bi bi-check-circle-fill me-2"></i>
-    <div>{mensajeExito}</div>
-  </div>
-)}
+                {mensajeExito && (
+                  <div className="alert alert-success d-flex align-items-center">
+                    <i className="bi bi-check-circle-fill me-2"></i>
+                    <div>{mensajeExito}</div>
+                  </div>
+                )}
 
 
 
@@ -277,7 +287,7 @@ setMensajeError('');
                     <p><strong>Estado:</strong> {clienteAEditar.activo ? 'Activo' : 'Inactivo'}</p>
                     <p><strong>Última modificación:</strong> {clienteAEditar.fecha_modificacion || 'Sin registro'}</p>
                   </div>
-                  
+
                 </div>
 
                 <form onSubmit={confirmarEdicion}>
@@ -306,7 +316,99 @@ setMensajeError('');
                   </div>
 
 
-                  {/* Direcciones  */}
+
+
+
+
+                  {/* EDITAR LAS Condiciones comerciales DEL CLIENTE */}
+                  <h6 className="mt-4"><strong>Condiciones comerciales</strong></h6>
+
+                  <div className="mb-3">
+                    <label className="form-label"><strong>Forma de pago</strong></label>
+                    {['Transferencia', 'Tarjeta de crédito', 'Cheque', 'E-cheq'].map(opcion => (
+                      <div key={opcion} className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={clienteAEditar.condiciones_comerciales?.forma_pago?.includes(opcion)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setClienteAEditar(prev => ({
+                              ...prev,
+                              condiciones_comerciales: {
+                                ...prev.condiciones_comerciales,
+                                forma_pago: checked
+                                  ? [...(prev.condiciones_comerciales?.forma_pago || []), opcion]
+                                  : prev.condiciones_comerciales.forma_pago.filter(f => f !== opcion)
+                              }
+                            }));
+                          }}
+                        />
+                        <label className="form-check-label">{opcion}</label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label"><strong>Tipo de cambio</strong></label>
+                    {['Billete', 'Divisa'].map(tipo => (
+                      <div key={tipo} className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={clienteAEditar.condiciones_comerciales?.tipo_cambio?.includes(tipo)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setClienteAEditar(prev => ({
+                              ...prev,
+                              condiciones_comerciales: {
+                                ...prev.condiciones_comerciales,
+                                tipo_cambio: checked
+                                  ? [...(prev.condiciones_comerciales?.tipo_cambio || []), tipo]
+                                  : prev.condiciones_comerciales.tipo_cambio.filter(t => t !== tipo)
+                              }
+                            }));
+                          }}
+                        />
+                        <label className="form-check-label">{tipo}</label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label"><strong>Días de pago</strong></label>
+                    {[1, 7, 15, 18, 20, 22, 25, 30, 40].map(dia => (
+                      <div key={dia} className="form-check form-check-inline">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          value={dia}
+                          checked={clienteAEditar.condiciones_comerciales?.dias_pago?.includes(dia)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            const valor = Number(e.target.value);
+                            setClienteAEditar(prev => ({
+                              ...prev,
+                              condiciones_comerciales: {
+                                ...prev.condiciones_comerciales,
+                                dias_pago: checked
+                                  ? [...(prev.condiciones_comerciales?.dias_pago || []), valor]
+                                  : prev.condiciones_comerciales.dias_pago.filter(d => d !== valor)
+                              }
+                            }));
+                          }}
+                        />
+                        <label className="form-check-label">Día {dia}</label>
+                      </div>
+                    ))}
+                  </div>
+
+
+
+
+
+
+                  {/* EDITAR LAS Direcciones DEL CLIENTE  */}
                   {/* Otras  Direcciones  */}
 
                   <h6 className="mt-4"> <strong> Direcciones </strong></h6>
@@ -452,7 +554,7 @@ setMensajeError('');
 
 
 
-
+ {/* BOTONES DE ELIMINAR Y AGREGAR LA DIRECCION AL EDITAR */}
 
                       </div>
                       <div className="text-end mt-2">

@@ -20,8 +20,12 @@ import { actualizarDireccionesCliente } from '../controllers/clientesControllers
 const router = Router();
 
 
-//Ruta para crear cliente 
+//Ruta para crear cliente con cuit y razon social
 router.post('/',crearClienteController);
+
+
+
+
 
 //Ruta para buscar clientes por texto en razon social o cuit
 router.get('/buscar/:query', buscarClientesPorTextoController);

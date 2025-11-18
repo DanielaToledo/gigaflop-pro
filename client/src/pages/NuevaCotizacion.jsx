@@ -517,125 +517,125 @@ const NuevaCotizacion = () => {
   };
 
 
- const cargarCotizacionExistente = async (id) => {
-  const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
-  const norm = s => String(s ?? '').trim().toLowerCase();
+  const cargarCotizacionExistente = async (id) => {
+    const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+    const norm = s => String(s ?? '').trim().toLowerCase();
 
-  try {
-    const res = await axios.get(`/api/cotizaciones/borrador/retomar/${id}`, {
-      headers: { 'Cache-Control': 'no-cache' }
-    });
-    console.log('Respuesta completa de cotización:', res.data);
-    const { cabecera, productos } = res.data;
-
-    console.log('🧪 productos retomados:', productos);
-    console.log('📦 cabecera completa desde backend:', cabecera);
-
-    if (!cabecera?.id_cliente) {
-      console.error('❌ cabecera.id_cliente está vacío o undefined');
-      return;
-    }
-
-    // 1) Setear cliente seleccionado (id) temprano
-    setClienteSeleccionado(cabecera.id_cliente);
-
-    // Reconstruir clienteObjeto para mostrar en UI
-    let clienteEncontrado = Array.isArray(clientesDisponibles)
-      ? clientesDisponibles.find(c => Number(c.id) === Number(cabecera.id_cliente))
-      : undefined;
-
-    if (!clienteEncontrado && cabecera?.cliente_nombre && cabecera?.cuit) {
-      clienteEncontrado = {
-        id: cabecera.id_cliente,
-        razon_social: String(cabecera.cliente_nombre).trim(),
-        cuit: String(cabecera.cuit).trim(),
-        contactos: cabecera.contactos ?? [],
-        direcciones: cabecera.direcciones ?? []
-      };
-
-      setClientesDisponibles(prev => {
-        const prevArr = Array.isArray(prev) ? prev : [];
-        const yaExiste = prevArr.some(x => Number(x.id) === Number(clienteEncontrado.id));
-        return yaExiste ? prevArr : [...prevArr, clienteEncontrado];
+    try {
+      const res = await axios.get(`/api/cotizaciones/borrador/retomar/${id}`, {
+        headers: { 'Cache-Control': 'no-cache' }
       });
-    }
+      console.log('Respuesta completa de cotización:', res.data);
+      const { cabecera, productos } = res.data;
 
-    setClienteObjeto(clienteEncontrado || null);
-    setBusquedaCliente(
-      clienteEncontrado
-        ? `${clienteEncontrado.razon_social} – CUIT: ${clienteEncontrado.cuit}`
-        : ''
-    );
-console.log('📦 productosDisponibles al enriquecer:', productosDisponibles);
-    // ✅ Enriquecer productos con decorativos desde catálogo
-    const productosEnriquecidos = productos.map(p => {
-      const decorado = productosDisponibles?.find(prod =>
-        prod.id === p.id_producto || prod.id === p.id
-      ) ?? {};
+      console.log('🧪 productos retomados:', productos);
+      console.log('📦 cabecera completa desde backend:', cabecera);
 
-      return {
-        ...p,
-        detalle: p.detalle ?? decorado.nombre ?? '',
-        marca: p.marca ?? decorado.marca ?? '',
-        categoria: p.categoria ?? decorado.categoria ?? '',
-        subcategoria: p.subcategoria ?? decorado.subcategoria ?? ''
-      };
-    });
-
-    setCarrito(productosEnriquecidos);
-
-    // ------------------------------------------------------------
-    // CARGAR Y NORMALIZAR CONDICIONES (fuente de verdad local)
-    // ------------------------------------------------------------
-    const condicionesLoaded = await cargarCondiciones(cabecera.id_cliente);
-
-    // Normalizar posibles formatos de retorno
-    let condicionesFuente = [];
-    if (Array.isArray(condicionesLoaded)) {
-      condicionesFuente = condicionesLoaded;
-    } else if (condicionesLoaded && typeof condicionesLoaded === 'object') {
-      if (Array.isArray(condicionesLoaded.lista)) condicionesFuente = condicionesLoaded.lista;
-      else if (Array.isArray(condicionesLoaded.listaCondiciones)) condicionesFuente = condicionesLoaded.listaCondiciones;
-      else if (Array.isArray(condicionesLoaded.lista_condiciones)) condicionesFuente = condicionesLoaded.lista_condiciones;
-      else if (Array.isArray(condicionesLoaded.condiciones)) condicionesFuente = condicionesLoaded.condiciones;
-      else {
-        const maybe = condicionesLoaded;
-        if (maybe && (maybe.id || maybe.forma_pago)) condicionesFuente = [maybe];
+      if (!cabecera?.id_cliente) {
+        console.error('❌ cabecera.id_cliente está vacío o undefined');
+        return;
       }
-    }
 
-    // fallback: usar estado si no vino nada
-    if (!Array.isArray(condicionesFuente) || condicionesFuente.length === 0) {
-      condicionesFuente = Array.isArray(condiciones) && condiciones.length > 0 ? condiciones : [];
-    }
+      // 1) Setear cliente seleccionado (id) temprano
+      setClienteSeleccionado(cabecera.id_cliente);
 
-    // dedupe defensivo por id (prioriza entradas con dias_pago no vacíos y prioriza la última)
-    const dedupeCondiciones = (arr = []) => {
-      const map = new Map();
-      for (let i = arr.length - 1; i >= 0; i--) {
-        const c = arr[i] ?? {};
-        const id = String(c?.id ?? c?.id_condicion ?? '');
-        if (!id) continue;
-        if (!map.has(id)) map.set(id, c);
+      // Reconstruir clienteObjeto para mostrar en UI
+      let clienteEncontrado = Array.isArray(clientesDisponibles)
+        ? clientesDisponibles.find(c => Number(c.id) === Number(cabecera.id_cliente))
+        : undefined;
+
+      if (!clienteEncontrado && cabecera?.cliente_nombre && cabecera?.cuit) {
+        clienteEncontrado = {
+          id: cabecera.id_cliente,
+          razon_social: String(cabecera.cliente_nombre).trim(),
+          cuit: String(cabecera.cuit).trim(),
+          contactos: cabecera.contactos ?? [],
+          direcciones: cabecera.direcciones ?? []
+        };
+
+        setClientesDisponibles(prev => {
+          const prevArr = Array.isArray(prev) ? prev : [];
+          const yaExiste = prevArr.some(x => Number(x.id) === Number(clienteEncontrado.id));
+          return yaExiste ? prevArr : [...prevArr, clienteEncontrado];
+        });
+      }
+
+      setClienteObjeto(clienteEncontrado || null);
+      setBusquedaCliente(
+        clienteEncontrado
+          ? `${clienteEncontrado.razon_social} – CUIT: ${clienteEncontrado.cuit}`
+          : ''
+      );
+      console.log('📦 productosDisponibles al enriquecer:', productosDisponibles);
+      // ✅ Enriquecer productos con decorativos desde catálogo
+      const productosEnriquecidos = productos.map(p => {
+        const decorado = productosDisponibles?.find(prod =>
+          prod.id === p.id_producto || prod.id === p.id
+        ) ?? {};
+
+        return {
+          ...p,
+          detalle: p.detalle ?? decorado.nombre ?? '',
+          marca: p.marca ?? decorado.marca ?? '',
+          categoria: p.categoria ?? decorado.categoria ?? '',
+          subcategoria: p.subcategoria ?? decorado.subcategoria ?? ''
+        };
+      });
+
+      setCarrito(productosEnriquecidos);
+
+      // ------------------------------------------------------------
+      // CARGAR Y NORMALIZAR CONDICIONES (fuente de verdad local)
+      // ------------------------------------------------------------
+      const condicionesLoaded = await cargarCondiciones(cabecera.id_cliente);
+
+      // Normalizar posibles formatos de retorno
+      let condicionesFuente = [];
+      if (Array.isArray(condicionesLoaded)) {
+        condicionesFuente = condicionesLoaded;
+      } else if (condicionesLoaded && typeof condicionesLoaded === 'object') {
+        if (Array.isArray(condicionesLoaded.lista)) condicionesFuente = condicionesLoaded.lista;
+        else if (Array.isArray(condicionesLoaded.listaCondiciones)) condicionesFuente = condicionesLoaded.listaCondiciones;
+        else if (Array.isArray(condicionesLoaded.lista_condiciones)) condicionesFuente = condicionesLoaded.lista_condiciones;
+        else if (Array.isArray(condicionesLoaded.condiciones)) condicionesFuente = condicionesLoaded.condiciones;
         else {
-          const existing = map.get(id);
-          const existingDias = String(existing?.dias_pago ?? existing?.dias ?? '').trim();
-          const currentDias = String(c?.dias_pago ?? c?.dias ?? '').trim();
-          if ((!existingDias || existingDias === '') && currentDias) map.set(id, c);
+          const maybe = condicionesLoaded;
+          if (maybe && (maybe.id || maybe.forma_pago)) condicionesFuente = [maybe];
         }
       }
-      return Array.from(map.values()).reverse();
-    };
 
-    condicionesFuente = dedupeCondiciones(condicionesFuente);
+      // fallback: usar estado si no vino nada
+      if (!Array.isArray(condicionesFuente) || condicionesFuente.length === 0) {
+        condicionesFuente = Array.isArray(condiciones) && condiciones.length > 0 ? condiciones : [];
+      }
 
-    // Guardar en estado y marcar como cargadas
-    if (typeof setCondiciones === 'function') setCondiciones(condicionesFuente);
-    if (typeof condicionesCargadasRef !== 'undefined' && condicionesCargadasRef && 'current' in condicionesCargadasRef) {
-      condicionesCargadasRef.current = true;
-    }
+      // dedupe defensivo por id (prioriza entradas con dias_pago no vacíos y prioriza la última)
+      const dedupeCondiciones = (arr = []) => {
+        const map = new Map();
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const c = arr[i] ?? {};
+          const id = String(c?.id ?? c?.id_condicion ?? '');
+          if (!id) continue;
+          if (!map.has(id)) map.set(id, c);
+          else {
+            const existing = map.get(id);
+            const existingDias = String(existing?.dias_pago ?? existing?.dias ?? '').trim();
+            const currentDias = String(c?.dias_pago ?? c?.dias ?? '').trim();
+            if ((!existingDias || existingDias === '') && currentDias) map.set(id, c);
+          }
+        }
+        return Array.from(map.values()).reverse();
+      };
 
-    console.log('AFTER cargarCondiciones -> condicionesFuente (post-dedupe):', condicionesFuente);
+      condicionesFuente = dedupeCondiciones(condicionesFuente);
+
+      // Guardar en estado y marcar como cargadas
+      if (typeof setCondiciones === 'function') setCondiciones(condicionesFuente);
+      if (typeof condicionesCargadasRef !== 'undefined' && condicionesCargadasRef && 'current' in condicionesCargadasRef) {
+        condicionesCargadasRef.current = true;
+      }
+
+      console.log('AFTER cargarCondiciones -> condicionesFuente (post-dedupe):', condicionesFuente);
 
 
       // ------------------------------------------------------------
@@ -1473,93 +1473,96 @@ console.log('📦 productosDisponibles al enriquecer:', productosDisponibles);
       setMensajeExito('Cotización actualizada correctamente');
       setMensajeError('');
       setEstadoCotizacion(res.data?.estado_nombre ?? res.data?.estado ?? (payload.id_estado ? String(payload.id_estado) : ''));
-
+      setClienteObjeto(prev => ({
+        ...prev,
+        email: res.data?.cliente?.email ?? prev?.email ?? ''
+      }));
       console.log('✅ Actualizada:', idCotizacionActual, 'response:', res?.data);
       console.log('🧪 Backend cotizacion.productos:', res.data?.cotizacion?.productos ?? res.data?.productos ?? []);
 
-    // Sincronizar carrito local con lo que devuelve el backend; si backend no devuelve productos, usar lo enviado
-const returnedCot = res.data?.cotizacion ?? res.data;
+      // Sincronizar carrito local con lo que devuelve el backend; si backend no devuelve productos, usar lo enviado
+      const returnedCot = res.data?.cotizacion ?? res.data;
 
-const productosResp = (returnedCot?.productos || []).map(p => ({
-  id_detalle: p.id_detalle ?? p.id_detalle ?? null,
-  id_producto: p.id_producto ?? p.id,
-  cantidad: p.cantidad ?? 1,
-  precio_unitario: p.precio_unitario ?? p.precio ?? 0,
-  descuento: p.descuento ?? 0,
-  subtotal: p.subtotal ?? ((p.precio_unitario ?? p.precio ?? 0) - (p.descuento ?? 0)) * (p.cantidad ?? 1),
-  markup_ingresado: p.markup_ingresado !== undefined && p.markup_ingresado !== null
-    ? Number(p.markup_ingresado)
-    : null,
-  tasa_iva: p.tasa_iva ?? 21,
-  part_number: p.part_number ?? p.partNumber ?? null,
-  detalle: p.detalle ?? null,
-  // decorativos (pueden venir vacíos del backend)
-  marca: p.marca ?? '',
-  categoria: p.categoria ?? '',
-  subcategoria: p.subcategoria ?? ''
-}));
+      const productosResp = (returnedCot?.productos || []).map(p => ({
+        id_detalle: p.id_detalle ?? p.id_detalle ?? null,
+        id_producto: p.id_producto ?? p.id,
+        cantidad: p.cantidad ?? 1,
+        precio_unitario: p.precio_unitario ?? p.precio ?? 0,
+        descuento: p.descuento ?? 0,
+        subtotal: p.subtotal ?? ((p.precio_unitario ?? p.precio ?? 0) - (p.descuento ?? 0)) * (p.cantidad ?? 1),
+        markup_ingresado: p.markup_ingresado !== undefined && p.markup_ingresado !== null
+          ? Number(p.markup_ingresado)
+          : null,
+        tasa_iva: p.tasa_iva ?? 21,
+        part_number: p.part_number ?? p.partNumber ?? null,
+        detalle: p.detalle ?? null,
+        // decorativos (pueden venir vacíos del backend)
+        marca: p.marca ?? '',
+        categoria: p.categoria ?? '',
+        subcategoria: p.subcategoria ?? ''
+      }));
 
-// ✅ Enriquecer decorativos desde catálogo si faltan
-const productosRespEnriquecidos = productosResp.map(p => {
-  const decorado = productosDisponibles?.find(prod =>
-    Number(prod.id) === Number(p.id_producto)
-  ) ?? {};
+      // ✅ Enriquecer decorativos desde catálogo si faltan
+      const productosRespEnriquecidos = productosResp.map(p => {
+        const decorado = productosDisponibles?.find(prod =>
+          Number(prod.id) === Number(p.id_producto)
+        ) ?? {};
 
-  return {
-    ...p,
-    marca: p.marca?.trim() || decorado.marca?.trim() || '',
-    categoria: p.categoria?.trim() || decorado.categoria?.trim() || '',
-    subcategoria: p.subcategoria?.trim() || decorado.subcategoria?.trim() || ''
-  };
-});
+        return {
+          ...p,
+          marca: p.marca?.trim() || decorado.marca?.trim() || '',
+          categoria: p.categoria?.trim() || decorado.categoria?.trim() || '',
+          subcategoria: p.subcategoria?.trim() || decorado.subcategoria?.trim() || ''
+        };
+      });
 
-if (productosRespEnriquecidos.length) {
-  // merge por id_detalle manteniendo campos locales no enviados (ej. inputs, flags)
-  setCarrito(prev => {
-    const prevArr = Array.isArray(prev) ? prev : [];
-    const byDetalle = Object.fromEntries(productosRespEnriquecidos.filter(x => x.id_detalle).map(x => [String(x.id_detalle), x]));
-    const byProdFirst = Object.fromEntries(productosRespEnriquecidos.map(x => [String(x.id_producto), x]));
+      if (productosRespEnriquecidos.length) {
+        // merge por id_detalle manteniendo campos locales no enviados (ej. inputs, flags)
+        setCarrito(prev => {
+          const prevArr = Array.isArray(prev) ? prev : [];
+          const byDetalle = Object.fromEntries(productosRespEnriquecidos.filter(x => x.id_detalle).map(x => [String(x.id_detalle), x]));
+          const byProdFirst = Object.fromEntries(productosRespEnriquecidos.map(x => [String(x.id_producto), x]));
 
-    const merged = prevArr.map(old => {
-      const oldDetalle = old.id_detalle ? String(old.id_detalle) : null;
-      if (oldDetalle && byDetalle[oldDetalle]) {
-        return { ...old, ...byDetalle[oldDetalle] };
+          const merged = prevArr.map(old => {
+            const oldDetalle = old.id_detalle ? String(old.id_detalle) : null;
+            if (oldDetalle && byDetalle[oldDetalle]) {
+              return { ...old, ...byDetalle[oldDetalle] };
+            }
+            const byProd = byProdFirst[String(old.id_producto)];
+            if (byProd) return { ...old, ...byProd };
+            return old;
+          });
+
+          const existingDetalleKeys = new Set(merged.map(m => String(m.id_detalle ?? '')));
+          for (const p of productosRespEnriquecidos) {
+            const key = String(p.id_detalle ?? '');
+            if (key && !existingDetalleKeys.has(key)) {
+              merged.push(p);
+              existingDetalleKeys.add(key);
+            }
+          }
+
+          return merged;
+        });
+      } else {
+        // fallback: actualizar solo campos relevantes en prev sin reescribir todo
+        setCarrito(prev => {
+          const prevArr = Array.isArray(prev) ? prev : [];
+          const bySent = Object.fromEntries((payload.productos || []).map(p => [String(p.id_producto), p]));
+          return prevArr.map(old => {
+            const sent = bySent[String(old.id_producto)];
+            if (!sent) return old;
+            return {
+              ...old,
+              cantidad: sent.cantidad ?? old.cantidad,
+              precio_unitario: sent.precio_unitario ?? old.precio_unitario,
+              descuento: sent.descuento ?? old.descuento,
+              markup_ingresado: sent.markup_ingresado ?? old.markup_ingresado ?? null,
+              subtotal: sent.subtotal ?? old.subtotal
+            };
+          });
+        });
       }
-      const byProd = byProdFirst[String(old.id_producto)];
-      if (byProd) return { ...old, ...byProd };
-      return old;
-    });
-
-    const existingDetalleKeys = new Set(merged.map(m => String(m.id_detalle ?? '')));
-    for (const p of productosRespEnriquecidos) {
-      const key = String(p.id_detalle ?? '');
-      if (key && !existingDetalleKeys.has(key)) {
-        merged.push(p);
-        existingDetalleKeys.add(key);
-      }
-    }
-
-    return merged;
-  });
-} else {
-  // fallback: actualizar solo campos relevantes en prev sin reescribir todo
-  setCarrito(prev => {
-    const prevArr = Array.isArray(prev) ? prev : [];
-    const bySent = Object.fromEntries((payload.productos || []).map(p => [String(p.id_producto), p]));
-    return prevArr.map(old => {
-      const sent = bySent[String(old.id_producto)];
-      if (!sent) return old;
-      return {
-        ...old,
-        cantidad: sent.cantidad ?? old.cantidad,
-        precio_unitario: sent.precio_unitario ?? old.precio_unitario,
-        descuento: sent.descuento ?? old.descuento,
-        markup_ingresado: sent.markup_ingresado ?? old.markup_ingresado ?? null,
-        subtotal: sent.subtotal ?? old.subtotal
-      };
-    });
-  });
-}
 
       // limpiar errores de producto si existían
       setErroresProductos({});
@@ -1658,22 +1661,22 @@ if (productosRespEnriquecidos.length) {
       ? buildPayload(idEstadoBorradorLocal ?? 'borrador', { vigencia_hasta: fechaVencimiento, vencimiento })
       : (() => {
         const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
-      
-      const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
-  id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
-  cantidad: normalizarNumero(p.cantidad) || 1,
-  precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
-  descuento: Number(p.descuento ?? 0) || 0,
-  markup_ingresado: (p.markup_ingresado !== null && p.markup_ingresado !== undefined)
-    ? Number(p.markup_ingresado)
-    : null,
-  tasa_iva: Number(p.tasa_iva ?? 21) || 21,
-  // ✅ decorativos
-  detalle: p.detalle ?? p.nombre ?? '',
-  marca: p.marca ?? '',
-  categoria: p.categoria ?? '',
-  subcategoria: p.subcategoria ?? ''
-})).filter(x => Number.isFinite(x.id_producto));
+
+        const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
+          id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
+          cantidad: normalizarNumero(p.cantidad) || 1,
+          precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+          descuento: Number(p.descuento ?? 0) || 0,
+          markup_ingresado: (p.markup_ingresado !== null && p.markup_ingresado !== undefined)
+            ? Number(p.markup_ingresado)
+            : null,
+          tasa_iva: Number(p.tasa_iva ?? 21) || 21,
+          // ✅ decorativos
+          detalle: p.detalle ?? p.nombre ?? '',
+          marca: p.marca ?? '',
+          categoria: p.categoria ?? '',
+          subcategoria: p.subcategoria ?? ''
+        })).filter(x => Number.isFinite(x.id_producto));
 
         const resolvedIdCond = normalizarNumero(getCondicionId(condicionSeleccionada)) || null;
 
@@ -1804,7 +1807,10 @@ if (productosRespEnriquecidos.length) {
         contacto: contactoNombreFinal,
         direccion: direccionTexto,
         fecha_emision: fechaHoy,
-        vendedor
+        vendedor,
+        email: respSave?.data?.cliente?.email ?? clienteObjeto?.email ?? ''
+
+
       };
 
       // ✅ Productos enriquecidos
@@ -1878,21 +1884,21 @@ if (productosRespEnriquecidos.length) {
   const handleGuardarBorrador = async () => {
     const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
 
-  const normalizarProducto = p => ({
-  id_producto: normalizarNumero(p.id_producto ?? p.id),
-  cantidad: normalizarNumero(p.cantidad) || 1,
-  precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
-  descuento: Number(p.descuento ?? 0) || 0,
-  markup_ingresado: (p.markup_ingresado !== null && p.markup_ingresado !== undefined)
-    ? Number(p.markup_ingresado)
-    : null,
-  tasa_iva: Number(p.tasa_iva ?? 21) || 21,
-  // ✅ decorativos
-  detalle: p.detalle ?? p.nombre ?? '',
-  marca: p.marca ?? '',
-  categoria: p.categoria ?? '',
-  subcategoria: p.subcategoria ?? ''
-});
+    const normalizarProducto = p => ({
+      id_producto: normalizarNumero(p.id_producto ?? p.id),
+      cantidad: normalizarNumero(p.cantidad) || 1,
+      precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+      descuento: Number(p.descuento ?? 0) || 0,
+      markup_ingresado: (p.markup_ingresado !== null && p.markup_ingresado !== undefined)
+        ? Number(p.markup_ingresado)
+        : null,
+      tasa_iva: Number(p.tasa_iva ?? 21) || 21,
+      // ✅ decorativos
+      detalle: p.detalle ?? p.nombre ?? '',
+      marca: p.marca ?? '',
+      categoria: p.categoria ?? '',
+      subcategoria: p.subcategoria ?? ''
+    });
 
     if (!usuarioActual?.id) {
       setMensajeError('No se pudo identificar al vendedor');
@@ -1992,14 +1998,28 @@ if (productosRespEnriquecidos.length) {
           payload,
           { withCredentials: true }
         );
+
         const idResp = res.data?.id_cotizacion ?? res.data?.id ?? null;
         setIdCotizacionActual(idResp);
         if (idResp) localStorage.setItem('idCotizacionActual', idResp);
+
         setNumeroCotizacion(res.data?.numero_cotizacion ?? '');
-        setEstadoCotizacion(res.data?.estado_nombre ?? res.data?.estado ?? (payload.id_estado ? String(payload.id_estado) : ''));
+        setEstadoCotizacion(
+          res.data?.estado_nombre ??
+          res.data?.estado ??
+          (payload.id_estado ? String(payload.id_estado) : '')
+        );
+
+        // ✅ Guardar email del contacto en clienteObjeto
+        setClienteObjeto(prev => ({
+          ...prev,
+          email: res.data?.cliente?.email ?? prev?.email ?? ''
+        }));
+
         setMensajeExito('Cotización guardada como borrador');
         console.log('✅ Borrador creado:', res.data);
       }
+
 
       setMensajeError('');
     } catch (error) {
