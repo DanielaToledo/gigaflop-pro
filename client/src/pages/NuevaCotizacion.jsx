@@ -517,6 +517,17 @@ const NuevaCotizacion = () => {
   };
 
 
+
+
+  //ESTA FUNCION CARGA LA COTIZACION EXISTENTE PARA RETOMARLA:
+  // Flujo:
+  // 1. Obtener cotización
+  // 2. Reconstruir cliente
+  // 3. Enriquecer productos
+  // 4. Cargar condiciones
+  // 5. Cargar contactos/direcciones/días
+  // 6. Aplicar selección automática
+
   const cargarCotizacionExistente = async (id) => {
     const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
     const norm = s => String(s ?? '').trim().toLowerCase();
@@ -545,12 +556,17 @@ const NuevaCotizacion = () => {
         : undefined;
 
       if (!clienteEncontrado && cabecera?.cliente_nombre && cabecera?.cuit) {
+
+        // reconstruimos el cliente desde cabecera.idcliente y lo agregamos al estado clientesDisponibles
         clienteEncontrado = {
           id: cabecera.id_cliente,
           razon_social: String(cabecera.cliente_nombre).trim(),
           cuit: String(cabecera.cuit).trim(),
           contactos: cabecera.contactos ?? [],
-          direcciones: cabecera.direcciones ?? []
+          direcciones: cabecera.direcciones ?? [],
+          email: cabecera.email ?? '',
+          contacto_nombre: cabecera.contacto_nombre ?? '',
+          contacto_apellido: cabecera.contacto_apellido ?? ''
         };
 
         setClientesDisponibles(prev => {
@@ -567,22 +583,44 @@ const NuevaCotizacion = () => {
           : ''
       );
       console.log('📦 productosDisponibles al enriquecer:', productosDisponibles);
+
+
       // ✅ Enriquecer productos con decorativos desde catálogo
-      const productosEnriquecidos = productos.map(p => {
+      const productosEnriquecidos = (Array.isArray(productos) ? productos : []).map(p => {
         const decorado = productosDisponibles?.find(prod =>
           prod.id === p.id_producto || prod.id === p.id
         ) ?? {};
 
+        const cantidad = Number(p.cantidad ?? 1);
+        const descuento = Number(p.descuento ?? 0);
+        const precioUnitario = Number(p.precio_unitario ?? p.precio ?? 0);
+        const subtotal = Number(p.subtotal ?? ((precioUnitario - descuento) * cantidad));
+
         return {
-          ...p,
+          id: p.id_producto ?? p.id,
+          id_producto: p.id_producto ?? p.id,
+          cantidad,
+          markup_ingresado: p.markup_ingresado !== undefined && p.markup_ingresado !== null
+            ? Number(p.markup_ingresado)
+            : null,
+          descuento,
+          precio: Number(p.precio) || 0,
+          precio_unitario: precioUnitario,
+          tasa_iva: Number(p.tasa_iva ?? 21),
+          part_number: p.part_number ?? p.partNumber ?? null,
+          subtotal,
           detalle: p.detalle ?? decorado.nombre ?? '',
-          marca: p.marca ?? decorado.marca ?? '',
-          categoria: p.categoria ?? decorado.categoria ?? '',
-          subcategoria: p.subcategoria ?? decorado.subcategoria ?? ''
+          marca: decorado.marca ?? p.marca ?? '',
+          categoria: decorado.categoria ?? p.categoria ?? '',
+          subcategoria: decorado.subcategoria ?? p.subcategoria ?? ''
         };
       });
 
       setCarrito(productosEnriquecidos);
+      setProductosSeleccionados(productosEnriquecidos);
+
+
+
 
       // ------------------------------------------------------------
       // CARGAR Y NORMALIZAR CONDICIONES (fuente de verdad local)
@@ -1473,10 +1511,17 @@ const NuevaCotizacion = () => {
       setMensajeExito('Cotización actualizada correctamente');
       setMensajeError('');
       setEstadoCotizacion(res.data?.estado_nombre ?? res.data?.estado ?? (payload.id_estado ? String(payload.id_estado) : ''));
+
       setClienteObjeto(prev => ({
         ...prev,
-        email: res.data?.cliente?.email ?? prev?.email ?? ''
+        email: res.data?.cliente?.email ?? prev?.email ?? '',
+        contacto_nombre: res.data?.cliente?.contacto_nombre ?? prev?.contacto_nombre ?? '',
+        contacto_apellido: res.data?.cliente?.contacto_apellido ?? prev?.contacto_apellido ?? '',
+        razon_social: res.data?.cliente?.razon_social ?? prev?.razon_social ?? '',
+        cuit: res.data?.cliente?.cuit ?? prev?.cuit ?? ''
       }));
+
+
       console.log('✅ Actualizada:', idCotizacionActual, 'response:', res?.data);
       console.log('🧪 Backend cotizacion.productos:', res.data?.cotizacion?.productos ?? res.data?.productos ?? []);
 
@@ -1715,7 +1760,7 @@ const NuevaCotizacion = () => {
 
 
       if (idCotizacionActual) {
-        respSave = await axios.put(`/api/cotizaciones/${idCotizacionActual}/actualizar`, payloadBorrador, {
+        respSave = await axios.put(`/api/cotizaciones/finalizar/${idCotizacionActual}`, payloadBorrador, {
           withCredentials: true,
           headers: { Authorization: `Bearer ${usuarioActual?.token}` }
         });
@@ -1805,6 +1850,14 @@ const NuevaCotizacion = () => {
       const clienteResumen = {
         nombre: cabecera?.cliente_nombre ?? clienteObjeto?.razon_social ?? 'Sin nombre',
         contacto: contactoNombreFinal,
+       contacto_apellido:
+  respSave?.data?.cliente?.contacto_apellido ??
+  cabecera?.contacto_apellido ??
+  contactoDesdeCliente?.contacto_apellido ??
+  contactoSeleccionadoFinal?.contacto_apellido ??
+  (typeof contacto === 'object' ? contacto.contacto_apellido : '') ??
+  '', 
+        cuit: respSave?.data?.cliente?.cuit ?? clienteObjeto?.cuit ?? '',
         direccion: direccionTexto,
         fecha_emision: fechaHoy,
         vendedor,

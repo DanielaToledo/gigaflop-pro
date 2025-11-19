@@ -194,7 +194,7 @@ export async function iniciarCotizacion(req, res) {
       const idCotizacion = result.insertId;
 
       const [clienteRows] = await db.query(
-        'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+        'SELECT razon_social, cuit FROM cliente WHERE id = ? LIMIT 1',
         [idClienteNum]
       );
       const clienteNombreReal = clienteRows[0]?.razon_social ?? '';
@@ -244,6 +244,7 @@ export async function iniciarCotizacion(req, res) {
         estado: 'borrador',
         cliente: {
           nombre: clienteNombreReal, // ✅ nombre del cliente
+          cuit: clienteRows[0]?.cuit ?? '',
           contacto_nombre: contacto.nombre_contacto ?? '',
           contacto_apellido: contacto.contacto_apellido ?? '',
           email: contacto.email ?? ''
@@ -422,7 +423,7 @@ export async function finalizarCotizacion(req, res) {
     await cotizacionModel.reemplazarProductos(cotizacionId, productos);
 
     const [clienteRows] = await db.query(
-      'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+      'SELECT razon_social, cuit FROM cliente WHERE id = ? LIMIT 1',
       [idClienteNum]
     );
     const clienteNombreReal = clienteRows[0]?.razon_social ?? '';
@@ -434,17 +435,48 @@ export async function finalizarCotizacion(req, res) {
     );
     const contacto = contactoRows[0] ?? {};
 
-    res.json({
+
+    // Obtener número de cotización
+    const [numRows] = await db.query(
+      'SELECT numero_cotizacion FROM cotizaciones WHERE id = ? LIMIT 1',
+      [cotizacionId]
+    );
+    const numeroCotizacion = numRows[0]?.numero_cotizacion ?? '';
+
+    // Enriquecer productos con decorativos
+    const productosDecorados = await Promise.all(productos.map(async p => {
+      const [decoradoRows] = await db.query(
+        'SELECT marca, categoria, subcategoria FROM productos WHERE id = ? LIMIT 1',
+        [p.id_producto]
+      );
+      const decorado = decoradoRows[0] ?? {};
+      return {
+        ...p,
+        marca: decorado.marca ?? '',
+        categoria: decorado.categoria ?? '',
+        subcategoria: decorado.subcategoria ?? ''
+      };
+    }));
+
+    // Respuesta final
+    const respuestaFinal = {
       mensaje: 'Cotización finalizada y enviada al cliente',
       estado: 'pendiente',
       id_cotizacion: cotizacionId,
+      numero_cotizacion: numeroCotizacion,
       cliente: {
-        nombre: clienteNombreReal, // ✅ razón social del cliente
+        nombre: clienteNombreReal,
+        cuit: clienteRows[0]?.cuit ?? '',
         contacto_nombre: contacto.nombre_contacto ?? '',
         contacto_apellido: contacto.contacto_apellido ?? '',
         email: contacto.email ?? ''
-      }
-    });
+      },
+      productos: productosDecorados
+    };
+
+    console.log('🧾 Respuesta enviada al frontend:\n', JSON.stringify(respuestaFinal, null, 2));
+
+    res.json(respuestaFinal);
 
   } catch (err) {
     console.error('❌ Error al finalizar cotización:', err);
@@ -464,9 +496,11 @@ export async function verCotizacionCompleta(req, res) {
   try {
     const cotizacion = await cotizacionModel.obtenerCotizacionCompleta(id);
     let clienteNombreReal = '';
+    let clienteRows = [];
+
     if (cotizacion?.cabecera?.id_cliente) {
       const [clienteRows] = await db.query(
-        'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+        'SELECT razon_social, cuit FROM cliente WHERE id = ? LIMIT 1',
         [cotizacion.cabecera.id_cliente]
       );
       clienteNombreReal = clienteRows[0]?.razon_social ?? '';
@@ -498,10 +532,30 @@ export async function verCotizacionCompleta(req, res) {
       contacto = contactoRows[0] ?? {};
     }
 
+    const productosDecorados = await Promise.all((cotizacion.productos || []).map(async p => {
+      const [decoradoRows] = await db.query(
+        'SELECT marca, categoria, subcategoria FROM productos WHERE id = ? LIMIT 1',
+        [p.id_producto]
+      );
+      const decorado = decoradoRows[0] ?? {};
+      return {
+        ...p,
+        marca: decorado.marca ?? '',
+        categoria: decorado.categoria ?? '',
+        subcategoria: decorado.subcategoria ?? ''
+      };
+    }));
+
+    cotizacion.productos = productosDecorados;
+
+
+
     res.json({
       ...cotizacion,
+      numero_cotizacion: cotizacion?.cabecera?.numero_cotizacion ?? '',
       cliente: {
         nombre: clienteNombreReal, // ✅ razón social del cliente
+        cuit: clienteRows[0]?.cuit ?? '',
         contacto_nombre: contacto.nombre_contacto ?? '',
         contacto_apellido: contacto.contacto_apellido ?? '',
         email: contacto.email ?? ''
@@ -525,9 +579,10 @@ export async function obtenerCotizacionBorradorPorId(req, res) {
     const cotizacion = await cotizacionModel.obtenerCotizacionParaEdicion(id);
 
     let clienteNombreReal = '';
+    let clienteRows = [];
     if (cotizacion?.cabecera?.id_cliente) {
       const [clienteRows] = await db.query(
-        'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+        'SELECT razon_social, cuit FROM cliente WHERE id = ? LIMIT 1',
         [cotizacion.cabecera.id_cliente]
       );
       clienteNombreReal = clienteRows[0]?.razon_social ?? '';
@@ -564,18 +619,37 @@ export async function obtenerCotizacionBorradorPorId(req, res) {
     }
 
 
-    if (cotizacion?.cabecera?.id_contacto) {
-      const [contactoRows] = await db.query(
-        `SELECT nombre_contacto, apellido AS contacto_apellido, email FROM contactos WHERE id = ?`,
-        [cotizacion.cabecera.id_contacto]
-      );
-      contacto = contactoRows[0] ?? {};
-    }
+
+
+    const productosEnriquecidos = await Promise.all(
+      (cotizacion.productos || []).map(async p => {
+        const [decoradoRows] = await db.query(
+          `SELECT marca, categoria, subcategoria FROM productos WHERE id = ? LIMIT 1`,
+          [p.id_producto]
+        );
+        const decorado = decoradoRows[0] ?? {};
+
+        return {
+          ...p,
+          detalle: p.detalle ?? decorado.nombre ?? '[Sin nombre]',
+          marca: decorado.marca ?? '',
+          categoria: decorado.categoria ?? '',
+          subcategoria: decorado.subcategoria ?? ''
+        };
+      })
+    );
+
+    cotizacion.productos = productosEnriquecidos;
+
+    const numeroCotizacion = cotizacion?.cabecera?.numero_cotizacion ?? '';
+    console.log('🧪 contacto resuelto:', contacto);
     res.json({
       ...cotizacion,
+      numero_cotizacion: numeroCotizacion,
       condiciones: condicionesCliente,
       cliente: {
         nombre: clienteNombreReal, // ✅ razón social del cliente
+        cuit: clienteRows[0]?.cuit ?? '',
         contacto_nombre: contacto.nombre_contacto ?? '',
         contacto_apellido: contacto.contacto_apellido ?? '',
         email: contacto.email ?? ''
@@ -778,13 +852,29 @@ export async function actualizarCotizacionBorrador(req, res) {
         detalle: r.detalle ?? null,
         markup_ingresado: r.markup_ingresado
       }));
+      const productosDecorados = await Promise.all(productosResp.map(async p => {
+        const [decoradoRows] = await db.query(
+          'SELECT marca, categoria, subcategoria FROM productos WHERE id = ? LIMIT 1',
+          [p.id_producto]
+        );
+        const decorado = decoradoRows[0] ?? {};
+        return {
+          ...p,
+          marca: decorado.marca ?? '',
+          categoria: decorado.categoria ?? '',
+          subcategoria: decorado.subcategoria ?? ''
+        };
+      }));
+
 
       // ✅ Enriquecer cabecera decorativa
       const { cabecera: cabeceraDecorada } = await cotizacionModel.obtenerCotizacionParaEdicion(id);
       let clienteNombreReal = '';
+      let clienteRows = [];
+
       if (cabeceraDecorada?.id_cliente) {
         const [clienteRows] = await db.query(
-          'SELECT razon_social FROM cliente WHERE id = ? LIMIT 1',
+          'SELECT razon_social, cuit FROM cliente WHERE id = ? LIMIT 1',
           [cabeceraDecorada.id_cliente]
         );
         clienteNombreReal = clienteRows[0]?.razon_social ?? '';
@@ -808,23 +898,25 @@ export async function actualizarCotizacionBorrador(req, res) {
 
       }
 
+      const numeroCotizacion = cabeceraDecorada?.numero_cotizacion ?? '';
 
-
-      //respuesta del backend 
       return res.json({
         mensaje: 'Cotización actualizada como borrador',
         cotizacion: {
           id: Number(id),
+          numero_cotizacion: numeroCotizacion,
           cabecera: cabeceraDecorada,
-          productos: productosResp,
+          productos: productosDecorados, // ✅ productos enriquecidos
           cliente: {
-            nombre: clienteNombreReal, // ✅ razón social del cliente
+            nombre: clienteNombreReal,
+            cuit: clienteRows?.[0]?.cuit ?? '',
             contacto_nombre: contacto.nombre_contacto ?? '',
             contacto_apellido: contacto.contacto_apellido ?? '',
             email: contacto.email ?? ''
           }
         }
       });
+
 
 
     } catch (err) {
