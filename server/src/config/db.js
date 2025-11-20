@@ -1,3 +1,5 @@
+
+//CONEXION A BD ONLINE
 //CONEXION A BD ONLINE
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
@@ -26,3 +28,68 @@ export default pool;
 //  console.error('Error al conectar a la base de datos:', err);
 //}
 
+
+
+
+
+
+
+
+
+/*
+import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+dotenv.config(); // carga las variables de .env
+
+const pool = mysql.createPool({
+  host: process.env.DB_ONLINE_HOST,
+  user: process.env.DB_ONLINE_USER,
+  password: process.env.DB_ONLINE_PASSWORD,
+  database: process.env.DB_ONLINE_NAME,
+  port: process.env.DB_ONLINE_PORT,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+
+
+export default pool;
+
+//  try {
+//  const [rows] = await pool.query('SELECT 1 + 1 AS result');
+//console.log('Conexión exitosa con resultado:', rows[0].result);
+//} catch (err) {
+//  console.error('Error al conectar a la base de datos:', err);
+//}
+/*
+//CONEXION A BD ONLINE
+import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+dotenv.config(); // carga las variables de .env
+
+const pool = mysql.createPool({
+  host: process.env.DB_ONLINE_HOST,
+  user: process.env.DB_ONLINE_USER,
+  password: process.env.DB_ONLINE_PASSWORD,
+  database: process.env.DB_ONLINE_NAME,
+  port: process.env.DB_ONLINE_PORT,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+
+
+export default pool;
+
+//  try {
+//  const [rows] = await pool.query('SELECT 1 + 1 AS result');
+//console.log('Conexión exitosa con resultado:', rows[0].result);
+//} catch (err) {
+//  console.error('Error al conectar a la base de datos:', err);
+//}
+
+*/
