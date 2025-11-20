@@ -170,7 +170,7 @@ async function enviarAlertaVencimiento(cotizacion) {
                       </div>
                     
                     <div className='container-icon'>
-                      <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
+                      <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon " style={{ color: '#4285f4' }}></i></label>
                     </div>
                   </header>
                   <div className='option'>
@@ -180,7 +180,7 @@ async function enviarAlertaVencimiento(cotizacion) {
                     <NavLink className='option-button' to='/configuracion'>Configuración</NavLink>
                   </div>
                 </div>
-                <div className='menu-superior-prod'>
+                <div className='menu-superior'>
                     <div className='cotizatitlecontainer'>
                       <h3 className='cotizatitle'>Cotizaciones</h3>
                     </div>
@@ -192,6 +192,8 @@ async function enviarAlertaVencimiento(cotizacion) {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}/>
                     </div>
+                    <div className='botonescontainer'>
+                    <button className='reporte'>Reporte</button>
                     <button
                       className='nc'
                       onClick={() => {
@@ -199,57 +201,9 @@ async function enviarAlertaVencimiento(cotizacion) {
                       navigate('/nuevacotizacion');
                       }}>+ Nueva Cotización
                     </button>
+                    </div>
                 </div>
                 
-                
-
-     {/* CODIGO ANTERIOR DEL MENU - SI FUNCIONA EL NUEVO, BORRAR ESTE BLOQUE 
-      <div className="background-container-menu">
-        
-        <header className="header">
-          <div className='container-header'>
-            <div className="title-container">
-              <h2 className="title-menu">GIGAFLOP</h2>
-            </div>
-          </div>
-          <div className='container-icon'>
-            <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
-          </div>
-        </header>
-
-        <div className='option'>
-          <NavLink className='option-button2'>Cotizaciones</NavLink>
-          <NavLink className='option-button' to="/clientes">Clientes</NavLink>
-          <NavLink className='option-button' to="/productos">Productos</NavLink>
-          <NavLink className='option-button' to="/configuracion">Configuración</NavLink>
-        </div>
-
-        <div className="menubox">
-          <div className='menu-superior'>
-            <div className='cotizatitlecontainer'>
-              <h3 className='cotizatitle'>Cotizaciones</h3>
-            </div>
-            <div className="buscador-container">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Buscar por ID, vendedor o cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <button
-              className='nc'
-              onClick={() => {
-                localStorage.removeItem('idCotizacionActual');
-                navigate('/nuevacotizacion');
-              }}
-            >
-              + Nueva Cotización
-            </button>
-          </div>
-*/}
           <div className="menu-matriz">
             <div className="table-responsive px-2">
               <table className="table tabla-cotizaciones align-middle">
@@ -396,7 +350,7 @@ async function enviarAlertaVencimiento(cotizacion) {
               </div>
               <div className="modal-body">
                 <p className="text-muted">Aquí se mostrará la vista previa de la cotización seleccionada.</p>
-                {/* Podés agregar más detalles o componentes aquí */}
+              
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setModalVisible(false)}>
@@ -412,3 +366,4 @@ async function enviarAlertaVencimiento(cotizacion) {
 };
 
 export default Menu;
+
