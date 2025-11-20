@@ -95,8 +95,53 @@ const Menu = () => {
 
   return (
     <>
-      <Sidebar />
+    
+      <div className="encabezado-fijo">
+            <Sidebar />
+                <div className="background-container-menu">
+                  <header className="header">
+                    
+                      <div className="title-container">
+                        <h2 className="title-menu">GIGAFLOP</h2>
+                      </div>
+                    
+                    <div className='container-icon'>
+                      <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
+                    </div>
+                  </header>
+                  <div className='option'>
+                    <NavLink className='option-button2' to='/menu'>Cotizaciones</NavLink>
+                    <NavLink className='option-button' to="/clientes">Clientes</NavLink>
+                    <NavLink className='option-button' to='/productos'>Productos</NavLink>
+                    <NavLink className='option-button' to='/configuracion'>Configuración</NavLink>
+                  </div>
+                </div>
+                <div className='menu-superior-prod'>
+                    <div className='cotizatitlecontainer'>
+                      <h3 className='cotizatitle'>Cotizaciones</h3>
+                    </div>
+                    <div className="buscador-container">
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Buscar por ID, vendedor o cliente..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}/>
+                    </div>
+                    <button
+                      className='nc'
+                      onClick={() => {
+                      localStorage.removeItem('idCotizacionActual');
+                      navigate('/nuevacotizacion');
+                      }}>+ Nueva Cotización
+                    </button>
+                </div>
+                
+                
+
+     {/* CODIGO ANTERIOR DEL MENU - SI FUNCIONA EL NUEVO, BORRAR ESTE BLOQUE 
       <div className="background-container-menu">
+        
         <header className="header">
           <div className='container-header'>
             <div className="title-container">
@@ -140,7 +185,7 @@ const Menu = () => {
               + Nueva Cotización
             </button>
           </div>
-
+*/}
           <div className="menu-matriz">
             <div className="table-responsive px-2">
               <table className="table tabla-cotizaciones align-middle">
@@ -264,7 +309,7 @@ const Menu = () => {
             </div>
           </div>
         )}
-      </div>
+      
     </>
   );
 };
