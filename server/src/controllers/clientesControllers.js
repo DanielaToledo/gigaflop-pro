@@ -4,7 +4,7 @@ import { obtenerCondicionesComerciales } from '../models/ClientesModels.js';
 import { obtenerDiasPagoPorCliente } from '../models/ClientesModels.js';
 import { obtenerDireccionesConZona } from '../models/ClientesModels.js';
 import { obtenerZonaPorDireccion, obtenerCostoEnvioPorZona } from '../models/ClientesModels.js';
-import { listarZonasConCosto } from '../models/ClientesModels.js';
+import { listarZonasConCosto, obtenerClientePorId } from '../models/ClientesModels.js';
 import {
   existeClienteCompletoPorCuit,
   crearClienteCompleto,
@@ -83,6 +83,25 @@ export const listarClienteController = async (req, res) => {
     res.status(500).json({ error: 'Error al buscar cliente' });
   }
 };
+
+export const obtenerClientePorIdController = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const cliente = await obtenerClientePorId(id);
+    if (!cliente) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+    res.json(cliente);
+  } catch (error) {
+    console.error('Error al obtener cliente por ID:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+
+
+
 
 // controlador para ACTUALIZAR un cliente por razon social o cuit o id 
 //export const listarClienteController = async (req, res) => {

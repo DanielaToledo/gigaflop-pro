@@ -2,8 +2,9 @@
 import { Cotizacion } from '../models/CotizacionModels.js';
 import { aMySQLDateTime, aMySQLDate, sumarDias } from '../utils/helperDeFecha.js';
 import { getEstadoId } from './estadosControllers.js';
-
-
+import { EstadoModel } from '../models/EstadosModels.js';
+import { obtenerClientePorId } from '../models/ClientesModels.js';
+import { enviarEmailDeAlerta } from '../controllers/emailControllers.js';
 
 // Helpers locales
 function observationsOrEmpty(v) {
@@ -484,6 +485,27 @@ export async function finalizarCotizacion(req, res) {
   }
 }
 
+// este trae todas las cotizacion con sus estados para la tabla de cotizaciones en Menu.jsx
+export async function obtenerTodasLasCotizaciones(req, res) {
+  const db = req.app.get('db');
+  const cotizacionModel = new Cotizacion(db);
+  const idUsuario = req.params.id_usuario;
+
+  try {
+    // 🔁 Actualizar vencidas antes de consultar
+    await cotizacionModel.actualizarVencidas();
+
+    // 🔍 Consultar todas las cotizaciones del usuario
+    const cotizaciones = await cotizacionModel.obtenerTodasPorUsuario(idUsuario);
+
+    res.json(cotizaciones);
+  } catch (error) {
+    console.error('❌ Error al obtener todas las cotizaciones:', error);
+    res.status(500).json({ error: 'Error al obtener todas las cotizaciones' });
+  }
+}
+
+
 
 
 
@@ -945,6 +967,89 @@ export async function marcarCotizacionComoPendiente(req, res) {
   } catch (err) {
     console.error('Error al marcar como pendiente:', err);
     res.status(500).json({ error: 'No se pudo actualizar el estado' });
+  }
+}
+
+// actualiza el estado y el venciemeinto tambien 
+export const actualizarEstado = async (req, res) => {
+  const { id } = req.params;
+  const { nuevoEstado } = req.body;
+  const db = req.app.get('db');
+
+  const cotizacionModel = new Cotizacion(db);
+  const estadoModel = new EstadoModel(db);
+
+  try {
+    // 🔍 Obtener ID del estado por nombre
+    const id_estado = await estadoModel.obtenerIdPorNombre(nuevoEstado);
+    if (!id_estado) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
+
+    // 🔍 Obtener cotización
+    const cotizacion = await cotizacionModel.obtenerPorId(id);
+    if (!cotizacion) {
+      return res.status(404).json({ error: 'Cotización no encontrada' });
+    }
+
+    const hoy = new Date();
+    const vencimiento = cotizacion.vigencia_hasta ? new Date(cotizacion.vigencia_hasta) : null;
+
+    // 🔁 Si está pendiente y vencida, actualizar a vencida
+    if (cotizacion.id_estado === 2 && vencimiento && vencimiento < hoy) {
+      const idVencida = await estadoModel.obtenerIdPorNombre('vencida');
+      await cotizacionModel.actualizarEstado(id, idVencida);
+      const estadoVencido = await estadoModel.obtenerPorId(idVencida);
+
+      return res.status(200).json({
+        mensaje: 'Cotización marcada como vencida automáticamente',
+        estado: estadoVencido
+      });
+    }
+
+    // 🔁 Actualizar al estado solicitado
+    await cotizacionModel.actualizarEstado(id, id_estado);
+    const estadoActualizado = await estadoModel.obtenerPorId(id_estado);
+
+    res.status(200).json({
+      mensaje: 'Estado actualizado correctamente',
+      estado: estadoActualizado
+    });
+  } catch (error) {
+    console.error('❌ Error al actualizar estado:', error);
+    res.status(500).json({ error: 'No se pudo actualizar el estado' });
+  }
+};
+
+
+//enviar alerta con vencieminto al clinete 
+export async function enviarAlertaVencimiento(req, res) {
+  const db = req.app.get('db');
+  const { id } = req.params;
+
+  const cotizacionModel = new Cotizacion(db);
+
+  try {
+    const cotizacion = await cotizacionModel.obtenerPorId(id);
+    if (!cotizacion) {
+      return res.status(404).json({ error: 'Cotización no encontrada' });
+    }
+
+    if (!cotizacion.cliente_email) {
+      return res.status(400).json({ error: 'Cliente sin email registrado' });
+    }
+
+    // ✅ Aquí va tu línea:
+    await enviarEmailDeAlerta({
+      to: cotizacion.cliente_email,
+      subject: 'Cotización por vencer',
+      html: `Hola ${cotizacion.cliente_nombre}, su cotización N°${cotizacion.numero_cotizacion} está por vencer el ${cotizacion.vigencia_hasta}.`
+    });
+
+    res.json({ mensaje: 'Alerta enviada' });
+  } catch (error) {
+    console.error('❌ Error al enviar alerta de vencimiento:', error);
+    res.status(500).json({ error: 'No se pudo enviar la alerta' });
   }
 }
 

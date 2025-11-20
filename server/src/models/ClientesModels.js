@@ -41,6 +41,20 @@ export const listarCliente = async ({ razon_social }) => {
   
 };
 
+
+export const obtenerClientePorId = async (id) => {
+  const [rows] = await pool.execute(
+    `SELECT id, razon_social, cuit, email
+     FROM cliente
+     WHERE id = ?`,
+    [id]
+  );
+
+  return rows[0] || null;
+};
+
+
+
 // server/src/models/ClientesModels.js
 export const obtenerCondicionesComerciales = async (idCliente) => {
   if (!idCliente || isNaN(Number(idCliente))) {

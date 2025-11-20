@@ -38,6 +38,35 @@ export const enviarCotizacion = async (req, res) => {
   }
 };
 
+export async function enviarEmailDeAlerta({ to, subject, html }) {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    }
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to,
+    subject,
+    html
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`📨 Alerta enviada a ${to}`);
+  } catch (error) {
+    console.error('❌ Error al enviar alerta:', error);
+    throw error;
+  }
+}
+
+
+
+
+
 export async function enviarEmailConAdjunto(req, res) {
   const { clienteEmail, asunto, htmlCotizacion } = req.body;
   const archivoPDF = req.file;
