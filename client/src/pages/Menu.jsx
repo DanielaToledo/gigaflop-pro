@@ -5,6 +5,9 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 import Sidebar from '../components/Sidebar';
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
+import EtiquetaEstado from '../components/ui/EtiquetaEstado';
+
+
 
 const Menu = () => {
   const { usuario, cargando } = useUser(); // ✅ incluye cargando
@@ -13,14 +16,15 @@ const Menu = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [deletedCotizacion, setDeletedCotizacion] = useState(null);
-  const [undoTimer, setUndoTimer] = useState(null);
+  const [estadoFiltro, setEstadoFiltro] = useState(null);
+  const [alertasEnviadas, setAlertasEnviadas] = useState(new Set());
 
   useEffect(() => {
     if (cargando || !usuario?.id) return;
 
     const cargarCotizaciones = async () => {
       try {
-        const res = await axios.get(`/api/cotizaciones/borrador/${usuario.id}`);
+        const res = await axios.get(`/api/cotizaciones/todas/${usuario.id}`);
         console.log('Cotizaciones recibidas:', res.data);
 
         // transformamos sin asumir que backend devuelve "estado" textual;
@@ -32,7 +36,13 @@ const Menu = () => {
           vigencia_hasta: c.vigencia_hasta ?? c.vencimiento ?? null, // posible campo nuevo
           vendedor: `${usuario.nombre} ${usuario.apellido}`,
           // preferir estado_nombre si el backend lo envía; si no, usar el texto antiguo 'estado'
-          estado: c.estado_nombre ?? c.estado ?? (c.id_estado ?? null),
+          estado: {
+            id: c.estado_id ?? null,
+            nombre: c.estado_nombre ?? '—',
+            es_final: c.estado_es_final ?? false,
+            requiere_vencimiento: c.estado_requiere_vencimiento ?? false,
+            color_dashboard: c.estado_color_dashboard ?? '#6c757d'
+          },
           cliente: c.cliente_nombre || '—',
           contacto: c.contacto_nombre && c.contacto_apellido
             ? `${c.contacto_nombre} ${c.contacto_apellido}`
@@ -48,48 +58,102 @@ const Menu = () => {
     cargarCotizaciones();
   }, [cargando, usuario]);
 
+
+
+function confirmarEstado(id, nuevoEstado) {
+  const texto = nuevoEstado === 'finalizada_aceptada'
+    ? '¿Confirmás marcar esta cotización como ACEPTADA?'
+    : nuevoEstado === 'finalizada_rechazada'
+      ? '¿Confirmás marcar esta cotización como RECHAZADA?'
+      : `¿Confirmás marcar como ${nuevoEstado}?`;
+
+  const confirmar = window.confirm(texto);
+  if (!confirmar) return;
+
+  manejarCambioDeEstado(id, nuevoEstado);
+}
+
+
+
+//enviar alerta al cliente de cotizacion por vencer
+async function enviarAlertaVencimiento(cotizacion) {
+  try {
+    await axios.post(
+      `/api/cotizaciones/alerta-vencimiento/${cotizacion.id}`,
+      {},
+      { withCredentials: true }
+    );
+
+    setAlertasEnviadas(prev => new Set(prev).add(cotizacion.id));
+    alert(`Alerta enviada al cliente: ${cotizacion.cliente}`);
+  } catch (error) {
+    console.error('Error al enviar alerta de vencimiento:', error);
+    alert('No se pudo enviar la alerta.');
+  }
+}
+
+
+  async function manejarCambioDeEstado(id, nuevoEstado) {
+    try {
+      const res = await axios.put(
+        `/api/cotizaciones/estado/${id}`,
+        { nuevoEstado },
+        { withCredentials: true }
+      );
+
+      const estadoActualizado = res.data.estado;
+
+      setCotizaciones(prev =>
+        prev.map(c => c.id === id
+          ? { ...c, estado: estadoActualizado }
+          : c)
+      );
+    } catch (error) {
+      console.error(`Error al marcar como ${nuevoEstado}:`, error);
+    }
+  }
+
   // filtrar defensivamente (proteger toLowerCase)
   const safeToLower = v => String(v ?? '').toLowerCase();
+  const filteredCotizaciones = cotizaciones.filter(cotizacion => {
+    const term = safeToLower(searchTerm);
+    const estadoId = cotizacion.estado?.id;
+    const estadoNombre = safeToLower(cotizacion.estado?.nombre ?? '');
+    const vigencia = cotizacion.vigencia_hasta ? new Date(cotizacion.vigencia_hasta) : null;
+    const hoy = new Date();
+    const diasRestantes = vigencia ? (vigencia - hoy) / (1000 * 60 * 60 * 24) : null;
 
-  const filteredCotizaciones = cotizaciones.filter(cotizacion =>
-    safeToLower(cotizacion.numero).includes(safeToLower(searchTerm)) ||
-    safeToLower(String(cotizacion.id)).includes(safeToLower(searchTerm)) ||
-    safeToLower(cotizacion.vendedor).includes(safeToLower(searchTerm)) ||
-    safeToLower(cotizacion.cliente).includes(safeToLower(searchTerm))
-  );
+    const coincideTexto =
+      safeToLower(cotizacion.numero).includes(term) ||
+      safeToLower(String(cotizacion.id)).includes(term) ||
+      safeToLower(cotizacion.vendedor).includes(term) ||
+      safeToLower(cotizacion.cliente).includes(term);
 
-  // getColor ahora es null-safe
-  const getColor = (estado) => {
-    const key = safeToLower(estado);
-    switch (key) {
-      case 'aprobada': return '#198754';
-      case 'pendiente': return '#ffc107';
-      case 'rechazada': return '#dc3545';
-      default: return '#6c757d';
-    }
-  };
+    const coincideEstado = (() => {
+      switch (term) {
+        case 'borrador': return estadoId === 1;
+        case 'pendiente': return estadoId === 2;
+        case 'aceptada':
+        case 'finalizada':
+        case 'finalizada_aceptada': return estadoId === 3;
+        case 'rechazada':
+        case 'finalizada_rechazada': return estadoId === 4;
+        case 'vencida': return estadoId === 5;
+        case 'pendiente vencimiento':
+        case 'pendiente por vencer':
+        case 'pendiente a vencer':
+        case 'pendiente venciendo':
+          return estadoId === 2 && diasRestantes !== null && diasRestantes <= 3 && diasRestantes >= 0;
+        default:
+          return estadoNombre.includes(term);
+      }
+    })();
 
-  const handleDelete = (id) => {
-    const cotizacionEliminada = cotizaciones.find(c => c.id === id);
-    if (window.confirm("¿Seguro que desea eliminar esta cotización?")) {
-      setCotizaciones(cotizaciones.filter(c => c.id !== id));
-      setDeletedCotizacion(cotizacionEliminada);
+    return coincideTexto || coincideEstado;
+  });
 
-      const timer = setTimeout(() => {
-        setDeletedCotizacion(null);
-      }, 5000);
 
-      setUndoTimer(timer);
-    }
-  };
 
-  const handleUndo = () => {
-    if (deletedCotizacion) {
-      setCotizaciones(prev => [...prev, deletedCotizacion]);
-      setDeletedCotizacion(null);
-      clearTimeout(undoTimer);
-    }
-  };
 
   if (cargando) return <p className="text-center mt-5">Cargando usuario...</p>; // ✅ loader
 
@@ -204,7 +268,6 @@ const Menu = () => {
                 </thead>
                 <tbody>
                   {filteredCotizaciones.map((cotizacion, index) => {
-                    // fecha: aceptar que venga ISO o ya formateada; defensivamente parsear
                     const fechaIso = cotizacion.fecha ? new Date(cotizacion.fecha) : null;
                     const fechaDisplay = fechaIso && !isNaN(fechaIso.getTime())
                       ? fechaIso.toLocaleDateString('es-AR')
@@ -222,10 +285,7 @@ const Menu = () => {
                     const vencida = diferenciaDias !== null && diferenciaDias < 0;
                     const vencePronto = diferenciaDias !== null && diferenciaDias >= 0 && diferenciaDias <= 3;
 
-                    // estado para mostrar: puede ser nombre o id; mostrar texto si hay nombre, si no mostrar id o '—'
-                    const estadoDisplay = (cotizacion.estado === null || cotizacion.estado === undefined)
-                      ? '—'
-                      : String(cotizacion.estado);
+                    const estadoId = cotizacion.estado?.id;
 
                     return (
                       <tr key={index} className="fila-cotizacion">
@@ -236,7 +296,7 @@ const Menu = () => {
                         </td>
                         <td>{fechaDisplay}</td>
                         <td className={
-                          estadoDisplay.toLowerCase() === 'pendiente'
+                          estadoId === 2
                             ? vencida
                               ? 'text-danger fw-bold'
                               : vencePronto
@@ -244,43 +304,80 @@ const Menu = () => {
                                 : ''
                             : ''
                         }>
-                          {estadoDisplay.toLowerCase() === 'pendiente' && fechaVencimiento && !isNaN(fechaVencimiento.getTime())
+                          {cotizacion.estado?.requiere_vencimiento && fechaVencimiento && !isNaN(fechaVencimiento.getTime())
                             ? fechaVencimiento.toLocaleDateString('es-AR')
                             : '—'}
                         </td>
                         <td>{cotizacion.vendedor}</td>
-                        <td style={{ color: getColor(estadoDisplay), fontWeight: 500 }}>
-                          {estadoDisplay}
-                        </td>
+                        <td><EtiquetaEstado estado={cotizacion.estado} /></td>
                         <td>{cotizacion.cliente}</td>
                         <td>{cotizacion.contacto}</td>
                         <td>${Number(cotizacion.total).toFixed(2)}</td>
-                        <td className="text-end">
-                          <button
-                            className="btn-cuadro btn-retomar"
-                            title="Retomar cotización"
-                            onClick={() => {
-                              localStorage.setItem('idCotizacionActual', cotizacion.id);
-                              navigate('/nuevacotizacion', { state: { retomar: true } });
-                            }}
-                          >
-                            <i className="bi bi-arrow-repeat"></i>
-                          </button>
+<td className="text-end">
+  <div className="dropdown">
+    <button
+      className="btn btn-sm btn-light"
+      type="button"
+      data-bs-toggle="dropdown"
+      aria-expanded="false"
+      title="Acciones"
+    >
+      <i className="bi bi-three-dots-vertical"></i>
+    </button>
 
-                          <button className="btn-cuadro btn-descargar" title="Descargar PDF">
-                            <i className="bi bi-file-earmark-arrow-down-fill"></i>
-                          </button>
+    <ul className="dropdown-menu dropdown-menu-end">
+      <li>
+        <button
+          className="dropdown-item"
+          onClick={() => {
+            localStorage.setItem('idCotizacionActual', cotizacion.id);
+            navigate('/nuevacotizacion', { state: { retomar: true } });
+          }}
+        >
+          <i className="bi bi-arrow-repeat me-2 text-primary"></i> Retomar
+        </button>
+      </li>
 
-                          {deletedCotizacion?.id === cotizacion.id ? (
-                            <button className="btn-cuadro btn-undo" title="Deshacer" onClick={handleUndo}>
-                              <i className="bi bi-arrow-counterclockwise"></i>
-                            </button>
-                          ) : (
-                            <button className="btn-cuadro btn-eliminar" title="Eliminar" onClick={() => handleDelete(cotizacion.id)}>
-                              <i className="bi bi-trash3-fill"></i>
-                            </button>
-                          )}
-                        </td>
+{estadoId === 2 && vencePronto && (
+  <li>
+    {alertasEnviadas.has(cotizacion.id) ? (
+      <span className="dropdown-item text-muted">
+        <i className="bi bi-check2-circle me-2 text-success"></i> Alerta enviada
+      </span>
+    ) : (
+      <button
+        className="dropdown-item text-warning"
+        onClick={() => enviarAlertaVencimiento(cotizacion)}
+      >
+        <i className="bi bi-envelope-exclamation me-2"></i> Alerta por vencimiento
+      </button>
+    )}
+  </li>
+)}
+
+      {estadoId === 2 && (
+        <>
+          <li>
+            <button
+              className="dropdown-item text-success"
+              onClick={() => confirmarEstado(cotizacion.id, 'finalizada_aceptada')}
+            >
+              <i className="bi bi-check-circle me-2"></i> Aceptar
+            </button>
+          </li>
+          <li>
+            <button
+              className="dropdown-item text-danger"
+              onClick={() => confirmarEstado(cotizacion.id, 'finalizada_rechazada')}
+            >
+              <i className="bi bi-x-circle me-2"></i> Rechazar
+            </button>
+          </li>
+        </>
+      )}
+    </ul>
+  </div>
+</td>
                       </tr>
                     );
                   })}
@@ -290,7 +387,7 @@ const Menu = () => {
           </div>
         </div>
 
-                {modalVisible && (
+        {modalVisible && (
           <div className="modal-backdrop">
             <div className="modal-formulario">
               <div className="modal-header">

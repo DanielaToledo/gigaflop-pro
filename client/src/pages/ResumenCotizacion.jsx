@@ -3,12 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import axios from 'axios';
+import EtiquetaEstado from '../components/ui/EtiquetaEstado';
 
 const ResumenCotizacion = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
   const resumenRef = useRef();
   const cotizacion = state?.cotizacion;
+  const [estadoVisual, setEstadoVisual] = useState(null);
 
   const contactoTexto = [cotizacion?.cliente?.contacto_nombre ?? cotizacion?.cliente?.contacto, cotizacion?.cliente?.contacto_apellido]
     .filter(Boolean)
@@ -186,7 +188,7 @@ const ResumenCotizacion = () => {
     }
 
     try {
-      if (cotizacion.estado !== 'FINALIZADA') {
+      if (![3, 4].includes(cotizacion.estado?.id)) {
         await axios.put(
           `/api/cotizaciones/finalizar/${cotizacion.id_cotizacion}`,
           cotizacion,
@@ -206,6 +208,7 @@ const ResumenCotizacion = () => {
       formData.append('asunto', `Cotización Nº ${cotizacion.numero_cotizacion || 'Sin número'}`);
       formData.append('htmlCotizacion', htmlCotizacion);
       formData.append('archivoPDF', pdfFile);
+      formData.append('id_cotizacion', cotizacion.id_cotizacion);
 
       await axios.post('/api/email/enviar-con-adjunto', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -214,6 +217,12 @@ const ResumenCotizacion = () => {
 
       setMensajeExito('Cotización enviada al cliente con PDF adjunto');
       setMensajeError('');
+      setEstadoVisual({
+        id: 2,
+        nombre: 'pendiente',
+        es_final: false,
+        requiere_vencimiento: true
+      });
     } catch (error) {
       console.error('Error al enviar cotización:', error);
       setMensajeError('No se pudo enviar la cotización al cliente');
@@ -426,8 +435,24 @@ const ResumenCotizacion = () => {
       </div>
 
       {/* Mensajes */}
-      {mensajeExito && <div className="alert alert-success mt-3">{mensajeExito}</div>}
-      {mensajeError && <div className="alert alert-danger mt-3">{mensajeError}</div>}
+      {(estadoVisual || cotizacion.estado) && (
+        <div className="mb-2">
+          <EtiquetaEstado estado={estadoVisual || cotizacion.estado} />
+        </div>
+      )}
+
+      {mensajeError && (
+        <div className="alert alert-danger mt-3">
+          {mensajeError}
+        </div>
+      )}
+
+      {mensajeExito && (
+        <div className="alert alert-success" role="alert">
+          {mensajeExito}
+        </div>
+      )}
+
 
       {/* Botones */}
       <div className="d-flex justify-content-end gap-2 mt-4">

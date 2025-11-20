@@ -13,7 +13,7 @@ import { listarZonasConCostoController } from '../controllers/clientesController
 import { crearClienteCompletoController } from '../controllers/clientesControllers.js';
 import { obtenerClienteCompletoPorCuit } from '../controllers/clientesControllers.js';
 import { actualizarDireccionesCliente } from '../controllers/clientesControllers.js';
-
+import { obtenerClientePorIdController } from '../controllers/clientesControllers.js';
 
 
 
@@ -36,6 +36,7 @@ router.get('/clientes/buscar/:razon_social', listarClienteController);
 //Ruta para listar todos los clientes
 router.get('/', listarClientesController);
 
+
 //Ruta para actualizar un cliente por cuit
 router.put('/:cuit', actualizarClienteController);
 
@@ -50,6 +51,9 @@ router.get('/:id/dias-pago', getDiasPagoPorCliente);
 
 //modelo para obtener direcciones de un cliente con su zona
 router.get('/:id/direcciones', traerDireccionesCliente);
+
+//ruta para obtener cliente con email
+router.get('/:id', obtenerClientePorIdController);
 
 //ruta para obtener direcciones de un cliente con su zona
 router.get('/envios/costo', obtenerCostoEnvioPorDireccion);
