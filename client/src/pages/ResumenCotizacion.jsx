@@ -1,3 +1,7 @@
+// ESTO ES LA PAGINA QUE SE ABRE CUANDO FINALIZAMOS UNA COTIZACION Y VEMOS EL RESUMEN 
+//PODEMOS DESCARGAR EL PDF
+//PODEMOS ENVIAR LA COTIZACION AL CLIENTE POR EMAIL + PDF ADJUNTO
+
 import React, { useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';

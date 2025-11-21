@@ -486,6 +486,7 @@ export async function finalizarCotizacion(req, res) {
 }
 
 // este trae todas las cotizacion con sus estados para la tabla de cotizaciones en Menu.jsx
+// este trae todas las cotizacion con sus estados para la tabla de cotizaciones en Menu.jsx
 export async function obtenerTodasLasCotizaciones(req, res) {
   const db = req.app.get('db');
   const cotizacionModel = new Cotizacion(db);

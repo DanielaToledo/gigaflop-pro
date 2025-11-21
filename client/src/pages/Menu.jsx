@@ -20,18 +20,35 @@ const Menu = () => {
   const [modalVisible, setModalVisible] = useState(false);//para el modal de ver cotizacion resumen 
   const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);// para el modal de ver cotizacion resumen
 
-  
  const abrirVistaPrevia = async (cotizacion) => {
-  console.log('Abriendo vista previa para cotización:', cotizacion);
   try {
     const res = await axios.get(`/api/cotizaciones/ver/${cotizacion.id}`);
-    setCotizacionSeleccionada(res.data);
+    const cotizacionCompleta = res.data;
+
+    const vigencia = cotizacionCompleta.vigencia_hasta
+      ? new Date(cotizacionCompleta.vigencia_hasta)
+      : null;
+    const hoy = new Date();
+    const diasRestantes = vigencia
+      ? Math.ceil((vigencia - hoy) / (1000 * 60 * 60 * 24))
+      : null;
+
+    const alertaEnviada = alertasEnviadas.has(cotizacion.id);
+
+    setCotizacionSeleccionada({
+      ...cotizacionCompleta,
+      diasRestantes,
+      alerta_enviada: alertaEnviada
+    });
+
     setModalVisible(true);
   } catch (error) {
     console.error('❌ Error al cargar cotización completa:', error);
-    // Podés mostrar un toast o fallback si querés
   }
-}; 
+};
+  
+
+
 
   useEffect(() => {
     if (cargando || !usuario?.id) return;

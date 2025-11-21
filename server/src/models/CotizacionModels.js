@@ -282,7 +282,7 @@ export class Cotizacion {
 
 
   // CotizacionModels.js
-  async obtenerTodasPorUsuario(id_usuario) {
+ async obtenerTodasPorUsuario(id_usuario) {
     const [rows] = await this.db.query(
       `SELECT
       c.id,
@@ -313,8 +313,6 @@ export class Cotizacion {
 
     return rows;
   }
-
-
 
 
 

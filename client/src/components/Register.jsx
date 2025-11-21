@@ -1,3 +1,6 @@
+//REGISTRAR UN CLINETE EN EL MODULO CLIENTE
+
+
 import React, { useState } from 'react';
 import axios from 'axios';
 
