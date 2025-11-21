@@ -17,7 +17,7 @@
   height: 5vw;
   position: fixed;
   top: 0;
-
+  background-image: linear-gradient(to right, white,white,#a7a7b19c,#7e7c7c);
   display: flex;
   align-items: center;
   padding:10px;

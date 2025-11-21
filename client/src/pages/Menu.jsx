@@ -170,7 +170,7 @@ async function enviarAlertaVencimiento(cotizacion) {
                       </div>
                     
                     <div className='container-icon'>
-                      <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon " style={{ color: '#4285f4' }}></i></label>
+                      <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon " ></i></label>
                     </div>
                   </header>
                   <div className='option'>
@@ -267,47 +267,47 @@ async function enviarAlertaVencimiento(cotizacion) {
                         <td>{cotizacion.cliente}</td>
                         <td>{cotizacion.contacto}</td>
                         <td>${Number(cotizacion.total).toFixed(2)}</td>
-<td className="text-end">
-  <div className="dropdown">
-    <button
-      className="btn btn-sm btn-light"
-      type="button"
-      data-bs-toggle="dropdown"
-      aria-expanded="false"
-      title="Acciones"
-    >
-      <i className="bi bi-three-dots-vertical"></i>
-    </button>
+          <td className="text-end">
+          <div className="dropdown">
+            <button
+            className="btn btn-sm btn-light"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+            title="Acciones"
+          >
+            <i className="bi bi-three-dots-vertical"></i>
+          </button>
 
-    <ul className="dropdown-menu dropdown-menu-end">
-      <li>
-        <button
+          <ul className="dropdown-menu dropdown-menu-end">
+            <li>
+              <button
           className="dropdown-item"
           onClick={() => {
             localStorage.setItem('idCotizacionActual', cotizacion.id);
             navigate('/nuevacotizacion', { state: { retomar: true } });
           }}
-        >
+          >
           <i className="bi bi-arrow-repeat me-2 text-primary"></i> Retomar
         </button>
-      </li>
+          </li>
 
-{estadoId === 2 && vencePronto && (
-  <li>
-    {alertasEnviadas.has(cotizacion.id) ? (
-      <span className="dropdown-item text-muted">
-        <i className="bi bi-check2-circle me-2 text-success"></i> Alerta enviada
-      </span>
-    ) : (
-      <button
-        className="dropdown-item text-warning"
-        onClick={() => enviarAlertaVencimiento(cotizacion)}
-      >
-        <i className="bi bi-envelope-exclamation me-2"></i> Alerta por vencimiento
-      </button>
-    )}
-  </li>
-)}
+        {estadoId === 2 && vencePronto && (
+          <li>
+            {alertasEnviadas.has(cotizacion.id) ? (
+              <span className="dropdown-item text-muted">
+                <i className="bi bi-check2-circle me-2 text-success"></i> Alerta enviada
+              </span>
+            ) : (
+              <button
+                className="dropdown-item text-warning"
+                onClick={() => enviarAlertaVencimiento(cotizacion)}
+              >
+               <i className="bi bi-envelope-exclamation me-2"></i> Alerta por vencimiento
+              </button>
+            )}
+          </li>
+        )}
 
       {estadoId === 2 && (
         <>
@@ -329,9 +329,9 @@ async function enviarAlertaVencimiento(cotizacion) {
           </li>
         </>
       )}
-    </ul>
-  </div>
-</td>
+        </ul>
+        </div>
+        </td>
                       </tr>
                     );
                   })}

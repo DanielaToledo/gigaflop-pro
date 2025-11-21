@@ -148,35 +148,37 @@ const Clientes = () => {
 
   return (
     <>
+    
+    <div className="encabezado-fijo">
       <Sidebar />
       <div className="background-container-menu">
-        <header className="header">
-          <div className="container-header">
-            <div className="title-container">
-              <h2 className="title-menu">GIGAFLOP</h2>
-            </div>
-          </div>
-          <div className="container-icon">
-            <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
-          </div>
-        </header>
+                  <header className="header">
+                    
+                      <div className="title-container">
+                        <h2 className="title-menu">GIGAFLOP</h2>
+                      </div>
+                    
+                    <div className='container-icon'>
+                      <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon " ></i></label>
+                    </div>
+                  </header>
 
-        <div className="option">
+          <div className="option">
           <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
           <NavLink className="option-button2" to="/clientes">Clientes</NavLink>
           <NavLink className="option-button" to="/productos">Productos</NavLink>
           <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
-        </div>
-
-        {showRegisterForm && (
+          </div>
+        </div> 
+          {showRegisterForm && (
           <div className="register-modal-overlay" onClick={() => setShowRegisterForm(false)}>
             <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
               <Register onClose={() => setShowRegisterForm(false)} />
             </div>
           </div>
-        )}
+          )}
 
-        <div className="menubox">
+        
           <div className="menu-superior">
             <div className="cotizatitlecontainer">
               <h3 className="cotizatitle">Clientes</h3>
@@ -197,6 +199,9 @@ const Clientes = () => {
               <button className="nc" onClick={() => setShowRegisterForm(true)}>+ Nuevo Cliente</button>
             </div>
           </div>
+        
+        
+
 
           <div className="menu-matriz">
             <div className="table-responsive px-2">
@@ -234,12 +239,12 @@ const Clientes = () => {
               </table>
             </div>
           </div>
-        </div>
+        
 
 
 
          {/* ESTO ES EL MODAL PARA EDITAR UN CLIENTE */}
-        {modalVisible && clienteAEditar && (
+          {modalVisible && clienteAEditar && (
           <div
             className="modal-backdrop"
             style={{
@@ -554,7 +559,7 @@ const Clientes = () => {
 
 
 
- {/* BOTONES DE ELIMINAR Y AGREGAR LA DIRECCION AL EDITAR */}
+                    {/* BOTONES DE ELIMINAR Y AGREGAR LA DIRECCION AL EDITAR */}
 
                       </div>
                       <div className="text-end mt-2">
