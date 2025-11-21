@@ -6,7 +6,7 @@ import Sidebar from '../components/Sidebar';
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import EtiquetaEstado from '../components/ui/EtiquetaEstado';
-
+import ModalVistaPreviaCot from '../components/ModalVistaPreviaCot.jsx';
 
 
 const Menu = () => {
@@ -14,10 +14,24 @@ const Menu = () => {
   const navigate = useNavigate();
   const [cotizaciones, setCotizaciones] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [modalVisible, setModalVisible] = useState(false);
   const [deletedCotizacion, setDeletedCotizacion] = useState(null);
   const [estadoFiltro, setEstadoFiltro] = useState(null);
   const [alertasEnviadas, setAlertasEnviadas] = useState(new Set());
+  const [modalVisible, setModalVisible] = useState(false);//para el modal de ver cotizacion resumen 
+  const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);// para el modal de ver cotizacion resumen
+
+  
+ const abrirVistaPrevia = async (cotizacion) => {
+  console.log('Abriendo vista previa para cotización:', cotizacion);
+  try {
+    const res = await axios.get(`/api/cotizaciones/ver/${cotizacion.id}`);
+    setCotizacionSeleccionada(res.data);
+    setModalVisible(true);
+  } catch (error) {
+    console.error('❌ Error al cargar cotización completa:', error);
+    // Podés mostrar un toast o fallback si querés
+  }
+}; 
 
   useEffect(() => {
     if (cargando || !usuario?.id) return;
@@ -60,37 +74,37 @@ const Menu = () => {
 
 
 
-function confirmarEstado(id, nuevoEstado) {
-  const texto = nuevoEstado === 'finalizada_aceptada'
-    ? '¿Confirmás marcar esta cotización como ACEPTADA?'
-    : nuevoEstado === 'finalizada_rechazada'
-      ? '¿Confirmás marcar esta cotización como RECHAZADA?'
-      : `¿Confirmás marcar como ${nuevoEstado}?`;
+  function confirmarEstado(id, nuevoEstado) {
+    const texto = nuevoEstado === 'finalizada_aceptada'
+      ? '¿Confirmás marcar esta cotización como ACEPTADA?'
+      : nuevoEstado === 'finalizada_rechazada'
+        ? '¿Confirmás marcar esta cotización como RECHAZADA?'
+        : `¿Confirmás marcar como ${nuevoEstado}?`;
 
-  const confirmar = window.confirm(texto);
-  if (!confirmar) return;
+    const confirmar = window.confirm(texto);
+    if (!confirmar) return;
 
-  manejarCambioDeEstado(id, nuevoEstado);
-}
-
-
-
-//enviar alerta al cliente de cotizacion por vencer
-async function enviarAlertaVencimiento(cotizacion) {
-  try {
-    await axios.post(
-      `/api/cotizaciones/alerta-vencimiento/${cotizacion.id}`,
-      {},
-      { withCredentials: true }
-    );
-
-    setAlertasEnviadas(prev => new Set(prev).add(cotizacion.id));
-    alert(`Alerta enviada al cliente: ${cotizacion.cliente}`);
-  } catch (error) {
-    console.error('Error al enviar alerta de vencimiento:', error);
-    alert('No se pudo enviar la alerta.');
+    manejarCambioDeEstado(id, nuevoEstado);
   }
-}
+
+
+
+  //enviar alerta al cliente de cotizacion por vencer
+  async function enviarAlertaVencimiento(cotizacion) {
+    try {
+      await axios.post(
+        `/api/cotizaciones/alerta-vencimiento/${cotizacion.id}`,
+        {},
+        { withCredentials: true }
+      );
+
+      setAlertasEnviadas(prev => new Set(prev).add(cotizacion.id));
+      alert(`Alerta enviada al cliente: ${cotizacion.cliente}`);
+    } catch (error) {
+      console.error('Error al enviar alerta de vencimiento:', error);
+      alert('No se pudo enviar la alerta.');
+    }
+  }
 
 
   async function manejarCambioDeEstado(id, nuevoEstado) {
@@ -244,7 +258,7 @@ async function enviarAlertaVencimiento(cotizacion) {
                     return (
                       <tr key={index} className="fila-cotizacion">
                         <td>
-                          <button className="btn-link" onClick={() => setModalVisible(true)}>
+                          <button className="btn-link" onClick={() => abrirVistaPrevia(cotizacion)}>
                             {cotizacion.numero}
                           </button>
                         </td>
@@ -267,71 +281,73 @@ async function enviarAlertaVencimiento(cotizacion) {
                         <td>{cotizacion.cliente}</td>
                         <td>{cotizacion.contacto}</td>
                         <td>${Number(cotizacion.total).toFixed(2)}</td>
-          <td className="text-end">
-          <div className="dropdown">
-            <button
-            className="btn btn-sm btn-light"
-            type="button"
-            data-bs-toggle="dropdown"
-            aria-expanded="false"
-            title="Acciones"
-          >
-            <i className="bi bi-three-dots-vertical"></i>
-          </button>
 
-          <ul className="dropdown-menu dropdown-menu-end">
-            <li>
-              <button
-          className="dropdown-item"
-          onClick={() => {
-            localStorage.setItem('idCotizacionActual', cotizacion.id);
-            navigate('/nuevacotizacion', { state: { retomar: true } });
-          }}
-          >
-          <i className="bi bi-arrow-repeat me-2 text-primary"></i> Retomar
-        </button>
-          </li>
+                        <td className="text-end">
+                          <div className="dropdown">
+                            <button
+                              className="btn btn-sm btn-light"
+                              type="button"
+                              data-bs-toggle="dropdown"
+                              aria-expanded="false"
+                              title="Acciones"
+                            >
+                              <i className="bi bi-three-dots-vertical"></i>
+                            </button>
 
-        {estadoId === 2 && vencePronto && (
-          <li>
-            {alertasEnviadas.has(cotizacion.id) ? (
-              <span className="dropdown-item text-muted">
-                <i className="bi bi-check2-circle me-2 text-success"></i> Alerta enviada
-              </span>
-            ) : (
-              <button
-                className="dropdown-item text-warning"
-                onClick={() => enviarAlertaVencimiento(cotizacion)}
-              >
-               <i className="bi bi-envelope-exclamation me-2"></i> Alerta por vencimiento
-              </button>
-            )}
-          </li>
-        )}
+                            <ul className="dropdown-menu dropdown-menu-end">
+                              <li>
+                                <button
+                                  className="dropdown-item"
+                                  onClick={() => {
+                                    localStorage.setItem('idCotizacionActual', cotizacion.id);
+                                    navigate('/nuevacotizacion', { state: { retomar: true } });
+                                  }}
+                                >
+                                  <i className="bi bi-arrow-repeat me-2 text-primary"></i> Retomar
+                                </button>
+                              </li>
 
-      {estadoId === 2 && (
-        <>
-          <li>
-            <button
-              className="dropdown-item text-success"
-              onClick={() => confirmarEstado(cotizacion.id, 'finalizada_aceptada')}
-            >
-              <i className="bi bi-check-circle me-2"></i> Aceptar
-            </button>
-          </li>
-          <li>
-            <button
-              className="dropdown-item text-danger"
-              onClick={() => confirmarEstado(cotizacion.id, 'finalizada_rechazada')}
-            >
-              <i className="bi bi-x-circle me-2"></i> Rechazar
-            </button>
-          </li>
-        </>
-      )}
-        </ul>
-        </div>
-        </td>
+                              {estadoId === 2 && vencePronto && (
+                                <li>
+                                  {alertasEnviadas.has(cotizacion.id) ? (
+                                    <span className="dropdown-item text-muted">
+                                      <i className="bi bi-check2-circle me-2 text-success"></i> Alerta enviada
+                                    </span>
+                                  ) : (
+                                    <button
+                                      className="dropdown-item text-warning"
+                                      onClick={() => enviarAlertaVencimiento(cotizacion)}
+                                    >
+                                      <i className="bi bi-envelope-exclamation me-2"></i> Alerta por vencimiento
+                                    </button>
+                                  )}
+                                </li>
+                              )}
+
+                              {estadoId === 2 && (
+                                <>
+                                  <li>
+                                    <button
+                                      className="dropdown-item text-success"
+                                      onClick={() => confirmarEstado(cotizacion.id, 'finalizada_aceptada')}
+                                    >
+                                      <i className="bi bi-check-circle me-2"></i> Aceptar
+                                    </button>
+                                  </li>
+                                  <li>
+                                    <button
+                                      className="dropdown-item text-danger"
+                                      onClick={() => confirmarEstado(cotizacion.id, 'finalizada_rechazada')}
+                                    >
+                                      <i className="bi bi-x-circle me-2"></i> Rechazar
+                                    </button>
+                                  </li>
+                                </>
+                              )}
+                            </ul>
+                          </div>
+                        </td>
+
                       </tr>
                     );
                   })}
@@ -341,29 +357,22 @@ async function enviarAlertaVencimiento(cotizacion) {
           </div>
         </div>
 
-        {modalVisible && (
-          <div className="modal-backdrop">
-            <div className="modal-formulario">
-              <div className="modal-header">
-                <h5>Vista de Cotización</h5>
-                <button className="btn-close" onClick={() => setModalVisible(false)}></button>
-              </div>
-              <div className="modal-body">
-                <p className="text-muted">Aquí se mostrará la vista previa de la cotización seleccionada.</p>
-              
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setModalVisible(false)}>
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       
+
+<ModalVistaPreviaCot
+  visible={modalVisible}
+  onClose={() => setModalVisible(false)}
+  cotizacion={cotizacionSeleccionada}
+/>
+
+
+
     </>
   );
 };
+
+
+
 
 export default Menu;
 

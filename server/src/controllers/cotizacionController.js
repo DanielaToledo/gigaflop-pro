@@ -521,11 +521,12 @@ export async function verCotizacionCompleta(req, res) {
     let clienteRows = [];
 
     if (cotizacion?.cabecera?.id_cliente) {
-      const [clienteRows] = await db.query(
+      const [rows] = await db.query(
         'SELECT razon_social, cuit FROM cliente WHERE id = ? LIMIT 1',
         [cotizacion.cabecera.id_cliente]
       );
-      clienteNombreReal = clienteRows[0]?.razon_social ?? '';
+      clienteRows = rows;
+      clienteNombreReal = rows[0]?.razon_social ?? '';
     }
 
     let contacto = {};
@@ -544,7 +545,6 @@ export async function verCotizacionCompleta(req, res) {
       );
       contacto = contactoRows[0] ?? {};
     }
-
 
     if (cotizacion?.cabecera?.id_contacto) {
       const [contactoRows] = await db.query(
@@ -570,13 +570,30 @@ export async function verCotizacionCompleta(req, res) {
 
     cotizacion.productos = productosDecorados;
 
+    const resumenFiscal = cotizacion?.cabecera?.resumen_fiscal ?? null;
 
+    // ✅ Armamos el objeto vendedor desde la cabecera
+    const vendedor = {
+      nombre: cotizacion?.cabecera?.vendedor_nombre ?? cotizacion?.cabecera?.usuario_nombre ?? '',
+      apellido: cotizacion?.cabecera?.vendedor_apellido ?? cotizacion?.cabecera?.usuario_apellido ?? '',
+      email: cotizacion?.cabecera?.vendedor_email ?? '',
+      legajo: cotizacion?.cabecera?.vendedor_legajo ?? null,
+      estado: cotizacion?.cabecera?.vendedor_status ?? null
+    };
 
     res.json({
       ...cotizacion,
       numero_cotizacion: cotizacion?.cabecera?.numero_cotizacion ?? '',
+      productos: cotizacion.productos ?? [],
+      total: cotizacion?.cabecera?.total ?? null,
+      fecha: cotizacion?.cabecera?.fecha ?? null,
+      vigencia_hasta: cotizacion?.cabecera?.vigencia_hasta ?? null,
+      observaciones: cotizacion?.cabecera?.observaciones ?? '',
+      estado: cotizacion?.cabecera?.estado ?? null,
+      resumen_fiscal: resumenFiscal,
+      vendedor, // ✅ ahora sí está definido correctamente
       cliente: {
-        nombre: clienteNombreReal, // ✅ razón social del cliente
+        nombre: clienteNombreReal,
         cuit: clienteRows[0]?.cuit ?? '',
         contacto_nombre: contacto.nombre_contacto ?? '',
         contacto_apellido: contacto.contacto_apellido ?? '',
