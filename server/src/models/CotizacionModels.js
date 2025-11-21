@@ -7,8 +7,8 @@ export class Cotizacion {
     this.db = db;
   }
 
- async obtenerPorId(id) {
-  const [rows] = await this.db.query(`
+  async obtenerPorId(id) {
+    const [rows] = await this.db.query(`
     SELECT
       c.*,
       e.nombre AS estado_nombre,
@@ -25,8 +25,8 @@ export class Cotizacion {
     LIMIT 1
   `, [id]);
 
-  return rows[0] ?? null;
-}
+    return rows[0] ?? null;
+  }
 
   async generarNumeroCotizacion() {
     const año = new Date().getFullYear();
@@ -203,27 +203,27 @@ export class Cotizacion {
   }
 
 
-async actualizarVencidas() {
-  await this.db.query(`
+  async actualizarVencidas() {
+    await this.db.query(`
     UPDATE cotizaciones
     SET id_estado = 5
     WHERE id_estado = 2
       AND vigencia_hasta IS NOT NULL
       AND vigencia_hasta < CURRENT_DATE
   `);
-}
+  }
 
 
 
-async actualizarEstado(id, id_estado) {
-  await this.db.query(`
+  async actualizarEstado(id, id_estado) {
+    await this.db.query(`
     UPDATE cotizaciones
     SET id_estado = ?
     WHERE id = ?
   `, [id_estado, id]);
 
-  return this.obtenerPorId(id); // devuelve la cotización actualizada con JOIN
-}
+    return this.obtenerPorId(id); // devuelve la cotización actualizada con JOIN
+  }
 
 
   // Obtener borradores por usuario
@@ -280,15 +280,16 @@ async actualizarEstado(id, id_estado) {
     return normalized;
   }
 
-  
+
   // CotizacionModels.js
-async obtenerTodasPorUsuario(id_usuario) {
-  const [rows] = await this.db.query(
-    `SELECT
+  async obtenerTodasPorUsuario(id_usuario) {
+    const [rows] = await this.db.query(
+      `SELECT
       c.id,
       c.numero_cotizacion,
       c.fecha,
       c.vigencia_hasta,
+      c.observaciones,
       e.id AS estado_id,
       e.nombre AS estado_nombre,
       e.es_final AS estado_es_final,
@@ -307,19 +308,19 @@ async obtenerTodasPorUsuario(id_usuario) {
     WHERE c.id_usuario = ?
     GROUP BY c.id
     ORDER BY c.fecha DESC`,
-    [id_usuario]
-  );
+      [id_usuario]
+    );
 
-  return rows;
-}
-  
-  
-  
-  
-  
-  
-  
-  
+    return rows;
+  }
+
+
+
+
+
+
+
+
   // Devuelve la cabecera + productos con datos enriquecidos (incluye mark_up_maximo desde condiciones_comerciales)
   async obtenerCotizacionCompleta(idCotizacion) {
     const [cabeceraRows] = await this.db.query(
@@ -335,6 +336,11 @@ async obtenerTodasPorUsuario(id_usuario) {
      con.nombre_contacto AS nombre_contacto,
      con.apellido AS contacto_apellido,
      con.email AS contacto_email,
+     v.nombre AS vendedor_nombre,
+      v.apellido AS vendedor_apellido,
+      v.email AS vendedor_email,
+     v.legajo AS vendedor_legajo,
+     v.status AS vendedor_status,
      CONCAT_WS(' ', dir.calle, dir.numeracion, dir.piso, dir.depto, '-', dir.localidad, '-', dir.provincia) AS direccion_cliente
      FROM cotizaciones c
      LEFT JOIN estados e ON c.id_estado = e.id
@@ -344,12 +350,21 @@ async obtenerTodasPorUsuario(id_usuario) {
      LEFT JOIN direccion_cliente dc ON c.id_direccion_cliente = dc.id
      LEFT JOIN contactos con ON con.id = c.id_contacto
      LEFT JOIN direccion_cliente dir ON dir.id = c.id_direccion_cliente
+     LEFT JOIN vendedores v ON v.id_usuario = u.id
      WHERE c.id = ?`,
       [idCotizacion]
     );
 
     const cabeceraRaw = cabeceraRows[0] ?? null;
     let cabecera = cabeceraRaw;
+
+const vendedor = {
+  nombre: cabeceraRaw.vendedor_nombre ?? cabeceraRaw.usuario_nombre ?? '',
+  apellido: cabeceraRaw.vendedor_apellido ?? cabeceraRaw.usuario_apellido ?? '',
+  email: cabeceraRaw.vendedor_email ?? '',
+  legajo: cabeceraRaw.vendedor_legajo ?? null,
+  estado: cabeceraRaw.vendedor_status ?? null
+};
 
     const [contactosCliente] = await this.db.query(
       `SELECT id, nombre_contacto FROM contactos WHERE id_cliente = ?`,
@@ -417,9 +432,42 @@ async obtenerTodasPorUsuario(id_usuario) {
       };
     });
 
+    // 🧮 Cálculo fiscal extendido
+    let base21 = 0, base105 = 0, descuentosTotales = 0;
+
+    productos.forEach(p => {
+      const base = p.subtotal ?? 0;
+      const iva = Number(p.tasa_iva ?? 21);
+      const descuento = Number(p.descuento ?? 0);
+
+      descuentosTotales += descuento;
+
+      if (iva === 21) base21 += base;
+      else if (iva === 10.5) base105 += base;
+      else base21 += base; // fallback
+    });
+
+    const iva21 = base21 * 0.21;
+    const iva105 = base105 * 0.105;
+    const baseImponible = base21 + base105;
+    const totalFinal = baseImponible + iva21 + iva105;
+
+    // 🧾 Asignación a cabecera
+    cabecera.total = parseFloat(totalFinal.toFixed(2));
+    cabecera.resumen_fiscal = {
+      base21: parseFloat(base21.toFixed(2)),
+      base105: parseFloat(base105.toFixed(2)),
+      iva21: parseFloat(iva21.toFixed(2)),
+      iva105: parseFloat(iva105.toFixed(2)),
+      baseImponible: parseFloat(baseImponible.toFixed(2)),
+      descuentosTotales: parseFloat(descuentosTotales.toFixed(2)),
+      totalFinal: parseFloat(totalFinal.toFixed(2))
+    };
+
     return {
       cabecera,
-      productos
+      productos,
+      vendedor
     };
   }
 
