@@ -265,9 +265,9 @@ export const crearClienteCompletoController = async (req, res) => {
       await insertarContactoClienteCompleto(id_cliente, c);
     }
 
-  for (const cond of condiciones_comerciales) {
-  await insertarCondicionComercialClienteCompleto(id_cliente, cond); // ✅ nombre correcto
-}
+    for (const cond of condiciones_comerciales) {
+      await insertarCondicionComercialClienteCompleto(id_cliente, cond); // ✅ nombre correcto
+    }
 
     res.status(201).json({ mensaje: 'Cliente completo creado con éxito', id_cliente });
   } catch (error) {
@@ -293,18 +293,30 @@ export const obtenerClienteCompletoPorCuit = async (req, res) => {
     }
 
     const cliente = clienteRows[0];
+
     const direcciones = await obtenerDireccionesConZona(cliente.id);
+
+    const [contactos] = await pool.query(
+      'SELECT nombre_contacto, apellido, telefono, email, area_contacto FROM contactos WHERE id_cliente = ?',
+      [cliente.id]
+    );
+
+    const [condiciones_comerciales] = await pool.query(
+      'SELECT forma_pago, tipo_cambio, dias_pago, mark_up_maximo, observaciones FROM condiciones_comerciales WHERE id_cliente = ?',
+      [cliente.id]
+    );
 
     res.status(200).json({
       ...cliente,
-      direcciones
+      direcciones,
+      contactos,
+      condiciones_comerciales
     });
   } catch (error) {
     console.error('Error al obtener cliente completo:', error.message);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
-
 
 
 //controlador para actualizar las direcciones de un cliente completo por su cuit

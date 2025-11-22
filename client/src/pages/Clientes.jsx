@@ -1,3 +1,12 @@
+//Listar, buscar, editar, eliminar y ver clientes
+//Desde el modulo CLIENTES.JSX
+//Se listan todos los clientes
+//Se puede buscar por razon social
+//Se puede editar un cliente (se abre un modal con un formulario)
+//Se puede eliminar un cliente (se abre un modal de confirmacion)
+//Se puede ver un cliente (se abre un modal con la info completa del cliente)
+
+
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { NavLink } from 'react-router-dom';
@@ -6,6 +15,8 @@ import Register from '../components/Register';
 import MensajeAlerta from '../components/MensajeAlerta';
 import '../CSS/menu.css';
 import '../CSS/clientes.css';
+import ModalVistaPreviaCliente from '../components/ModalVistaPreviaCliente';
+
 
 const Clientes = () => {
   const [clientes, setClientes] = useState([]);
@@ -16,6 +27,25 @@ const Clientes = () => {
   const [clienteAEditar, setClienteAEditar] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [mensajeExito, setMensajeExito] = useState('');
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);// cliente para vista previa DEL ModalVistaPreviaCliente.jsx
+  const [modalVistaPreviaVisible, setModalVistaPreviaVisible] = useState(false);
+
+
+
+  const handleVistaPrevia = async (cliente) => {
+    try {
+      
+      const res = await axios.get(`http://localhost:4000/api/clientes/completo/${cliente.cuit}`);
+          console.log('🧾 Cliente completo recibido:', res.data);
+      
+      setClienteSeleccionado(res.data);
+      setModalVistaPreviaVisible(true);
+    } catch (error) {
+      console.error('Error al obtener datos del cliente:', error);
+      setMensajeError('No se pudo cargar la vista previa del cliente');
+    }
+  };
+
 
   const obtenerClientes = () => {
     axios.get('http://localhost:4000/api/clientes')
@@ -213,7 +243,7 @@ const Clientes = () => {
                   {clientes.map((cliente, index) => (
                     <tr key={index} className="fila-cotizacion">
                       <td>
-                        <button className="btn-link" onClick={() => setModalVisible(true)}>
+                        <button className="btn-link" onClick={() => handleVistaPrevia(cliente)}>
                           {cliente.id}
                         </button>
                       </td>
@@ -238,7 +268,7 @@ const Clientes = () => {
 
 
 
-         {/* ESTO ES EL MODAL PARA EDITAR UN CLIENTE */}
+        {/* ESTO ES EL MODAL PARA EDITAR UN CLIENTE */}
         {modalVisible && clienteAEditar && (
           <div
             className="modal-backdrop"
@@ -554,7 +584,7 @@ const Clientes = () => {
 
 
 
- {/* BOTONES DE ELIMINAR Y AGREGAR LA DIRECCION AL EDITAR */}
+                        {/* BOTONES DE ELIMINAR Y AGREGAR LA DIRECCION AL EDITAR */}
 
                       </div>
                       <div className="text-end mt-2">
@@ -602,7 +632,8 @@ const Clientes = () => {
 
 
 
-                  {/* Podés agregar más campos aquí si lo necesitás */}
+                  {/*CONFIRMA LOS CAMBIOS DE EDICION */}
+                   {/* Podés agregar más campos aquí si lo necesitás */}
 
                   <div className="modal-footer">
                     <button type="submit" className="btn btn-success">
@@ -617,6 +648,19 @@ const Clientes = () => {
             </div>
           </div>
         )}
+
+
+
+        {/* MODAL VISTA PREVIA CLIENTE */}
+
+{modalVistaPreviaVisible && clienteSeleccionado && (
+  <ModalVistaPreviaCliente
+    visible={modalVistaPreviaVisible}
+    onClose={() => setModalVistaPreviaVisible(false)}
+    cliente={clienteSeleccionado}
+  />
+)}
+
 
       </div>
     </>

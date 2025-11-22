@@ -2688,29 +2688,63 @@ const NuevaCotizacion = () => {
           </div>
 
 
-          {/* Resumen  calcula los totales y muestra */}
-          <div className="card card-soft mt-3">
-            <div className="card-body">
-              <h5 className="section-title">Resumen</h5>
-              <div className="totales-table">
-                <div className="row"><div className="col-7">Subtotal productos</div><div className="col-5 text-end"><strong>US$ {resumen.baseProd.toFixed(2)}</strong></div></div>
-                <div className="row"><div className="col-7">Costo de envío</div><div className="col-5 text-end"><strong>US$ {resumen.envio.toFixed(2)}</strong></div></div>
-                {resumen.envioBonificado && (
-                  <div className="alert alert-success text-end py-1 mb-2">
-                    ¡Envío bonificado por superar los US$ 1500!
-                  </div>
-                )}
+          {/* Resumen: calcula totales y muestra */}
+<div className="card card-soft mt-3 summary-panel">
+  <div className="card-body p-3">
+    <h6 className="section-title mb-2">Resumen</h6>
 
-                <div className="row"><div className="col-7">Base imponible</div><div className="col-5 text-end"><strong>US$ {resumen.baseImp.toFixed(2)}</strong></div></div>
-                <div className="row"><div className="col-7">IVA 21% (incluye envío)</div><div className="col-5 text-end"><strong>US$ {resumen.iva21.toFixed(2)}</strong></div></div>
-                <div className="row"><div className="col-7">IVA 10.5%</div><div className="col-5 text-end"><strong>US$ {resumen.iva105.toFixed(2)}</strong></div></div>
-                <div className="row"><div className="col-7">Descuento total aplicado</div><div className="col-5 text-end"><strong>US$ {resumen.totalDescuentos.toFixed(2)}</strong></div>
-                  <div className="row"><div className="col-7">Total</div><div className="col-5 text-end"><strong>US$ {resumen.total.toFixed(2)}</strong></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+    {resumen.envioBonificado && (
+      <div className="alert alert-success py-1 px-2 mb-2 text-center">
+        ¡Envío bonificado por superar los US$ 1500!
+      </div>
+    )}
+
+    <table className="table table-sm mb-0 totales-table">
+      <tbody>
+        <tr>
+          <th className="text-muted fw-normal">Subtotal productos</th>
+          <td className="text-end fw-semibold">US$ {resumen.baseProd.toFixed(2)}</td>
+        </tr>
+
+        <tr>
+          <th className="text-muted fw-normal">Costo de envío</th>
+          <td className="text-end fw-semibold">US$ {resumen.envio.toFixed(2)}</td>
+        </tr>
+
+        <tr>
+          <th className="text-muted fw-normal">Base imponible</th>
+          <td className="text-end fw-semibold">US$ {resumen.baseImp.toFixed(2)}</td>
+        </tr>
+
+        <tr>
+          <th className="text-muted fw-normal">IVA 21% {resumen.envio > 0 ? '(incluye envío)' : ''}</th>
+          <td className="text-end fw-semibold">US$ {resumen.iva21.toFixed(2)}</td>
+        </tr>
+
+        {resumen.iva105 > 0 && (
+          <tr>
+            <th className="text-muted fw-normal">IVA 10.5%</th>
+            <td className="text-end fw-semibold">US$ {resumen.iva105.toFixed(2)}</td>
+          </tr>
+        )}
+
+        {resumen.totalDescuentos > 0 && (
+          <tr>
+            <th className="text-muted fw-normal">Descuento total aplicado</th>
+            <td className="text-end fw-semibold">US$ {resumen.totalDescuentos.toFixed(2)}</td>
+          </tr>
+        )}
+
+        <tr className="total-row">
+          <th className="text-uppercase">Total</th>
+          <td className="text-end">
+            <strong>US$ {resumen.total.toFixed(2)}</strong>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
 
 
