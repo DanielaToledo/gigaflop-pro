@@ -14,7 +14,8 @@ import { crearClienteCompletoController } from '../controllers/clientesControlle
 import { obtenerClienteCompletoPorCuit } from '../controllers/clientesControllers.js';
 import { actualizarDireccionesCliente } from '../controllers/clientesControllers.js';
 import { obtenerClientePorIdController } from '../controllers/clientesControllers.js';
-
+import { actualizarContactosCliente } from '../controllers/clientesControllers.js';
+import { actualizarCondicionesCliente } from '../controllers/clientesControllers.js';
 
 
 const router = Router();
@@ -70,5 +71,16 @@ router.get('/completo/:cuit', obtenerClienteCompletoPorCuit);
 
 //controlador para actualizar las direcciones de un cliente por su cuit
 router.put('/direcciones/:cuit', actualizarDireccionesCliente);
+
+//Ruta para actualizar los contactos de Cliente
+router.put('/contactos/:cuit', actualizarContactosCliente);
+
+//ruta para actializar condiciones comecilaes 
+router.put('/condiciones/:cuit', actualizarCondicionesCliente);
+
+
+
+
+
 
 export default router; 

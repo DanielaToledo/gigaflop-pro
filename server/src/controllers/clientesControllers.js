@@ -8,10 +8,12 @@ import { listarZonasConCosto, obtenerClientePorId } from '../models/ClientesMode
 import {
   existeClienteCompletoPorCuit,
   crearClienteCompleto,
-  eliminarDireccionesPorCliente,
   insertarDireccionClienteCompleto,
   insertarContactoClienteCompleto, insertarCondicionComercialClienteCompleto
 } from '../models/ClientesModels.js';
+import { insertarCondicionesPorCuit } from '../models/ClientesModels.js';
+
+
 
 
 
@@ -286,7 +288,11 @@ export const obtenerClienteCompletoPorCuit = async (req, res) => {
   const { cuit } = req.params;
 
   try {
-    const [clienteRows] = await pool.query('SELECT * FROM cliente WHERE cuit = ?', [cuit]);
+    // Cliente con fecha_modificacion
+    const [clienteRows] = await pool.query(
+      'SELECT id, razon_social, cuit, fecha_modificacion FROM cliente WHERE cuit = ?',
+      [cuit]
+    );
 
     if (!clienteRows.length) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
@@ -294,15 +300,27 @@ export const obtenerClienteCompletoPorCuit = async (req, res) => {
 
     const cliente = clienteRows[0];
 
-    const direcciones = await obtenerDireccionesConZona(cliente.id);
-
-    const [contactos] = await pool.query(
-      'SELECT nombre_contacto, apellido, telefono, email, area_contacto FROM contactos WHERE id_cliente = ?',
+    // Direcciones
+    const [direcciones] = await pool.query(
+      `SELECT id, calle, numeracion, piso, depto, locacion, localidad, provincia, codigo_postal, zona_envio
+       FROM direccion_cliente
+       WHERE id_cliente = ?`,
       [cliente.id]
     );
 
+    // Contactos
+    const [contactos] = await pool.query(
+      `SELECT id, nombre_contacto, apellido, area_contacto, telefono, email
+       FROM contactos
+       WHERE id_cliente = ?`,
+      [cliente.id]
+    );
+
+    // Condiciones comerciales
     const [condiciones_comerciales] = await pool.query(
-      'SELECT forma_pago, tipo_cambio, dias_pago, mark_up_maximo, observaciones FROM condiciones_comerciales WHERE id_cliente = ?',
+      `SELECT forma_pago, tipo_cambio, dias_pago, mark_up_maximo, observaciones
+       FROM condiciones_comerciales
+       WHERE id_cliente = ?`,
       [cliente.id]
     );
 
@@ -319,29 +337,91 @@ export const obtenerClienteCompletoPorCuit = async (req, res) => {
 };
 
 
-//controlador para actualizar las direcciones de un cliente completo por su cuit
+
+
+// controlador para AGREGAR direcciones a un cliente por su cuit
 export const actualizarDireccionesCliente = async (req, res) => {
   const { cuit } = req.params;
   const { direcciones } = req.body;
 
   try {
     const [clienteRows] = await pool.query('SELECT id FROM cliente WHERE cuit = ?', [cuit]);
-
     if (!clienteRows.length) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
-
     const id_cliente = clienteRows[0].id;
 
-    await eliminarDireccionesPorCliente(id_cliente);
-
-    for (const dir of direcciones) {
-      await insertarDireccionClienteCompleto(id_cliente, dir);
+    if (Array.isArray(direcciones)) {
+      for (const dir of direcciones) {
+        // 👉 Solo insertamos si no tiene id (es nueva)
+        if (!dir.id) {
+          await insertarDireccionClienteCompleto(id_cliente, dir);
+        }
+      }
     }
 
-    res.status(200).json({ mensaje: 'Direcciones actualizadas con éxito' });
+    res.status(200).json({ mensaje: 'Direcciones procesadas con éxito' });
   } catch (error) {
-    console.error('Error al actualizar direcciones:', error.message);
+    console.error('Error al procesar direcciones:', error.message);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+export const actualizarCondicionesCliente = async (req, res) => {
+  const { cuit } = req.params;
+  const { condiciones_comerciales } = req.body;
+
+  try {
+    if (!Array.isArray(condiciones_comerciales) || condiciones_comerciales.length === 0) {
+      return res.status(400).json({ error: 'No se recibieron condiciones comerciales válidas' });
+    }
+
+    await insertarCondicionesPorCuit(cuit, condiciones_comerciales);
+
+    res.status(200).json({ mensaje: 'Condiciones comerciales guardadas correctamente' });
+  } catch (error) {
+    console.error('Error al guardar condiciones comerciales:', error);
+    res.status(500).json({ error: 'No se pudieron guardar las condiciones comerciales' });
+  }
+};
+
+
+
+
+
+
+// controlador para AGREGAR contactos a un cliente por su cuit
+export const actualizarContactosCliente = async (req, res) => {
+  const { cuit } = req.params;
+  const { contactos } = req.body;
+
+  try {
+    const [rows] = await pool.query('SELECT id FROM cliente WHERE cuit = ?', [cuit]);
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+    const id_cliente = rows[0].id;
+
+    if (Array.isArray(contactos)) {
+      for (const c of contactos) {
+        if (c.id) {
+          // 👉 Actualizar contacto existente
+          await pool.execute(
+            `UPDATE contactos 
+             SET nombre_contacto=?, apellido=?, telefono=?, email=?, area_contacto=? 
+             WHERE id=? AND id_cliente=?`,
+            [c.nombre_contacto, c.apellido, c.telefono, c.email, c.area_contacto, c.id, id_cliente]
+          );
+        } else {
+          // 👉 Insertar contacto nuevo
+          await insertarContactoClienteCompleto(id_cliente, c);
+        }
+      }
+    }
+
+    res.status(200).json({ mensaje: 'Contactos procesados con éxito' });
+  } catch (error) {
+    console.error('Error al procesar contactos:', error);
+    res.status(500).json({ error: 'No se pudieron procesar los contactos' });
   }
 };

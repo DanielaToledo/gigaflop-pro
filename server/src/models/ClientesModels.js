@@ -128,10 +128,14 @@ export const obtenerDiasPagoPorCliente = async (idCliente) => {
 
 
 //modelo para actualizar un cliente por cuit
-export const actualizarCliente = async (cuit, {razon_social}) => {
-   const query ='UPDATE cliente SET razon_social = ? WHERE cuit = ?';
-   const [result] = await pool.execute(query, [razon_social, cuit]);// ejecuta la consulta para actualizar un cliente por su cuit
-   return result.affectedRows;// devuelve el número de filas afectadas por la actualización
+export const actualizarCliente = async (cuit, { razon_social }) => {
+  const query = `
+    UPDATE cliente 
+    SET razon_social = ?, fecha_modificacion = NOW()
+    WHERE cuit = ?
+  `;
+  const [result] = await pool.execute(query, [razon_social, cuit]);
+  return result.affectedRows;
 };
 
 //modelo para eliminar un cliente por cuit
@@ -265,6 +269,29 @@ export const insertarCondicionComercialClienteCompleto = async (id_cliente, cond
   ]);
 };
 
-export const eliminarDireccionesPorCliente = async (id_cliente) => {
-  await pool.query('DELETE FROM direccion_cliente WHERE id_cliente = ?', [id_cliente]);
+// Inserta condiciones comerciales nuevas a partir del CUIT
+export const insertarCondicionesPorCuit = async (cuit, condiciones) => {
+  // Buscar id_cliente por CUIT
+  const [rows] = await pool.execute('SELECT id FROM cliente WHERE cuit = ?', [cuit]);
+  if (!rows.length) {
+    throw new Error('Cliente no encontrado');
+  }
+  const id_cliente = rows[0].id;
+
+  // Insertar cada condición nueva
+  for (const cond of condiciones) {
+    const query = `
+      INSERT INTO condiciones_comerciales 
+      (id_cliente, forma_pago, tipo_cambio, dias_pago, mark_up_maximo, observaciones) 
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+    await pool.execute(query, [
+      id_cliente,
+      cond.forma_pago,
+      cond.tipo_cambio,
+      cond.dias_pago,
+      cond.mark_up_maximo,
+      cond.observaciones || null
+    ]);
+  }
 };
