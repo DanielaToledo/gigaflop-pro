@@ -230,10 +230,12 @@ padding-top: 20vw;
 }
 
 .buscador-container {
-  width: 100%;
+  width: 50%;
   padding: 10px 20px;
   background-color: white;
-  
+  height: 4.5vw;
+
+  display: flex;
 }
 
 .buscador-container input {

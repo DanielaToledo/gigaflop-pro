@@ -1,11 +1,31 @@
-.buscador {
-  width: 40%;
-  height: 2.5vw;
-  border-radius: 5px;
+.background-container-menu {
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Centra verticalmente los elementos */
+  align-items: center;
 
+  width: 100%;
+  height: 18vh; /* Aseguramos que ocupe toda la altura */
+  padding-top: 70px; /* Para no quedar debajo del header fijo */
 
-
+  
 }
+.header {
+  width: 100%;
+  height: 5vw;
+  position: fixed;
+  top: 0;
+
+  display: flex;
+  align-items: center;
+  padding:10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+ 
+}
+
 
 .filtros {
   margin-left: 20px;
