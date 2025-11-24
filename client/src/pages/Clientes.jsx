@@ -127,161 +127,161 @@ const Clientes = () => {
     document.body.style.overflow = modalVisible ? 'hidden' : 'auto';
   }, [modalVisible]);
 
-const confirmarEdicion = async (e) => {
-  e.preventDefault();
+  const confirmarEdicion = async (e) => {
+    e.preventDefault();
 
-  if (
-    !clienteAEditar.razon_social.trim() ||
-    !clienteAEditar.cuit.trim() ||
-    !Array.isArray(clienteAEditar.direcciones) ||
-    clienteAEditar.direcciones.length === 0
-  ) {
-    setMensajeError('Todos los campos son obligatorios');
-    return;
-  }
-
-  try {
-    // 🟦 Datos generales
-    await axios.put(`http://localhost:4000/api/clientes/${clienteAEditar.cuit}`, {
-      razon_social: clienteAEditar.razon_social,
-      cuit: clienteAEditar.cuit,
-      direccion_cliente: clienteAEditar.direccion_cliente
-    });
-
-    // 🟨 Direcciones
-    await axios.put(`http://localhost:4000/api/clientes/direcciones/${clienteAEditar.cuit}`, {
-      direcciones: clienteAEditar.direcciones || []
-    });
-
-    // 🟩 Contactos
-    await axios.put(`http://localhost:4000/api/clientes/contactos/${clienteAEditar.cuit}`, {
-      contactos: Array.isArray(clienteAEditar.contactos) ? clienteAEditar.contactos : []
-    });
-
-    // 🟧 Condiciones comerciales nuevas confirmadas
-    const nuevasCondiciones = clienteAEditar.condiciones_comerciales?.filter(c => c.__nuevo && c.confirmado);
-
-    if (nuevasCondiciones.length > 0) {
-      await axios.put(`http://localhost:4000/api/clientes/condiciones/${clienteAEditar.cuit}`, {
-        condiciones_comerciales: nuevasCondiciones
-      });
+    if (
+      !clienteAEditar.razon_social.trim() ||
+      !clienteAEditar.cuit.trim() ||
+      !Array.isArray(clienteAEditar.direcciones) ||
+      clienteAEditar.direcciones.length === 0
+    ) {
+      setMensajeError('Todos los campos son obligatorios');
+      return;
     }
 
-    // ✅ Actualizar lista y mostrar éxito
-    obtenerClientes();
-    setMensajeExito('Cliente actualizado correctamente');
-    setMensajeError('');
+    try {
+      // 🟦 Datos generales
+      await axios.put(`http://localhost:4000/api/clientes/${clienteAEditar.cuit}`, {
+        razon_social: clienteAEditar.razon_social,
+        cuit: clienteAEditar.cuit,
+        direccion_cliente: clienteAEditar.direccion_cliente
+      });
 
-    setClienteAEditar({
-      ...clienteAEditar,
-      fecha_modificacion: new Date().toISOString()
-    });
+      // 🟨 Direcciones
+      await axios.put(`http://localhost:4000/api/clientes/direcciones/${clienteAEditar.cuit}`, {
+        direcciones: clienteAEditar.direcciones || []
+      });
 
-  } catch (error) {
-    console.error('Error al editar cliente:', error);
-    setMensajeError('Error al actualizar cliente');
-    setClienteAEditar(null);
-  }
-};
+      // 🟩 Contactos
+      await axios.put(`http://localhost:4000/api/clientes/contactos/${clienteAEditar.cuit}`, {
+        contactos: Array.isArray(clienteAEditar.contactos) ? clienteAEditar.contactos : []
+      });
+
+      // 🟧 Condiciones comerciales nuevas confirmadas
+      const nuevasCondiciones = clienteAEditar.condiciones_comerciales?.filter(c => c.__nuevo && c.confirmado);
+
+      if (nuevasCondiciones.length > 0) {
+        await axios.put(`http://localhost:4000/api/clientes/condiciones/${clienteAEditar.cuit}`, {
+          condiciones_comerciales: nuevasCondiciones
+        });
+      }
+
+      // ✅ Actualizar lista y mostrar éxito
+      obtenerClientes();
+      setMensajeExito('Cliente actualizado correctamente');
+      setMensajeError('');
+
+      setClienteAEditar({
+        ...clienteAEditar,
+        fecha_modificacion: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('Error al editar cliente:', error);
+      setMensajeError('Error al actualizar cliente');
+      setClienteAEditar(null);
+    }
+  };
 
 
   return (
     <>
-    
-    <div className="encabezado-fijo">
-      <Sidebar />
-      <div className="background-container-menu">
-                  <header className="header">
-                    
-                      <div className="title-container">
-                        <h2 className="title-menu">GIGAFLOP</h2>
-                      </div>
-                    
-                    <div className='container-icon'>
-                      <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon " ></i></label>
-                    </div>
-                  </header>
+
+      <div className="encabezado-fijo">
+        <Sidebar />
+        <div className="background-container-menu">
+          <header className="header">
+
+            <div className="title-container">
+              <h2 className="title-menu">GIGAFLOP</h2>
+            </div>
+
+            <div className='container-icon'>
+              <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon " ></i></label>
+            </div>
+          </header>
 
           <div className="option">
-          <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
-          <NavLink className="option-button2" to="/clientes">Clientes</NavLink>
-          <NavLink className="option-button" to="/productos">Productos</NavLink>
-          <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+            <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+            <NavLink className="option-button2" to="/clientes">Clientes</NavLink>
+            <NavLink className="option-button" to="/productos">Productos</NavLink>
+            <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
           </div>
-        </div> 
-          {showRegisterForm && (
+        </div>
+        {showRegisterForm && (
           <div className="register-modal-overlay" onClick={() => setShowRegisterForm(false)}>
             <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
               <Register onClose={() => setShowRegisterForm(false)} />
             </div>
           </div>
-          )}
+        )}
 
-        
-          <div className="menu-superior">
-            <div className="cotizatitlecontainer">
-              <h3 className="cotizatitle">Clientes</h3>
-            </div>
-            <div className="buscador-container">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Buscar por Razón Social..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-              />
-              {/*<button className="botonlimpiar" onClick={() => { setBusqueda(''); setMensajeError(''); }}>Limpiar</button>*/}
-              {mensajeError && <p className="mensaje-error">{mensajeError}</p>}
-            </div>
-            <div className="botonescontainer">
-              <button className="reporte">Reporte</button>
-              <button className="nc" onClick={() => setShowRegisterForm(true)}>+ Nuevo Cliente</button>
-            </div>
+
+        <div className="menu-superior">
+          <div className="cotizatitlecontainer">
+            <h3 className="cotizatitle">Clientes</h3>
           </div>
-        
-        
+          <div className="buscador-container">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Buscar por Razón Social..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+            {/*<button className="botonlimpiar" onClick={() => { setBusqueda(''); setMensajeError(''); }}>Limpiar</button>*/}
+            {mensajeError && <p className="mensaje-error">{mensajeError}</p>}
+          </div>
+          <div className="botonescontainer">
+            <button className="reporte">Reporte</button>
+            <button className="nc" onClick={() => setShowRegisterForm(true)}>+ Nuevo Cliente</button>
+          </div>
+        </div>
 
 
-          <div className="menu-matriz">
-            <div className="table-responsive px-2">
-              <table className="table tabla-cotizaciones align-middle">
-                <thead className="table-primary">
-                  <tr>
-                    <th>ID</th>
-                    <th>Razón Social</th>
-                    <th>CUIT</th>
-                    <th className="text-end">Acciones</th>
+
+
+        <div className="menu-matriz">
+          <div className="table-responsive px-2">
+            <table className="table tabla-cotizaciones align-middle">
+              <thead className="table-primary">
+                <tr>
+                  <th>Numero de Cliente</th>
+                  <th>Razón Social</th>
+                  <th>CUIT</th>
+                  <th className="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clientes.map((cliente, index) => (
+                  <tr key={index} className="fila-cotizacion">
+                    <td>
+
+                      {cliente.id}
+
+                    </td>
+                    <td><button className="btn-link" onClick={() => handleVistaPrevia(cliente)}>{cliente.razon_social}</button></td>
+                    <td>{cliente.cuit}</td>
+                    <td className="text-end">
+                      <button className="btn-cuadro btn-descargar" title="Descargar PDF">
+                        <i className="bi bi-file-earmark-arrow-down-fill"></i>
+                      </button>
+                      <button
+                        className="btn-cuadro btn-editar"
+                        title="Editar"
+                        onClick={() => handleEditar(cliente)}
+                      >
+                        <i className="bi bi-pencil-fill"></i>
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {clientes.map((cliente, index) => (
-                    <tr key={index} className="fila-cotizacion">
-                      <td>
-                        <button className="btn-link" onClick={() => handleVistaPrevia(cliente)}>
-                          {cliente.id}
-                        </button>
-                      </td>
-                      <td>{cliente.razon_social}</td>
-                      <td>{cliente.cuit}</td>
-                      <td className="text-end">
-                        <button className="btn-cuadro btn-descargar" title="Descargar PDF">
-                          <i className="bi bi-file-earmark-arrow-down-fill"></i>
-                        </button>
-                        <button
-                          className="btn-cuadro btn-editar"
-                          title="Editar"
-                          onClick={() => handleEditar(cliente)}
-                        >
-                          <i className="bi bi-pencil-fill"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        
+        </div>
+
 
         {/* MODAL PARA EDITAR UN CLIENTE */}
         {/* MODAL PARA EDITAR UN CLIENTE */}
@@ -464,7 +464,7 @@ const confirmarEdicion = async (e) => {
                           {/* Mensaje de confirmación */}
                           {esNueva && estaConfirmada && (
                             <span className="text-success small mt-2 d-block">
-                               Condición agregada correctamente
+                              Condición agregada correctamente
                             </span>
                           )}
                         </div>
