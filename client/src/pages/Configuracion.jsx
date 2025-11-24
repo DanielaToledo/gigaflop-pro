@@ -4,6 +4,7 @@ import '../CSS/configuracion.css';
 import Sidebar from '../components/Sidebar';
 import RegisterUser from '../components/RegisterUser';
 
+
 const Configuracion = () => {
 
     const [searchTerm, setSearchTerm] = useState({
@@ -38,6 +39,7 @@ const usuario = [
 
   return (
      <>
+     <div className="encabezado-fijo">
       <Sidebar />
             <div className="background-container-config">
               <header className="header">
@@ -67,7 +69,7 @@ const usuario = [
                         </div>
                     </div>
                 )}
-        <div className="menuboxconfig">
+      
           <div className='menu-superior'>
             <div className='cotizatitlecontainer'>
               <h3 className='cotizatitle'>Configuración</h3>
@@ -77,7 +79,8 @@ const usuario = [
               <button className='nc-config' onClick={() => setShowRegisterForm(true)}>+ Nuevo Usuario</button>
             </div>
           </div>
-
+        </div>
+        <div className='info'>
         <div className='infofc'>
             <div className='infofccontainer'>
                 <div className='infoblock'>
@@ -100,46 +103,47 @@ const usuario = [
             </div>
             
         </div>
+        </div>
 
-          <div className="menu-matriz">
-            
-            <div className="filtros">
-              <input className="buscador" placeholder="Busque por usuario registrado" value={searchTerm.id} onChange={(e) => setSearchTerm({...searchTerm, id: e.target.value})} />
+         <div className="menu-matriz">
+  <div className="table-responsive px-2">
+    <table className="table tabla-cotizaciones align-middle">
+      <thead className="table-primary">
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Rol</th>
+          <th>Contacto</th>
+          <th className="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filteredUsuario.map((usuario, index) => (
+          <tr key={index} className="fila-cotizacion">
+            <td>{usuario.id}</td>
+            <td>
+              <button className="btn-link" onClick={() => handleVistaPrevia(usuario)}>
+                {usuario.usuario}
+              </button>
+            </td>
+            <td>{usuario.rol}</td>
+            <td>{usuario.contacto}</td>
+            <td className="text-end">
+              <button className="btn-cuadro btn-descargar" title="Descargar PDF">
+                <i className="bi bi-file-earmark-arrow-down-fill"></i>
+              </button>
+              <button className="btn-cuadro btn-editar" title="Editar" onClick={() => handleEditar(usuario)}>
+                <i className="bi bi-pencil-fill"></i>
+              </button>
               
-            </div>
-            <div className='matrizconfig'>
-              <table className='table'>
-                <thead className='table-thead'>
-                  <tr className='table-tr'>
-                    <th className='table-header'>ID</th>
-                    <th className='table-header'>Nombre</th>
-                    <th className='table-header'>Rol</th>
-                    <th className='table-header'>Contacto</th>
-                                 
-                  </tr>
-                </thead>
-                <tbody className='table'>
-                  {filteredUsuario.map((usuario, index) => (
-                    <tr key={index} className='table-trdatos'>
-                      <td className='table-datos'>{usuario.id}</td>
-                      <td className='table-datos'>{usuario.usuario}</td>
-                      <td className='table-datos'>{usuario.rol}</td>
-                      <td className="table-datos">{usuario.contacto}</td>
-                       
-                      <td className='table-datostotal'>
-                        <div className='crud-icons'>   
-                        <i className="bi bi-pencil-fill"></i>
-                        <i className="bi bi-file-earmark-arrow-down-fill"></i>
-                        <i className="bi bi-trash3-fill"></i>                  
-                        </div> 
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
+        
                 
        
     </>
