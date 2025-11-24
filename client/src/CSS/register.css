@@ -1,0 +1,170 @@
+.form-container {
+   width: 50vw; /* Puedes mantener este ancho relativo si te gusta, o usar un 'max-width' */
+    height: auto; /* Cambia a 'auto' para que la altura se ajuste al contenido del formulario */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Esto alinea verticalmente el contenido del form-container */
+    align-items: center; /* Esto centra horizontalmente el contenido del form-container */
+    background: white;
+    color: white;
+    border-radius: 5px;
+    border: 2px solid #003281; /* Cambiado de 'border-color' a 'border' para aplicar el borde */
+    padding: 20px;
+    box-sizing: border-box;
+    transition: background-color 1s ease; /* Añadido para una transición suave al cambiar el color de fondo */
+    transition: all 500ms ease;
+  transform: translateX(0%);
+}
+
+/* CLAVE PARA LA ALINEACIÓN DE CADA FILA */
+.form {
+    display: flex;
+    justify-content: flex-end; /* Para que todo el par (label + input) se alinee a la derecha dentro del 'form-container' */
+    align-items: center; /* Alinea verticalmente los elementos en el centro de la fila */
+    margin-bottom: 15px; /* Espacio entre filas */
+    width: 100%; /* Muy importante: cada fila .form debe ocupar el 100% del ancho del .form-container */
+    max-width: 400px; /* Opcional: Define un ancho máximo para el conjunto de etiquetas e inputs */
+    transition: 1s ease; /* Añadido para una transición suave al cambiar el color de fondo */
+}
+
+.register-title{
+  color: #1d345a;
+  font-size: 4vw;
+  text-shadow: 5px 5px 5px #afafb99c;
+  font-weight: bold;
+  margin-bottom: 20px; /* Espacio entre el título y el formulario */
+  border-color: #000000;
+    
+
+}
+
+.form-label {
+    color: #000000;
+    flex-shrink: 0; /* Evita que la etiqueta se encoja */
+    text-align: right; 
+    margin-right: 10px; 
+    min-width: 70px; /* Un ancho mínimo para los labels para que no se peguen mucho */
+    
+}
+
+.form-input {
+    flex-grow: 1; /* Permite que el input ocupe todo el espacio disponible */
+    height: 5vh;
+    border-radius: 5px;
+    border: 1px solid #000000;
+    background-color: #ffffff;
+    color: #000000;
+    padding-left: 10px;
+}
+
+.form-input:focus{
+    outline: none;
+    border-color: #4285f4;
+}
+.form-input:hover{
+    border-color: #4285f4;
+    transition: 0.2s ease;
+    background-color: rgb(231, 231, 236);
+}
+
+.form-button{
+    width: 15vw;
+    height: 5vh;
+    background-color: #4285f4;
+    color: white;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    
+}
+.form-button:hover{
+    background-color: #270faf;
+    transition: 0.2s;
+    color: white;
+    box-shadow: 0 4px 5px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
+    
+}
+
+
+#btn-register-cliente {
+  display: none;
+  
+}
+.close-register-cliente{
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    
+    align-content: center;
+    
+}
+
+.close-register-cliente:hover {
+    color: #4285f4;
+    transition: 0.2s;
+    background-color: #4285f4;
+    border-radius: 50%;
+}
+
+/* Estilos para el MODAL de registro */
+.register-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    
+}
+
+.register-modal-content {
+    position: relative;
+    background:#f7f7f7;
+    border-radius: 3px;
+    border: 5px solid #003281;
+    padding: 20px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+    max-width: 90%;
+    max-height: 90%;
+    overflow-y: auto;
+    
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    
+}
+
+.register-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+    
+    
+}
+
+.register-modal-close:hover {
+    color: #4285f4;
+    
+}

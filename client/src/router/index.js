@@ -4,9 +4,10 @@ import Menu from "../pages/Menu";
 import Clientes from "../pages/Clientes";
 import RutaProtegida from '../components/RutaProtegida';
 import Home from "../pages/Home";
-import Productos from "../pages/Productos"; // asegurate de que la ruta sea correcta
+import Productos from "../pages/Productos"; 
 import NuevaCotizacion from "../pages/NuevaCotizacion";
 import ResumenCotizacion from "../pages/ResumenCotizacion";
+import Configuracion from "../pages/Configuracion";
 
 
 
@@ -46,6 +47,10 @@ export const router = createBrowserRouter([
       {
         path: '/resumen-cotizacion',
         element: <ResumenCotizacion />
+      },
+      {
+        path: '/configuracion',
+        element: <Configuracion />
       }
 
 

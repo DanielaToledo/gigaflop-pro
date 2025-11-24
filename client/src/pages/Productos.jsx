@@ -140,8 +140,9 @@ const fetchProducts = async () => {
 
   return (
     <>
+    <div className="encabezado-fijo">
       <Sidebar />
-      <div className="encabezado-fijo">
+      
         <div className="background-container-prod">
           <header className="headerprod">
             <div className='container-header'>
