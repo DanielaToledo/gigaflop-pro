@@ -187,41 +187,37 @@ const confirmarEdicion = async (e) => {
 
   return (
     <>
+    
+    <div className="encabezado-fijo">
       <Sidebar />
       <div className="background-container-menu">
-        {/* Header principal */}
-        <header className="header">
-          <div className="container-header">
-            <div className="title-container">
-              <h2 className="title-menu">GIGAFLOP</h2>
-            </div>
-          </div>
-          <div className="container-icon">
-            <label htmlFor="btn-menu">
-              <i className="bi bi-person-circle custom-icon"></i>
-            </label>
-          </div>
-        </header>
+                  <header className="header">
+                    
+                      <div className="title-container">
+                        <h2 className="title-menu">GIGAFLOP</h2>
+                      </div>
+                    
+                    <div className='container-icon'>
+                      <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon " ></i></label>
+                    </div>
+                  </header>
 
-        {/* Menú de opciones */}
-        <div className="option">
+          <div className="option">
           <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
           <NavLink className="option-button2" to="/clientes">Clientes</NavLink>
           <NavLink className="option-button" to="/productos">Productos</NavLink>
           <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
-        </div>
-
-        {/* Modal de registro */}
-        {showRegisterForm && (
+          </div>
+        </div> 
+          {showRegisterForm && (
           <div className="register-modal-overlay" onClick={() => setShowRegisterForm(false)}>
             <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
               <Register onClose={() => setShowRegisterForm(false)} />
             </div>
           </div>
-        )}
+          )}
 
-        {/* Tabla de clientes */}
-        <div className="menubox">
+        
           <div className="menu-superior">
             <div className="cotizatitlecontainer">
               <h3 className="cotizatitle">Clientes</h3>
@@ -234,9 +230,7 @@ const confirmarEdicion = async (e) => {
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
               />
-              <button className="botonlimpiar" onClick={() => { setBusqueda(''); setMensajeError(''); }}>
-                Limpiar
-              </button>
+              {/*<button className="botonlimpiar" onClick={() => { setBusqueda(''); setMensajeError(''); }}>Limpiar</button>*/}
               {mensajeError && <p className="mensaje-error">{mensajeError}</p>}
             </div>
             <div className="botonescontainer">
@@ -244,6 +238,9 @@ const confirmarEdicion = async (e) => {
               <button className="nc" onClick={() => setShowRegisterForm(true)}>+ Nuevo Cliente</button>
             </div>
           </div>
+        
+        
+
 
           <div className="menu-matriz">
             <div className="table-responsive px-2">
@@ -284,7 +281,7 @@ const confirmarEdicion = async (e) => {
               </table>
             </div>
           </div>
-        </div>
+        
 
         {/* MODAL PARA EDITAR UN CLIENTE */}
         {/* MODAL PARA EDITAR UN CLIENTE */}
