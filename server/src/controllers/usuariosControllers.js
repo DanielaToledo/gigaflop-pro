@@ -101,18 +101,23 @@ export const profile = async (req, res) => {
 
     res.status(200).json({
       usuario: {
-        id: req.user.id,
-        nombre: req.user.nombre,
-        apellido: req.user.apellido,
-        rol: req.user.rol
+        id: usuario.id,
+        usuario: usuario.usuario,
+        email: usuario.email,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        rol: usuario.rol,   // 👈 clave
+        estado: usuario.estado
       }
     });
-    // Cambiado "user" por "usuario"
   } catch (error) {
     console.error('Error al obtener perfil:', error);
     res.status(500).json({ message: 'Error del servidor' });
   }
 };
+
+
+
 
 // Verificar autenticación
 export const checkAuth = async (req, res) => {

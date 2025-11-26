@@ -560,4 +560,36 @@ const vendedor = {
     };
   }
 
+//este método obtiene todas las cotizaciones sin filtrar por usuario es para los administradores
+async obtenerTodas() {
+  const [rows] = await this.db.query(
+    `SELECT
+     c.id,
+     c.numero_cotizacion,
+     c.fecha,
+     c.vigencia_hasta,
+     c.observaciones,
+     e.id AS estado_id,
+     e.nombre AS estado_nombre,
+     e.es_final AS estado_es_final,
+     e.requiere_vencimiento AS estado_requiere_vencimiento,
+     cl.razon_social AS cliente_nombre,
+     u.nombre AS usuario_nombre,
+     ct.nombre_contacto AS contacto_nombre,
+     ct.apellido AS contacto_apellido,
+     COALESCE(SUM(dp.precio_unitario * dp.cantidad * (1 - dp.descuento / 100)), 0) AS total
+   FROM cotizaciones c
+   LEFT JOIN estados e ON c.id_estado = e.id
+   LEFT JOIN cliente cl ON c.id_cliente = cl.id
+   LEFT JOIN usuarios u ON c.id_usuario = u.id
+   LEFT JOIN contactos ct ON c.id_contacto = ct.id
+   LEFT JOIN detalle_cotizacion dp ON c.id = dp.id_cotizacion
+   GROUP BY c.id
+   ORDER BY c.fecha DESC`
+  );
+  return rows;
+}
+
+
+
 }

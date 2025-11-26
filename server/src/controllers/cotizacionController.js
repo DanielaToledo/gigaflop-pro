@@ -485,27 +485,31 @@ export async function finalizarCotizacion(req, res) {
   }
 }
 
-// este trae todas las cotizacion con sus estados para la tabla de cotizaciones en Menu.jsx
-// este trae todas las cotizacion con sus estados para la tabla de cotizaciones en Menu.jsx
+// Obtener todas las cotizaciones, con filtro por rol de usuario (administrador o normal)
 export async function obtenerTodasLasCotizaciones(req, res) {
   const db = req.app.get('db');
   const cotizacionModel = new Cotizacion(db);
-  const idUsuario = req.params.id_usuario;
 
   try {
-    // 🔁 Actualizar vencidas antes de consultar
     await cotizacionModel.actualizarVencidas();
 
-    // 🔍 Consultar todas las cotizaciones del usuario
-    const cotizaciones = await cotizacionModel.obtenerTodasPorUsuario(idUsuario);
+    let cotizaciones;
+
+    if (req.user?.rol === "administrador" || req.user?.rol === "gerente") {
+      // Admin y gerente ven todas
+      cotizaciones = await cotizacionModel.obtenerTodas();
+    } else {
+      // Vendedor solo ve las suyas
+      const idUsuario = req.params.id_usuario || req.user?.id;
+      cotizaciones = await cotizacionModel.obtenerTodasPorUsuario(idUsuario);
+    }
 
     res.json(cotizaciones);
   } catch (error) {
-    console.error('❌ Error al obtener todas las cotizaciones:', error);
-    res.status(500).json({ error: 'Error al obtener todas las cotizaciones' });
+    console.error("❌ Error al obtener todas las cotizaciones:", error);
+    res.status(500).json({ error: "Error al obtener todas las cotizaciones" });
   }
 }
-
 
 
 

@@ -11,6 +11,9 @@ import cotizacionRoutes from './routes/cotizacionRoutes.js';
 import contactosRoutes from './routes/contactosRoutes.js';
 import estadosRoutes from './routes/estadosRoutes.js';
 import emailRoutes from './routes/emailRoutes.js';
+import configuracionRoutes from './routes/configuracionRoutes.js';  
+
+
 
 dotenv.config(); //Carga las variables antes de que se usen en cualquier parte del servidor
 
@@ -36,6 +39,7 @@ app.use("/api/cotizaciones", cotizacionRoutes);
 app.use("/api", contactosRoutes);
 app.use('/api/estados', estadosRoutes);
 app.use('/api', emailRoutes);
+app.use("/api/configuracion", configuracionRoutes);
 
 
 // Middleware de manejo de errores
