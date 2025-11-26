@@ -64,7 +64,7 @@ const Configuracion = () => {
       })
       .catch((err) => {
         console.error("Error al crear usuario:", err);
-        setMensaje("No se pudo registrar el usuario. Verifique permisos o datos. ❌");
+        setMensaje("No se pudo registrar el usuario. Verifique permisos o datos. ");
         setEsExito(false);
       });
   };
@@ -99,7 +99,7 @@ const Configuracion = () => {
       })
       .catch(err => {
         console.error("Error al guardar datos fiscales:", err);
-        setMensajeEmpresa("❌ No se pudieron guardar los datos fiscales");
+        setMensajeEmpresa(" No se pudieron guardar los datos fiscales");
         setEsExito(false);
       });
   };
