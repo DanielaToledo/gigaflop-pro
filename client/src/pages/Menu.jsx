@@ -48,46 +48,55 @@ const Menu = () => {
 };
   
 
+useEffect(() => {
+  if (cargando || !usuario?.id) return;
 
-
-  useEffect(() => {
-    if (cargando || !usuario?.id) return;
-
-    const cargarCotizaciones = async () => {
-      try {
-        const res = await axios.get(`/api/cotizaciones/todas/${usuario.id}`);
-        console.log('Cotizaciones recibidas:', res.data);
-
-        // transformamos sin asumir que backend devuelve "estado" textual;
-        // preferimos estado_nombre (nuevo backend) y guardamos vigencia_hasta cruda (ISO o null)
-        const transformadas = (Array.isArray(res.data) ? res.data : []).map(c => ({
-          id: c.id,
-          numero: c.numero_cotizacion,
-          fecha: c.fecha || c.created_at || c.fecha_creacion || null, // guardamos raw ISO (si existe)
-          vigencia_hasta: c.vigencia_hasta ?? c.vencimiento ?? null, // posible campo nuevo
-          vendedor: `${usuario.nombre} ${usuario.apellido}`,
-          // preferir estado_nombre si el backend lo envía; si no, usar el texto antiguo 'estado'
-          estado: {
-            id: c.estado_id ?? null,
-            nombre: c.estado_nombre ?? '—',
-            es_final: c.estado_es_final ?? false,
-            requiere_vencimiento: c.estado_requiere_vencimiento ?? false,
-            color_dashboard: c.estado_color_dashboard ?? '#6c757d'
-          },
-          cliente: c.cliente_nombre || '—',
-          contacto: c.contacto_nombre && c.contacto_apellido
-            ? `${c.contacto_nombre} ${c.contacto_apellido}`
-            : '—',
-          total: c.total ?? 0
-        }));
-        setCotizaciones(transformadas);
-      } catch (error) {
-        console.error('Error al cargar cotizaciones:', error);
+  const cargarCotizaciones = async () => {
+    try {
+      let res;
+      if (usuario.rol === "administrador" || usuario.rol === "gerente") {
+        // Admin y gerente ven todas las cotizaciones
+        res = await axios.get("/api/cotizaciones/todas", {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        });
+      } else {
+        // Vendedor solo ve las suyas
+        res = await axios.get(`/api/cotizaciones/todas/${usuario.id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        });
       }
-    };
 
-    cargarCotizaciones();
-  }, [cargando, usuario]);
+      console.log("Cotizaciones recibidas:", res.data);
+
+      const transformadas = (Array.isArray(res.data) ? res.data : []).map(c => ({
+        id: c.id,
+        numero: c.numero_cotizacion,
+        fecha: c.fecha || c.created_at || c.fecha_creacion || null,
+        vigencia_hasta: c.vigencia_hasta ?? c.vencimiento ?? null,
+          vendedor: c.usuario_nombre || `${usuario.nombre} ${usuario.apellido}`,
+        estado: {
+          id: c.estado_id ?? null,
+          nombre: c.estado_nombre ?? "—",
+          es_final: c.estado_es_final ?? false,
+          requiere_vencimiento: c.estado_requiere_vencimiento ?? false,
+          color_dashboard: c.estado_color_dashboard ?? "#6c757d"
+        },
+        cliente: c.cliente_nombre || "—",
+        contacto: c.contacto_nombre && c.contacto_apellido
+          ? `${c.contacto_nombre} ${c.contacto_apellido}`
+          : "—",
+        total: c.total ?? 0
+      }));
+      setCotizaciones(transformadas);
+    } catch (error) {
+      console.error("Error al cargar cotizaciones:", error);
+    }
+  };
+
+  cargarCotizaciones();
+}, [cargando, usuario]);
+
+
 
 
 

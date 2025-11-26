@@ -13,6 +13,13 @@ const router = Router();
 
 router.post('/iniciar', authRequired,iniciarCotizacion); //crea cotización con cliente y productos completos.
 router.get('/todas/:id_usuario', obtenerTodasLasCotizaciones);  
+
+// Ruta nueva: usa el token y el rol para decidir qué devolver
+router.get('/todas', authRequired, obtenerTodasLasCotizaciones);
+
+
+
+
 router.get('/borrador/:id_usuario', authRequired, obtenerCotizacionesBorrador);
 router.get('/borrador/retomar/:id', authRequired, obtenerCotizacionBorradorPorId); // retoma cotización desde backend
 router.put('/finalizar/:id',authRequired, finalizarCotizacion); //finaliza usando el estado local (clienteObjeto, carrito) que está completo.

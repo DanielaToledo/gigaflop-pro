@@ -1,153 +1,211 @@
-import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import '../CSS/configuracion.css';
-import Sidebar from '../components/Sidebar';
-import RegisterUser from '../components/RegisterUser';
-
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { NavLink } from "react-router-dom";
+import Sidebar from "../components/Sidebar";
+import CompanyData from "../components/CompanyData";
+import UserTable from "../components/UserTable";
+import RegisterUser from "../components/RegisterUser";
+import "../CSS/menu.css";
+import "../CSS/configuracion.css";
 
 const Configuracion = () => {
+  const [empresa, setEmpresa] = useState(null);
+  const [usuarios, setUsuarios] = useState([]);
+  const [showNuevoUsuario, setShowNuevoUsuario] = useState(false);
+  const [error, setError] = useState("");
+  const [mensaje, setMensaje] = useState("");
+  const [esExito, setEsExito] = useState(false);
+  const [mensajeEmpresa, setMensajeEmpresa] = useState("");
 
-    const [searchTerm, setSearchTerm] = useState({
-        id: '',
-        usuario: '',
-        rol: '',
-        contacto: '',
-        
+  const token = localStorage.getItem("token");
+
+  useEffect(() => {
+    axios
+      .get("/api/configuracion/datos-fiscales", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        // Si la API devuelve vacío, mantenemos empresa en null
+        setEmpresa(res.data && Object.keys(res.data).length > 0 ? res.data : null);
+      })
+      .catch((err) => console.error("Error al obtener datos fiscales:", err));
+
+    axios
+      .get("/api/configuracion/usuarios", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => setUsuarios(res.data))
+      .catch((err) => console.error("Error al obtener usuarios:", err));
+  }, [token]);
+
+  const handleOpenModal = () => {
+    setShowNuevoUsuario(true);
+    setMensaje("");
+    setEsExito(false);
+    setError("");
+  };
+
+  const handleCloseModal = () => {
+    setShowNuevoUsuario(false);
+    setMensaje("");
+    setEsExito(false);
+  };
+
+  const handleSubmitNuevoUsuario = (nuevoUsuario) => {
+    axios
+      .post("/api/configuracion/usuarios", nuevoUsuario, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        setUsuarios([...usuarios, { id: res.data.id, ...nuevoUsuario }]);
+        setMensaje("Usuario creado con éxito ");
+        setEsExito(true);
+        setError("");
+      })
+      .catch((err) => {
+        console.error("Error al crear usuario:", err);
+        setMensaje("No se pudo registrar el usuario. Verifique permisos o datos. ❌");
+        setEsExito(false);
       });
+  };
 
-    // Estado para controlar la visibilidad del formulario de registro, falta email y estado
-        const [showRegisterForm, setShowRegisterForm] = useState(false);
-const usuario = [
-  { id: '1001', usuario: 'Daniela Toledo', rol: 'administrador', contacto: '+5491123456789' },
-  { id: '1002', usuario: 'Maite Dominguez', rol: 'vendedor', contacto: '+5491134567890' },
-  { id: '1003', usuario: 'Cristian Landeira', rol: 'vendedor', contacto: '+5491145678901' },
-  { id: '1004', usuario: 'Vanina Crisostomo', rol: 'gerente', contacto: '+5491156789012' },
-  { id: '1005', usuario: 'Franco Desunvila', rol: 'administrador', contacto: '+5491167890123' }
-];
-    const filteredUsuario = usuario.filter(usuario => {
-    const search = searchTerm.id.toLowerCase(); // Convertir a minúsculas para una comparación segura
+  const handleUpdateEmpresa = (datosEmpresa) => {
+    if (!datosEmpresa) {
+      setMensajeEmpresa("⚠️ Faltan rellenar campos obligatorios");
+      setEsExito(false);
+      return;
+    }
 
-    return (
-        usuario.id.toLowerCase().includes(search) ||
-        usuario.usuario.toLowerCase().includes(search) ||
-        usuario.rol.toLowerCase().includes(search) ||
-        usuario.contacto.toLowerCase().includes(search) 
-        
-    );
-});
+    // 👇 Si no hay empresa en BD, usamos POST; si ya existe, usamos PUT
+    const metodo = empresa ? "put" : "post";
+    const url = "/api/configuracion/datos-fiscales";
 
+    axios[metodo](url, datosEmpresa, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => {
+        // Si es POST, guardamos también el id que devuelve el backend
+        const empresaConId = metodo === "post"
+          ? { ...datosEmpresa, id: res.data.id }
+          : datosEmpresa;
+
+        setEmpresa(empresaConId);
+        setMensajeEmpresa(
+          metodo === "post"
+            ? "Datos fiscales creados correctamente"
+            : "Datos fiscales actualizados correctamente"
+        );
+        setEsExito(true);
+      })
+      .catch(err => {
+        console.error("Error al guardar datos fiscales:", err);
+        setMensajeEmpresa("❌ No se pudieron guardar los datos fiscales");
+        setEsExito(false);
+      });
+  };
 
   return (
-     <>
-     <div className="encabezado-fijo">
-      <Sidebar />
-            <div className="background-container-config">
-              <header className="header">
-                <div className='container-header'>
-                  <div className="title-container">
-                    <h2 className="title-menu">GIGAFLOP</h2>
-                  </div>
-                </div>
-                <div className='container-icon'>
-                  <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
-                </div>
-              </header>
-              <div className='optionconfig'>
-                <NavLink className='option-button'to='/menu'>Cotizaciones</NavLink>
-                <NavLink className='option-button' to= "/clientes">Clientes</NavLink>
-                <NavLink className='option-button' to= '/productos' >Productos</NavLink>
-                <NavLink className='option-button2'to= '/configuracion'>Configuración</NavLink>
-              </div>
+    <>
+      {/* HEADER */}
+      <div className="encabezado-fijo">
+        <Sidebar />
+        <div className="background-container-menu">
+          <header className="header">
+            <div className="title-container">
+              <h2 className="title-menu">GIGAFLOP</h2>
             </div>
+            <div className="container-icon">
+              <i className="bi bi-person-circle custom-icon"></i>
+            </div>
+          </header>
 
-             {/* MODAL DE REGISTRO - Se renderiza condicionalmente */}
-                {showRegisterForm && (
-                    <div className="register-modal-overlay" onClick={() => setShowRegisterForm(false)}>
-                        <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
-                            {/* Pasamos la función para cerrar al componente Register */}
-                            <RegisterUser onClose={() => setShowRegisterForm(false)} />
-                        </div>
-                    </div>
-                )}
-      
-          <div className='menu-superior'>
-            <div className='cotizatitlecontainer'>
-              <h3 className='cotizatitle'>Configuración</h3>
-            </div>
-            <div>
-            
-              <button className='nc-config' onClick={() => setShowRegisterForm(true)}>+ Nuevo Usuario</button>
-            </div>
+          <div className="option">
+            <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+            <NavLink className="option-button" to="/clientes">Clientes</NavLink>
+            <NavLink className="option-button" to="/productos">Productos</NavLink>
+            <NavLink className="option-button2" to="/configuracion">Configuración</NavLink>
           </div>
         </div>
-        <div className='info'>
-        <div className='infofc'>
-            <div className='infofccontainer'>
-                <div className='infoblock'>
-                    <h6 className='infofctitle'>Nombre o Razon Social</h6>
-                    <input className='infofcdata' type="text" placeholder="Gigaflop S.R.L."/>
-                    <h6 className='infofctitle'>CUIT</h6>
-                    <input className='infofcdata' type="text" placeholder="30-74802172-9"/>
-                    <h6 className='infofctitle'>Situación Fiscal</h6>
-                    <input className='infofcdata' type="text" placeholder="Responsable Inscripto"/>
+      </div>
+
+      {/* TOPBAR */}
+      <section className="config-topbar">
+        <div className="config-topbar-inner">
+          <h1 className="config-topbar-title">Configuración</h1>
+          <button type="button" className="btn nc config-topbar-btn" onClick={handleOpenModal}>
+            + Nuevo usuario
+          </button>
+        </div>
+      </section>
+
+      {/* CONTENIDO */}
+      <main className="config-page">
+        <CompanyData
+          empresa={empresa || {
+            razon_social: "",
+            direccion: "",
+            cuit: "",
+            condicion_fiscal: "",
+            contacto_principal: "",
+            email: "",
+          }}
+          onUpdate={handleUpdateEmpresa}
+          mensaje={mensajeEmpresa}
+          esExito={esExito}
+          onRefresh={() => {
+            axios.get("/api/configuracion/datos-fiscales", {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+              .then(res => setEmpresa(res.data))
+              .catch(err => console.error("Error al refrescar datos fiscales:", err));
+          }}
+        />
+        <UserTable usuarios={usuarios} />
+      </main>
+
+      {/* MODAL NUEVO USUARIO */}
+      {showNuevoUsuario && (
+        <>
+          <div
+            className="position-fixed top-0 start-0 w-100 h-100"
+            style={{ backgroundColor: "rgba(128, 128, 128, 0.4)", zIndex: 1040 }}
+          ></div>
+
+          <div className="modal fade show" style={{ display: "block", zIndex: 1050 }} tabIndex="-1">
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content">
+                <div className="modal-header bg-primary text-white">
+                  <h5 className="modal-title">Nuevo Usuario</h5>
+                  <button type="button" className="btn-close btn-close-white" onClick={handleCloseModal}></button>
                 </div>
-                <div className='infoblock'>
-                    <h6 className='infofctitle'>Dirección</h6>
-                    <input className='infofcdata' type="text" placeholder="Tucuman 784, CABA"/>
-                    <h6 className='infofctitle'>Contacto</h6>
-                    <input className='infofcdata' type="text" placeholder="+5411-4757-3878"/>
-                    <h6 className='infofctitle'>Email</h6>
-                    <input className='infofcdata' type="text" placeholder="administracion@giga.com.ar"/>
+
+                <div className="modal-body">
+                  <RegisterUser onSubmit={handleSubmitNuevoUsuario} />
+                  {mensaje && (
+                    <div className={`alert ${esExito ? "alert-success" : "alert-danger"} mt-3`}>
+                      {mensaje}
+                    </div>
+                  )}
                 </div>
-                
+
+                <div className="modal-footer bg-white">
+                  <div className="w-100 d-flex justify-content-between">
+                    <button type="button" className="btn btn-danger" onClick={handleCloseModal}>
+                      Cancelar
+                    </button>
+                    <button type="submit" form="registerUserForm" className="btn btn-primary">
+                      Registrar Usuario
+                    </button>
+                  </div>
+                </div>
+
+              </div>
             </div>
-            
-        </div>
-        </div>
-
-         <div className="menu-matriz">
-  <div className="table-responsive px-2">
-    <table className="table tabla-cotizaciones align-middle">
-      <thead className="table-primary">
-        <tr>
-          <th>ID</th>
-          <th>Nombre</th>
-          <th>Rol</th>
-          <th>Contacto</th>
-          <th className="text-end">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {filteredUsuario.map((usuario, index) => (
-          <tr key={index} className="fila-cotizacion">
-            <td>{usuario.id}</td>
-            <td>
-              <button className="btn-link" onClick={() => handleVistaPrevia(usuario)}>
-                {usuario.usuario}
-              </button>
-            </td>
-            <td>{usuario.rol}</td>
-            <td>{usuario.contacto}</td>
-            <td className="text-end">
-              <button className="btn-cuadro btn-descargar" title="Descargar PDF">
-                <i className="bi bi-file-earmark-arrow-down-fill"></i>
-              </button>
-              <button className="btn-cuadro btn-editar" title="Editar" onClick={() => handleEditar(usuario)}>
-                <i className="bi bi-pencil-fill"></i>
-              </button>
-              
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
-        
-                
-       
+          </div>
+        </>
+      )}
     </>
-  )
-}
+  );
+};
 
-export default Configuracion
+export default Configuracion;
