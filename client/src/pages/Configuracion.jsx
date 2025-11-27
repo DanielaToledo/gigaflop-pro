@@ -142,6 +142,7 @@ const Configuracion = () => {
   return (
     <>
       {/* HEADER */}
+      
       <div className="encabezado-fijo">
         <Sidebar />
         <div className="background-container-menu">
@@ -154,27 +155,30 @@ const Configuracion = () => {
             </div>
           </header>
 
-          <div className="option">
+          <div className="option" >
+            <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
             <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
             <NavLink className="option-button" to="/clientes">Clientes</NavLink>
             <NavLink className="option-button" to="/productos">Productos</NavLink>
             <NavLink className="option-button2" to="/configuracion">Configuración</NavLink>
           </div>
         </div>
-      </div>
+      
 
       {/* TOPBAR */}
-      <section className="config-topbar">
-        <div className="config-topbar-inner">
-          <h1 className="config-topbar-title">Configuración</h1>
-          <button type="button" className="btn nc config-topbar-btn" onClick={handleOpenModal}>
+      <section className="menu-superior-prod" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px'}}>
+        <div className="cotizatitlecontainer">
+          <h1 className="cotizatitle"  >Configuración</h1>
+          
+        </div>
+        <button type="button" className="btn nc config-topbar-btn"  >
             + Nuevo usuario
           </button>
-        </div>
       </section>
+      </div>
 
       {/* CONTENIDO */}
-      <main className="config-page">
+      <main className="config-page"style={{marginTop: '15%'}}>
         <CompanyData
           empresa={empresa || {
             razon_social: "",

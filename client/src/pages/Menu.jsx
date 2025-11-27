@@ -214,6 +214,7 @@ const Menu = () => {
             </div>
           </header>
           <div className='option'>
+            <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
             <NavLink className='option-button2' to='/menu'>Cotizaciones</NavLink>
             <NavLink className='option-button' to="/clientes">Clientes</NavLink>
             <NavLink className='option-button' to='/productos'>Productos</NavLink>

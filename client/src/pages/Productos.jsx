@@ -144,7 +144,7 @@ const fetchProducts = async () => {
       <Sidebar />
       
         <div className="background-container-prod">
-          <header className="headerprod">
+          <header className="header">
             <div className='container-header'>
               <div className="title-container">
                 <h2 className="title-menu">GIGAFLOP</h2>
@@ -166,6 +166,7 @@ const fetchProducts = async () => {
             </div>
           </header>
           <div className='optionprod'>
+            <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
             <NavLink className='option-button' to='/menu'>Cotizaciones</NavLink>
             <NavLink className='option-button' to="/clientes">Clientes</NavLink>
             <NavLink className='option-button2' to='/productos'>Productos</NavLink>
@@ -189,6 +190,10 @@ const fetchProducts = async () => {
               }}
             />
           </div>
+          <div className='botonescontainer'>
+             
+              <button className='nc' style={{background:'white', border:'white', boxShadow:'none'}} >+ Nuevo Cliente</button>
+            </div>
         </div>
       </div>
 
