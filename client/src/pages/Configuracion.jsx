@@ -151,7 +151,7 @@ const Configuracion = () => {
               <h2 className="title-menu">GIGAFLOP</h2>
             </div>
             <div className="container-icon">
-              <i className="bi bi-person-circle custom-icon"></i>
+              <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
             </div>
           </header>
 

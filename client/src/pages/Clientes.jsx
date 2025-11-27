@@ -235,7 +235,7 @@ const Clientes = () => {
             {mensajeError && <p className="mensaje-error">{mensajeError}</p>}
           </div>
           <div className="botonescontainer">
-            <button className="reporte">Reporte</button>
+            
             <button className="nc" onClick={() => setShowRegisterForm(true)}>+ Nuevo Cliente</button>
           </div>
         </div>

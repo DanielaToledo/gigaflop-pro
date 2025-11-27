@@ -234,7 +234,7 @@ const Menu = () => {
               onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <div className='botonescontainer'>
-            <button className='reporte'>Reporte</button>
+            
             <button
               className='nc'
               onClick={() => {
