@@ -1,3 +1,4 @@
+// src/pages/Configuracion.jsx
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { NavLink } from "react-router-dom";
@@ -5,6 +6,7 @@ import Sidebar from "../components/Sidebar";
 import CompanyData from "../components/CompanyData";
 import UserTable from "../components/UserTable";
 import RegisterUser from "../components/RegisterUser";
+import EditUserModal from "../components/EditUserModal";
 import "../CSS/menu.css";
 import "../CSS/configuracion.css";
 
@@ -12,32 +14,35 @@ const Configuracion = () => {
   const [empresa, setEmpresa] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
   const [showNuevoUsuario, setShowNuevoUsuario] = useState(false);
+  const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [esExito, setEsExito] = useState(false);
   const [mensajeEmpresa, setMensajeEmpresa] = useState("");
 
+  // 👇 estados exclusivos para edición
+  const [mensajeEditar, setMensajeEditar] = useState("");
+  const [exitoEditar, setExitoEditar] = useState(false);
+
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    axios
-      .get("/api/configuracion/datos-fiscales", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        // Si la API devuelve vacío, mantenemos empresa en null
-        setEmpresa(res.data && Object.keys(res.data).length > 0 ? res.data : null);
-      })
-      .catch((err) => console.error("Error al obtener datos fiscales:", err));
+    axios.get("/api/configuracion/datos-fiscales", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((res) => {
+      setEmpresa(res.data && Object.keys(res.data).length > 0 ? res.data : null);
+    })
+    .catch((err) => console.error("Error al obtener datos fiscales:", err));
 
-    axios
-      .get("/api/configuracion/usuarios", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => setUsuarios(res.data))
-      .catch((err) => console.error("Error al obtener usuarios:", err));
+    axios.get("/api/configuracion/usuarios", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((res) => setUsuarios(res.data))
+    .catch((err) => console.error("Error al obtener usuarios:", err));
   }, [token]);
 
+  // ---------- NUEVO USUARIO ----------
   const handleOpenModal = () => {
     setShowNuevoUsuario(true);
     setMensaje("");
@@ -52,23 +57,55 @@ const Configuracion = () => {
   };
 
   const handleSubmitNuevoUsuario = (nuevoUsuario) => {
-    axios
-      .post("/api/configuracion/usuarios", nuevoUsuario, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        setUsuarios([...usuarios, { id: res.data.id, ...nuevoUsuario }]);
-        setMensaje("Usuario creado con éxito ");
-        setEsExito(true);
-        setError("");
-      })
-      .catch((err) => {
-        console.error("Error al crear usuario:", err);
-        setMensaje("No se pudo registrar el usuario. Verifique permisos o datos. ");
-        setEsExito(false);
-      });
+    axios.post("/api/configuracion/usuarios", nuevoUsuario, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((res) => {
+      setUsuarios([...usuarios, { id: res.data.id, ...nuevoUsuario }]);
+      setMensaje("Usuario creado con éxito ");
+      setEsExito(true);
+      setError("");
+    })
+    .catch((err) => {
+      console.error("Error al crear usuario:", err);
+      setMensaje("No se pudo registrar el usuario. Verifique permisos o datos. ");
+      setEsExito(false);
+    });
   };
 
+  // ---------- EDITAR USUARIO ----------
+  const handleOpenEditModal = (usuario) => {
+    setUsuarioEditando(usuario);
+    setMensajeEditar("");
+    setExitoEditar(false);
+  };
+
+  const handleCloseEditModal = () => {
+    setUsuarioEditando(null);
+    setMensajeEditar("");
+    setExitoEditar(false);
+  };
+
+  const handleSubmitEditarUsuario = (usuarioActualizado) => {
+    axios.put(`/api/configuracion/usuarios/${usuarioActualizado.id}`, usuarioActualizado, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(() => {
+      setUsuarios(prev =>
+        prev.map(u => u.id === usuarioActualizado.id ? usuarioActualizado : u)
+      );
+      setMensajeEditar("✅ Usuario actualizado correctamente");
+      setExitoEditar(true);
+      // 👇 ya no cerramos el modal automáticamente
+    })
+    .catch(err => {
+      console.error("Error al actualizar usuario:", err);
+      setMensajeEditar("❌ Error al actualizar usuario");
+      setExitoEditar(false);
+    });
+  };
+
+  // ---------- EMPRESA ----------
   const handleUpdateEmpresa = (datosEmpresa) => {
     if (!datosEmpresa) {
       setMensajeEmpresa("⚠️ Faltan rellenar campos obligatorios");
@@ -76,32 +113,30 @@ const Configuracion = () => {
       return;
     }
 
-    // 👇 Si no hay empresa en BD, usamos POST; si ya existe, usamos PUT
     const metodo = empresa ? "put" : "post";
     const url = "/api/configuracion/datos-fiscales";
 
     axios[metodo](url, datosEmpresa, {
       headers: { Authorization: `Bearer ${token}` }
     })
-      .then((res) => {
-        // Si es POST, guardamos también el id que devuelve el backend
-        const empresaConId = metodo === "post"
-          ? { ...datosEmpresa, id: res.data.id }
-          : datosEmpresa;
+    .then((res) => {
+      const empresaConId = metodo === "post"
+        ? { ...datosEmpresa, id: res.data.id }
+        : datosEmpresa;
 
-        setEmpresa(empresaConId);
-        setMensajeEmpresa(
-          metodo === "post"
-            ? "Datos fiscales creados correctamente"
-            : "Datos fiscales actualizados correctamente"
-        );
-        setEsExito(true);
-      })
-      .catch(err => {
-        console.error("Error al guardar datos fiscales:", err);
-        setMensajeEmpresa(" No se pudieron guardar los datos fiscales");
-        setEsExito(false);
-      });
+      setEmpresa(empresaConId);
+      setMensajeEmpresa(
+        metodo === "post"
+          ? "Datos fiscales creados correctamente"
+          : "Datos fiscales actualizados correctamente"
+      );
+      setEsExito(true);
+    })
+    .catch(err => {
+      console.error("Error al guardar datos fiscales:", err);
+      setMensajeEmpresa(" No se pudieron guardar los datos fiscales");
+      setEsExito(false);
+    });
   };
 
   return (
@@ -160,16 +195,15 @@ const Configuracion = () => {
               .catch(err => console.error("Error al refrescar datos fiscales:", err));
           }}
         />
-        <UserTable usuarios={usuarios} />
+        {/* 👇 la lista SIEMPRE visible */}
+        <UserTable usuarios={usuarios} onEdit={handleOpenEditModal} />
       </main>
 
       {/* MODAL NUEVO USUARIO */}
       {showNuevoUsuario && (
         <>
-          <div
-            className="position-fixed top-0 start-0 w-100 h-100"
-            style={{ backgroundColor: "rgba(128, 128, 128, 0.4)", zIndex: 1040 }}
-          ></div>
+          <div className="position-fixed top-0 start-0 w-100 h-100"
+            style={{ backgroundColor: "rgba(128, 128, 128, 0.4)", zIndex: 1040 }}></div>
 
           <div className="modal fade show" style={{ display: "block", zIndex: 1050 }} tabIndex="-1">
             <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -204,8 +238,18 @@ const Configuracion = () => {
           </div>
         </>
       )}
+
+      {/* MODAL EDITAR USUARIO */}
+      {usuarioEditando && (
+        <EditUserModal
+          usuario={usuarioEditando}
+          onClose={handleCloseEditModal}
+          onSubmit={handleSubmitEditarUsuario}
+          mensaje={mensajeEditar}
+          exito={exitoEditar}
+        />
+      )}
     </>
   );
 };
-
 export default Configuracion;

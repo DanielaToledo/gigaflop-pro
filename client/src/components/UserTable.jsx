@@ -1,6 +1,7 @@
 // Este componente representa la tabla de usuarios en el módulo de configuración
 // Muestra la lista de usuarios y sus roles, con opción de editar
 
+// src/components/UserTable.jsx
 import React from "react";
 
 const UserTable = ({ usuarios, onEdit }) => {
@@ -33,8 +34,12 @@ const UserTable = ({ usuarios, onEdit }) => {
     };
   };
 
-  // Filtrar usuarios que tengan nombre y apellido
-  const usuariosFiltrados = usuarios.filter(u => u.nombre && u.apellido);
+  // 👉 ordenar: activos primero, inactivos después
+  const usuariosOrdenados = [...(usuarios || [])].sort((a, b) => {
+    const estadoA = getEstadoLabel(a.estado) === "Activo" ? 1 : 0;
+    const estadoB = getEstadoLabel(b.estado) === "Activo" ? 1 : 0;
+    return estadoB - estadoA; // primero los 1 (activos), luego los 0 (inactivos)
+  });
 
   return (
     <section className="config-card">
@@ -60,8 +65,8 @@ const UserTable = ({ usuarios, onEdit }) => {
             </tr>
           </thead>
           <tbody>
-            {usuariosFiltrados.length > 0 ? (
-              usuariosFiltrados.map((u) => (
+            {usuariosOrdenados.length > 0 ? (
+              usuariosOrdenados.map((u) => (
                 <tr key={u.id}>
                   <td>{u.id}</td>
                   <td>{u.usuario}</td>
@@ -91,7 +96,10 @@ const UserTable = ({ usuarios, onEdit }) => {
                       title="Editar usuario"
                       onClick={() => onEdit && onEdit(u)}
                     >
-                      ✏️
+                      <i
+                        className="bi bi-pencil-square"
+                        style={{ fontSize: "1.2rem", color: "#0d6efd" }}
+                      ></i>
                     </button>
                   </td>
                 </tr>
