@@ -15,6 +15,28 @@ export const createUsuario = async (usuario) => {
   return result.insertId;
 };
 
+// actualizar usuario por parte de administradores
+export const updateUsuario = async (id, usuario) => {
+  await pool.query(
+    `UPDATE usuarios 
+     SET usuario = ?, email = ?, nombre = ?, apellido = ?, rol = ?, estado = ? 
+     WHERE id = ?`,
+    [
+      usuario.usuario,
+      usuario.email,
+      usuario.nombre,
+      usuario.apellido,
+      usuario.rol,
+      usuario.estado,
+      id
+    ]
+  );
+};
+
+
+
+
+
 // Datos fiscales
 export const getDatosFiscales = async () => {
   const [rows] = await pool.query("SELECT * FROM datos_fiscales LIMIT 1");

@@ -1,3 +1,7 @@
+//este componente maneja el formulario de registro de usuario
+//en configuracion.jsx tenemos el boton registrar usuario que abre un modal con este formulario
+
+
 import React, { useState } from "react";
 
 const RegisterUser = ({ onSubmit }) => {
