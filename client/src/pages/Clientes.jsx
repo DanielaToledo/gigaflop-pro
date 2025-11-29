@@ -203,6 +203,7 @@ const Clientes = () => {
           </header>
 
           <div className="option">
+            <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
             <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
             <NavLink className="option-button2" to="/clientes">Clientes</NavLink>
             <NavLink className="option-button" to="/productos">Productos</NavLink>
@@ -234,7 +235,7 @@ const Clientes = () => {
             {mensajeError && <p className="mensaje-error">{mensajeError}</p>}
           </div>
           <div className="botonescontainer">
-            <button className="reporte">Reporte</button>
+            
             <button className="nc" onClick={() => setShowRegisterForm(true)}>+ Nuevo Cliente</button>
           </div>
         </div>

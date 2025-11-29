@@ -8,6 +8,7 @@ import Productos from "../pages/Productos";
 import NuevaCotizacion from "../pages/NuevaCotizacion";
 import ResumenCotizacion from "../pages/ResumenCotizacion";
 import Configuracion from "../pages/Configuracion";
+import Dashboard from "../pages/Dashboard";
 
 
 
@@ -24,6 +25,10 @@ export const router = createBrowserRouter([
   {
     element: <RutaProtegida />, // rutas protegidas
     children: [
+      {
+        path: '/dashboard',
+        element: <Dashboard />
+      },
       {
         path: '/menu',
         element: <Menu />,
@@ -52,6 +57,7 @@ export const router = createBrowserRouter([
         path: '/configuracion',
         element: <Configuracion />
       }
+      
 
 
     ],
