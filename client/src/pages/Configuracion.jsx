@@ -171,9 +171,13 @@ const Configuracion = () => {
           <h1 className="cotizatitle"  >Configuración</h1>
           
         </div>
-        <button type="button" className="btn nc config-topbar-btn"  >
-            + Nuevo usuario
-          </button>
+       <button
+  type="button"
+  className="btn nc config-topbar-btn"
+  onClick={handleOpenModal}
+>
+  + Nuevo usuario
+</button> 
       </section>
       </div>
 
