@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { creatAccesToken, TOKEN_SECRET } from '../config/jwt.js';
 import { findUserByEmail, createUser, findUserById } from '../models/UsuariosModels.js';
 
+
 // Registrar usuario
 export const register = async (req, res) => {
   const { usuario, email, nombre, apellido, password, rol = 'Vendedor', estado } = req.body;
@@ -15,7 +16,7 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     //const rolesPermitidos = ['vendedor', 'administrador', 'gerente'];
     //const rolFinal = rolesPermitidos.includes(rol?.toLowerCase()) ? rol.toLowerCase() : 'vendedor';
-    // 🔁 Delegás todo al modelo
+    //  Delegás todo al modelo
     const userId = await createUser(
       usuario,
       email,

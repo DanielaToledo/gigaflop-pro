@@ -1,5 +1,8 @@
 // src/models/ConfiguracionModel.js
 import pool from '../config/db.js';
+import bcrypt from "bcrypt";
+
+// Usuarios: 
 
 export const getUsuarios = async () => {
   const [rows] = await pool.query("SELECT * FROM usuarios");
@@ -7,13 +10,29 @@ export const getUsuarios = async () => {
 };
 
 //crear usuario por parte de administradores
+// Crear usuario por parte de administradores
 export const createUsuario = async (usuario) => {
+  // Hashear la contraseña antes de guardar
+  const hashedPassword = await bcrypt.hash(usuario.password, 10);
+
   const [result] = await pool.query(
     "INSERT INTO usuarios (usuario, email, password, nombre, apellido, rol, estado) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [usuario.usuario, usuario.email, usuario.password, usuario.nombre, usuario.apellido, usuario.rol, usuario.estado]
+    [
+      usuario.usuario,
+      usuario.email,
+      hashedPassword, // 👈 ahora se guarda el hash
+      usuario.nombre,
+      usuario.apellido,
+      usuario.rol,
+      usuario.estado
+    ]
   );
+
   return result.insertId;
 };
+
+
+
 
 // actualizar usuario por parte de administradores
 export const updateUsuario = async (id, usuario) => {

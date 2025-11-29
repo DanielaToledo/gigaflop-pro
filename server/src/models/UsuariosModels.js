@@ -1,4 +1,9 @@
 import pool from '../config/db.js';
+import bcrypt from "bcrypt";
+
+
+
+// Buscar usuario por email
 
 // Buscar usuario por email
 export const findUserByEmail = async (email) => {
@@ -6,18 +11,20 @@ export const findUserByEmail = async (email) => {
   return rows[0];
 };
 
+
 // Crear usuario
-export const createUser = async (usuario, email, password,nombre, apellido, rol, estado = true) => {
-  //const rolesPermitidos = ['vendedor', 'administrador', 'gerente'];
-  //const rolSeguro = rolesPermitidos.includes(rol?.toLowerCase()) ? rol.toLowerCase() : 'vendedor';
+// Crear usuario (con hash de contraseña)
+export const createUser = async (usuario, email, password, nombre, apellido, rol, estado = true) => {
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const [result] = await pool.query(
-    'INSERT INTO usuarios (usuario, email, password,nombre, apellido, rol, estado) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [usuario, email, password, nombre, apellido, rol, estado]
+    'INSERT INTO usuarios (usuario, email, password, nombre, apellido, rol, estado) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [usuario, email, hashedPassword, nombre, apellido, rol, estado]
   );
 
-  const userId = result.insertId;
-  //const legajo = userId; // legajo único basado en el ID del usuario
+  return result.insertId;
+};
+
 
 
   // Si el rol es vendedor, insertarlo también en la tabla vendedores
@@ -28,17 +35,14 @@ export const createUser = async (usuario, email, password,nombre, apellido, rol,
   //);
 
 
-
-  return userId;
-};
-
 // Buscar usuario por ID
 export const findUserById = async (id) => {
   const [rows] = await pool.query(
     `SELECT id, usuario, email, nombre, apellido, rol, estado
-FROM usuarios
-WHERE id = ?`,
+     FROM usuarios
+     WHERE id = ?`,
     [id]
   );
   return rows[0];
 };
+
