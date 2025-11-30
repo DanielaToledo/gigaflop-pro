@@ -590,6 +590,41 @@ async obtenerTodas() {
   return rows;
 }
 
+// Devuelve todas las cotizaciones con productos y marcas (solo para dashboard)
+async obtenerTodasParaDashboard() {
+  const [rows] = await this.db.query(
+    `SELECT
+       c.id,
+       c.numero_cotizacion,
+       c.fecha,
+       c.vigencia_hasta,
+       c.observaciones,
+       e.id AS estado_id,
+       e.nombre AS estado_nombre,
+       e.es_final AS estado_es_final,
+       e.requiere_vencimiento AS estado_requiere_vencimiento,
+       cl.razon_social AS cliente_nombre,
+       u.nombre AS usuario_nombre,
+       ct.nombre_contacto AS contacto_nombre,
+       ct.apellido AS contacto_apellido,
+       GROUP_CONCAT(p.detalle SEPARATOR ', ') AS productos,
+       GROUP_CONCAT(p.marca SEPARATOR ', ') AS marcas,
+       COALESCE(SUM(dp.total_iva_incluido), 0) AS total
+     FROM cotizaciones c
+     LEFT JOIN estados e ON c.id_estado = e.id
+     LEFT JOIN cliente cl ON c.id_cliente = cl.id
+     LEFT JOIN usuarios u ON c.id_usuario = u.id
+     LEFT JOIN contactos ct ON c.id_contacto = ct.id
+     LEFT JOIN detalle_cotizacion dp ON c.id = dp.id_cotizacion
+     LEFT JOIN productos p ON dp.id_producto = p.id
+     GROUP BY c.id
+     ORDER BY c.fecha DESC`
+  );
+
+  return rows;
+}
+
+
 
 
 }

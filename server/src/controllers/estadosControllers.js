@@ -15,12 +15,26 @@ function cacheClear() {
   CACHE.byName.clear();
 }
 
+function normalizarEstadoNombre(nombre) {
+  const n = nombre?.toLowerCase();
+  if (n === 'finalizada_aceptada') return 'Aprobada';
+  if (n === 'finalizada_rechazada') return 'Rechazada';
+  if (n === 'pendiente') return 'Pendiente';
+  if (n === 'vencida') return 'Vencida';
+  if (n === 'borrador') return 'Borrador';
+  return nombre;
+}
+
 export async function listarEstados(req, res) {
   const db = req.app.get('db');
   const model = new EstadoModel(db);
   try {
     const rows = await model.listar();
-    res.json(rows);
+    const normalizados = rows.map(r => ({
+      ...r,
+      nombre: normalizarEstadoNombre(r.nombre)
+    }));
+    res.json(normalizados);
   } catch (err) {
     console.error('Error listarEstados:', err);
     res.status(500).json({ error: 'Error al listar estados' });
@@ -34,6 +48,7 @@ export async function obtenerEstado(req, res) {
   try {
     const estado = await model.obtenerPorId(id);
     if (!estado) return res.status(404).json({ error: 'Estado no encontrado' });
+    estado.nombre = normalizarEstadoNombre(estado.nombre);
     res.json(estado);
   } catch (err) {
     console.error('Error obtenerEstado:', err);
@@ -44,7 +59,7 @@ export async function obtenerEstado(req, res) {
 export async function crearEstado(req, res) {
   const db = req.app.get('db');
   const model = new EstadoModel(db);
-  const { nombre, descripcion, es_final = 0, requiere_vencimiento = 0, color_dashboard = null, orden_visual = 0 } = req.body;
+  let { nombre, descripcion, es_final = 0, requiere_vencimiento = 0, color_dashboard = null, orden_visual = 0 } = req.body;
 
   if (!req.user || !req.user.isAdmin) {
     return res.status(403).json({ error: 'Permiso denegado' });
@@ -54,12 +69,15 @@ export async function crearEstado(req, res) {
     return res.status(400).json({ error: 'nombre es obligatorio' });
   }
 
+  // 🔹 Normalizar antes de guardar
+  nombre = normalizarEstadoNombre(nombre.trim());
+
   try {
-    const existingId = await model.obtenerIdPorNombre(nombre.trim());
+    const existingId = await model.obtenerIdPorNombre(nombre);
     if (existingId) return res.status(409).json({ error: 'Ya existe un estado con ese nombre' });
 
-    const id = await model.crear({ nombre: nombre.trim(), descripcion, es_final, requiere_vencimiento, color_dashboard, orden_visual });
-    cacheSetNombre(nombre.trim(), id);
+    const id = await model.crear({ nombre, descripcion, es_final, requiere_vencimiento, color_dashboard, orden_visual });
+    cacheSetNombre(nombre, id);
     res.status(201).json({ id });
   } catch (err) {
     console.error('Error crearEstado:', err);
@@ -81,9 +99,10 @@ export async function actualizarEstado(req, res) {
     const exist = await model.obtenerPorId(id);
     if (!exist) return res.status(404).json({ error: 'Estado no encontrado' });
 
-    if (payload.nombre && payload.nombre !== exist.nombre) {
+    if (payload.nombre) {
+      payload.nombre = normalizarEstadoNombre(payload.nombre.trim());
       const same = await model.obtenerIdPorNombre(payload.nombre);
-      if (same) return res.status(409).json({ error: 'Ya existe un estado con ese nombre' });
+      if (same && same !== id) return res.status(409).json({ error: 'Ya existe un estado con ese nombre' });
     }
 
     await model.actualizar(id, payload);

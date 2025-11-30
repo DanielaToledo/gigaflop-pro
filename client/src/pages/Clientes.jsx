@@ -7,6 +7,7 @@
 //Se puede ver un cliente (se abre un modal con la info completa del cliente)
 
 import React, { useEffect, useState } from 'react';
+import { useUser } from '../context/UserContext';
 import axios from 'axios';
 import { NavLink } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
@@ -17,6 +18,7 @@ import '../CSS/clientes.css';
 import ModalVistaPreviaCliente from '../components/ModalVistaPreviaCliente';
 
 const Clientes = () => {
+  const { usuario } = useUser();
   const [clientes, setClientes] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [mensajeError, setMensajeError] = useState('');
@@ -202,13 +204,30 @@ const Clientes = () => {
             </div>
           </header>
 
-          <div className="option">
-            <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
-            <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
-            <NavLink className="option-button2" to="/clientes">Clientes</NavLink>
-            <NavLink className="option-button" to="/productos">Productos</NavLink>
-            <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
-          </div>
+   <div className="option">
+  {/* Dashboard: admin y gerente */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
+    <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+  )}
+
+  {/* Cotizaciones: todos */}
+  <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+
+  {/* Clientes y Productos: solo vendedor y admin */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
+    <>
+      <NavLink className="option-button" to="/clientes">Clientes</NavLink>
+      <NavLink className="option-button" to="/productos">Productos</NavLink>
+    </>
+  )}
+
+  {/* Configuración: solo admin */}
+  {usuario?.rol === "administrador" && (
+    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+  )}
+</div>
+
+      
         </div>
         {showRegisterForm && (
           <div className="register-modal-overlay" onClick={() => setShowRegisterForm(false)}>

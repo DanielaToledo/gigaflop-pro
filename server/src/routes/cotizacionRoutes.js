@@ -5,14 +5,14 @@ import {
   obtenerCotizacionesBorrador,
   finalizarCotizacion, verCotizacionCompleta, obtenerCotizacionBorradorPorId,
   actualizarCotizacionBorrador, marcarCotizacionComoPendiente,
-  actualizarEstado, obtenerTodasLasCotizaciones
+  actualizarEstado, obtenerTodasLasCotizaciones, listarCotizacionesDashboard
 } from '../controllers/cotizacionController.js';
 import * as cotizacionController from '../controllers/cotizacionController.js';
 
 const router = Router();
 
 router.post('/iniciar', authRequired,iniciarCotizacion); //crea cotización con cliente y productos completos.
-router.get('/todas/:id_usuario', obtenerTodasLasCotizaciones);  
+router.get("/todas/:id_usuario", authRequired, obtenerTodasLasCotizaciones); //muestra todas las cotizaciones de un usuario
 
 // Ruta nueva: usa el token y el rol para decidir qué devolver
 router.get('/todas', authRequired, obtenerTodasLasCotizaciones);
@@ -28,6 +28,10 @@ router.put('/:id/actualizar', authRequired, actualizarCotizacionBorrador); // ac
 router.put('/estado/pendiente/:id', marcarCotizacionComoPendiente);
 router.put('/estado/:id', actualizarEstado);
 router.post('/alerta-vencimiento/:id', cotizacionController.enviarAlertaVencimiento);
+// Nueva ruta para dashboard
+router.get('/dashboard', listarCotizacionesDashboard);
+
+
 
 
 

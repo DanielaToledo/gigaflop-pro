@@ -1,5 +1,6 @@
 :root{--brand:#4285f4;--bg:#f6f8fb;--card:#fff;--border:#d7dce3;--ink:#333;
---kpi-blue:#4285f4;--kpi-green:#2e7d32;--kpi-red:#d32f2f;--kpi-yellow:#f9a825}
+--kpi-blue:#4285f4;--kpi-green:#2e7d32;--kpi-red:#d32f2f;--kpi-yellow:#f9a825;--kpi-gray:#6c757d; /* nuevo color gris */
+}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;font-family:Roboto,system-ui,Arial,sans-serif;background:var(--bg);color:var(--ink)}
 .wrap{width:min(1200px,92%);margin:0 auto}
@@ -20,10 +21,21 @@ html,body{margin:0;height:100%;font-family:Roboto,system-ui,Arial,sans-serif;bac
 
 .subbar{background-image:linear-gradient(to right,white,white,white,#a7a7b19c,#7e7c7c,black)}
 .subbar .wrap{padding:16px 0}
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0}
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin: 16px 0;
+}
 .kpi-card{border-radius:16px;color:#fff;padding:16px;box-shadow:5px 5px 15px #c1c1c5}
 .kpi--blue{background:var(--kpi-blue)}.kpi--green{background:var(--kpi-green)}.kpi--red{background:var(--kpi-red)}.kpi--yellow{background:var(--kpi-yellow);color:#111}
 .kpi-value{font-size:2rem;font-weight:800;margin:6px 0 4px}
+.kpi--gray {
+  background: var(--kpi-gray);
+  color: #fff; /* texto blanco para contraste */
+}
+
+
 
 .filters{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin:10px 0 14px;box-shadow:5px 5px 15px #c1c1c5}
 .filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
@@ -41,3 +53,41 @@ select,input{background:#fff;border:1px solid var(--border);border-radius:12px;p
 .badge.warn{background:#fff6e6;color:#c98a12;border-color:#ffe7b8}
 .badge.danger{background:#ffeceb;color:#d32f2f;border-color:#ffd1cd}
 .pagination{display:flex;justify-content:center;align-items:center;gap:10px;padding:12px;border-top:1px solid var(--border)}
+
+
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: .75rem;
+  font-weight: 600;
+  display: inline-block;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Estados alineados con las cards */
+.badge.ok {
+  background: var(--kpi-green);
+  color: #fff;
+}
+
+.badge.warn {
+  background: var(--kpi-yellow);
+  color: #111;
+}
+
+.badge.danger {
+  background: var(--kpi-red);
+  color: #fff;
+}
+
+.badge.expired {
+  background: var(--kpi-gray);
+  color: #fff;
+}
+
+.badge.neutral {
+  background: var(--kpi-blue);
+  color: #fff;
+}

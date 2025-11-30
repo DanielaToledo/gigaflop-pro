@@ -486,22 +486,37 @@ export async function finalizarCotizacion(req, res) {
 }
 
 // Obtener todas las cotizaciones, con filtro por rol de usuario (administrador o normal)
+
 export async function obtenerTodasLasCotizaciones(req, res) {
-  const db = req.app.get('db');
+  const db = req.app.get("db");
   const cotizacionModel = new Cotizacion(db);
 
   try {
+    // Actualizamos estados vencidos antes de devolver resultados
     await cotizacionModel.actualizarVencidas();
+
+    const rol = req.user?.rol?.toLowerCase();
+    const idUsuarioToken = req.user?.id;
+    const idUsuarioParam = req.params.id_usuario;
 
     let cotizaciones;
 
-    if (req.user?.rol === "administrador" || req.user?.rol === "gerente") {
-      // Admin y gerente ven todas
-      cotizaciones = await cotizacionModel.obtenerTodas();
+    if (rol === "administrador" || rol === "gerente") {
+      // Admin y gerente pueden ver todas o filtrar por usuario si se pasa el parámetro
+      if (idUsuarioParam) {
+        cotizaciones = await cotizacionModel.obtenerTodasPorUsuario(idUsuarioParam);
+      } else {
+        cotizaciones = await cotizacionModel.obtenerTodas();
+      }
+    } else if (rol === "vendedor") {
+      // Vendedor solo puede ver las suyas
+      const idFinal = idUsuarioParam || idUsuarioToken;
+      if (parseInt(idFinal) !== parseInt(idUsuarioToken)) {
+        return res.status(403).json({ error: "Acceso denegado" });
+      }
+      cotizaciones = await cotizacionModel.obtenerTodasPorUsuario(idFinal);
     } else {
-      // Vendedor solo ve las suyas
-      const idUsuario = req.params.id_usuario || req.user?.id;
-      cotizaciones = await cotizacionModel.obtenerTodasPorUsuario(idUsuario);
+      return res.status(403).json({ error: "Rol no autorizado" });
     }
 
     res.json(cotizaciones);
@@ -510,8 +525,6 @@ export async function obtenerTodasLasCotizaciones(req, res) {
     res.status(500).json({ error: "Error al obtener todas las cotizaciones" });
   }
 }
-
-
 
 
 // Devuelve toda la información de una cotización (cabecera + productos + condiciones)
@@ -1075,3 +1088,16 @@ export async function enviarAlertaVencimiento(req, res) {
   }
 }
 
+// controllers/cotizacionControllers.js
+export async function listarCotizacionesDashboard(req, res) {
+  const db = req.app.get('db');
+  const model = new Cotizacion(db);
+
+  try {
+    const rows = await model.obtenerTodasParaDashboard();
+    res.json(rows);
+  } catch (err) {
+    console.error('Error listarCotizacionesDashboard:', err);
+    res.status(500).json({ error: 'Error al listar cotizaciones para dashboard' });
+  }
+}
