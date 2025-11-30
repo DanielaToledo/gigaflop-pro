@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from 'react';
+import { useUser } from "../context/UserContext";
 import { NavLink } from 'react-router-dom';
 import '../CSS/productos.css';
 import '../CSS/dashboard.css';
 import Sidebar from '../components/Sidebar';
+import axios from "axios";
 
 // utilidades
 function usd(n) {
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2
-  });
+  return typeof n === 'number'
+    ? n.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+      })
+    : '—';
 }
 
 // datos mock
@@ -44,6 +48,10 @@ function mock() {
 }
 
 const Dashboard = () => {
+  const { usuario } = useUser();
+
+
+
   // estado global
   const [all, setAll] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -60,12 +68,23 @@ const Dashboard = () => {
   const [hasta, setHasta] = useState('');
   const [buscar, setBuscar] = useState('');
 
-  // cargar datos mock
-  useEffect(() => {
-    const data = mock();
-    setAll(data);
-    setFiltered(data);
-  }, []);
+
+
+// cargar datos
+useEffect(() => {
+  const token = localStorage.getItem("token");
+
+  axios.get("/api/cotizaciones/todas", {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  .then(res => {
+    setAll(res.data);
+    setFiltered(res.data);
+  })
+  .catch(err => console.error("Error al obtener cotizaciones:", err));
+}, []);
+
+
 
   // KPIs
   const kpiCot = all.length;
@@ -125,13 +144,28 @@ const Dashboard = () => {
               <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon"></i></label>
             </div>
           </header>
-          <div className='optionprod'>
-            <NavLink className="option-button2" to="/dashboard">Dashboard</NavLink>
-            <NavLink className='option-button' to='/menu'>Cotizaciones</NavLink>
-            <NavLink className='option-button' to="/clientes">Clientes</NavLink>
-            <NavLink className='option-button' to='/productos'>Productos</NavLink>
-            <NavLink className='option-button' to='/configuracion'>Configuración</NavLink>
-          </div>
+        <div className="option">
+  {/* Dashboard: admin y gerente */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
+    <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+  )}
+
+  {/* Cotizaciones: todos */}
+  <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+
+  {/* Clientes y Productos: solo vendedor y admin */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
+    <>
+      <NavLink className="option-button" to="/clientes">Clientes</NavLink>
+      <NavLink className="option-button" to="/productos">Productos</NavLink>
+    </>
+  )}
+
+  {/* Configuración: solo admin */}
+  {usuario?.rol === "administrador" && (
+    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+  )}
+</div>  
         </div>
         <div className='menu-superior-prod'>
           <div className='cotizatitlecontainer'>

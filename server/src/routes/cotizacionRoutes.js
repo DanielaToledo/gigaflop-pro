@@ -12,7 +12,7 @@ import * as cotizacionController from '../controllers/cotizacionController.js';
 const router = Router();
 
 router.post('/iniciar', authRequired,iniciarCotizacion); //crea cotización con cliente y productos completos.
-router.get('/todas/:id_usuario', obtenerTodasLasCotizaciones);  
+router.get("/todas/:id_usuario", authRequired, obtenerTodasLasCotizaciones); //muestra todas las cotizaciones de un usuario
 
 // Ruta nueva: usa el token y el rol para decidir qué devolver
 router.get('/todas', authRequired, obtenerTodasLasCotizaciones);

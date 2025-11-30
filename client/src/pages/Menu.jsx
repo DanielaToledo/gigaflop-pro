@@ -11,6 +11,13 @@ import ModalVistaPreviaCot from '../components/ModalVistaPreviaCot.jsx';
 
 const Menu = () => {
   const { usuario, cargando } = useUser(); // ✅ incluye cargando
+  useEffect(() => {
+  console.log("Rol del usuario:", usuario?.rol);
+}, [usuario]);
+
+
+  
+  
   const navigate = useNavigate();
   const [cotizaciones, setCotizaciones] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -197,30 +204,50 @@ const Menu = () => {
 
   if (cargando) return <p className="text-center mt-5">Cargando usuario...</p>; // ✅ loader
 
-  return (
+    return (
     <>
-
       <div className="encabezado-fijo">
         <Sidebar />
         <div className="background-container-menu">
           <header className="header">
-
             <div className="title-container">
               <h2 className="title-menu">GIGAFLOP</h2>
             </div>
-
             <div className='container-icon'>
-              <label htmlFor="btn-menu"><i className="bi bi-person-circle custom-icon " ></i></label>
+              <label htmlFor="btn-menu">
+                <i className="bi bi-person-circle custom-icon"></i>
+              </label>
             </div>
           </header>
-          <div className='option'>
-            <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
-            <NavLink className='option-button2' to='/menu'>Cotizaciones</NavLink>
-            <NavLink className='option-button' to="/clientes">Clientes</NavLink>
-            <NavLink className='option-button' to='/productos'>Productos</NavLink>
-            <NavLink className='option-button' to='/configuracion'>Configuración</NavLink>
-          </div>
+
+         <div className="option">
+  {/* Dashboard: admin y gerente */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
+    <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+  )}
+
+  {/* Cotizaciones: todos */}
+  <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+
+  {/* Clientes y Productos: solo vendedor y admin */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
+    <>
+      <NavLink className="option-button" to="/clientes">Clientes</NavLink>
+      <NavLink className="option-button" to="/productos">Productos</NavLink>
+    </>
+  )}
+
+  {/* Configuración: solo admin */}
+  {usuario?.rol === "administrador" && (
+    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+  )}
+</div>
         </div>
+
+
+
+
+
         <div className='menu-superior'>
           <div className='cotizatitlecontainer'>
             <h3 className='cotizatitle'>Cotizaciones</h3>

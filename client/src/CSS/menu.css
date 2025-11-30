@@ -208,16 +208,27 @@
   font-weight: bold;
   
 }
-
-.nombre-sidebar{
-  color: #4285f4;
-  margin-left: 50px;
-
+/* Estilos para el bloque de usuario en el Sidebar */
+/* Estilos para el bloque de usuario en el Sidebar */
+.usuario-sidebar {
+  text-align: center;
+  margin-bottom: 2rem;
 }
 
+.nombre-sidebar {
+  font-size: 1.8rem;       /* nombre más grande */
+  font-weight: 700;
+  color: #4285f4;
+  margin-bottom: 1rem;
+}
 
-
-
+.rol-badge {
+  font-size: 1.2rem;       /* letras más grandes */
+  padding: 0.6em 1.5em;    /* más ancho para efecto pill */
+  border-radius: 50px;     /* pill shape */
+  display: inline-block;
+  margin-bottom: 1.5rem;
+}
 
 
 .tabla-cotizaciones {
@@ -365,4 +376,5 @@
   font-weight: bold;
   border-color: #4285f4;
 }
+
 

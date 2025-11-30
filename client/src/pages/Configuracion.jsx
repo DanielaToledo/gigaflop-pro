@@ -1,5 +1,7 @@
 // src/pages/Configuracion.jsx
 import React, { useState, useEffect } from "react";
+import { useUser } from '../context/UserContext';
+
 import axios from "axios";
 import { NavLink } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
@@ -11,6 +13,7 @@ import "../CSS/menu.css";
 import "../CSS/configuracion.css";
 
 const Configuracion = () => {
+  const { usuario } = useUser();
   const [empresa, setEmpresa] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
   const [showNuevoUsuario, setShowNuevoUsuario] = useState(false);
@@ -155,13 +158,28 @@ const Configuracion = () => {
             </div>
           </header>
 
-          <div className="option" >
-            <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
-            <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
-            <NavLink className="option-button" to="/clientes">Clientes</NavLink>
-            <NavLink className="option-button" to="/productos">Productos</NavLink>
-            <NavLink className="option-button2" to="/configuracion">Configuración</NavLink>
-          </div>
+         <div className="option">
+  {/* Dashboard: admin y gerente */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
+    <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+  )}
+
+  {/* Cotizaciones: todos */}
+  <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+
+  {/* Clientes y Productos: solo vendedor y admin */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
+    <>
+      <NavLink className="option-button" to="/clientes">Clientes</NavLink>
+      <NavLink className="option-button" to="/productos">Productos</NavLink>
+    </>
+  )}
+
+  {/* Configuración: solo admin */}
+  {usuario?.rol === "administrador" && (
+    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+  )}
+</div> 
         </div>
       
 

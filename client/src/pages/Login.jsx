@@ -12,24 +12,32 @@ const Login = () => {
 
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
-    try {
-      const res = await axios.post(
-        '/api/usuarios/login',
-        { email, password },
-        { withCredentials: true }
-      );
-      const usuario = res.data.usuario;
+ const handleLogin = async () => {
+  try {
+    const res = await axios.post(
+      '/api/usuarios/login',
+      { email, password },
+      { withCredentials: true }
+    );
 
-      setUsuario(res.data.usuario);
-      localStorage.setItem('usuario', JSON.stringify(usuario));
+    const usuario = res.data.usuario;
 
-      navigate('/menu');
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Error de conexión';
-      setError(msg);
-    }
-  };
+    // Guardar usuario en contexto
+    setUsuario(usuario);
+
+    // Guardar en localStorage
+    localStorage.setItem('usuario', JSON.stringify(usuario));
+    localStorage.setItem('token', res.data.token);   // 👈 token para llamadas al backend
+    localStorage.setItem('rol', usuario.rol);        // 👈 rol para controlar accesos
+    localStorage.setItem('id_usuario', usuario.id);  // 👈 id para cotizaciones propias
+
+    // Redirigir
+    navigate('/menu');
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Error de conexión';
+    setError(msg);
+  }
+}; 
 
   return (
     <>

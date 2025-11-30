@@ -1,5 +1,6 @@
 // ...importaciones
 import React, { useEffect, useState } from 'react';
+import { useUser } from '../context/UserContext';
 import axios from 'axios';
 import { NavLink, useNavigate } from 'react-router-dom';
 import '../CSS/productos.css';
@@ -8,6 +9,7 @@ import CardProductos from '../components/CardProductos';
 
 
 const Productos = () => {
+  const { usuario } = useUser();
   const [products, setProducts] = useState([]);
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
@@ -38,42 +40,42 @@ const Productos = () => {
     localStorage.setItem('gigaflop_cart', JSON.stringify(cart));
   }, [cart]);
 
-const fetchProducts = async () => {
-  setLoading(true);
-  setError(null);
+  const fetchProducts = async () => {
+    setLoading(true);
+    setError(null);
 
-  try {
-    let res;
+    try {
+      let res;
 
-    if (searchTerm.trim()) {
-      console.log('🔍 Buscando productos con término:', searchTerm);
-      res = await axios.get(`/api/productos/buscar/${searchTerm}`, { withCredentials: true });
-    } else {
-      console.log('📦 Cargando todos los productos');
-      res = await axios.get('/api/productos', { withCredentials: true });
+      if (searchTerm.trim()) {
+        console.log('🔍 Buscando productos con término:', searchTerm);
+        res = await axios.get(`/api/productos/buscar/${searchTerm}`, { withCredentials: true });
+      } else {
+        console.log('📦 Cargando todos los productos');
+        res = await axios.get('/api/productos', { withCredentials: true });
+      }
+
+      const data = res.data;
+
+      console.log('📥 Respuesta del backend:', data);
+
+      const productosNormalizados = (data.productos || []).map(p => ({
+        ...p,
+        imagen_url: p.image || p.imagen_url || 'default.jpg',
+        _id: p._id || p.id // para asegurar clave única
+      }));
+
+      console.log('✅ Productos normalizados:', productosNormalizados);
+
+      setProducts(productosNormalizados);
+      setTotal(data.total || productosNormalizados.length);
+    } catch (err) {
+      setError('Error al cargar los productos.');
+      console.error('❌ Error al obtener productos:', err);
+    } finally {
+      setLoading(false);
     }
-
-    const data = res.data;
-
-    console.log('📥 Respuesta del backend:', data);
-
-    const productosNormalizados = (data.productos || []).map(p => ({
-      ...p,
-      imagen_url: p.image || p.imagen_url || 'default.jpg',
-      _id: p._id || p.id // para asegurar clave única
-    }));
-
-    console.log('✅ Productos normalizados:', productosNormalizados);
-
-    setProducts(productosNormalizados);
-    setTotal(data.total || productosNormalizados.length);
-  } catch (err) {
-    setError('Error al cargar los productos.');
-    console.error('❌ Error al obtener productos:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
   useEffect(() => {
@@ -140,9 +142,9 @@ const fetchProducts = async () => {
 
   return (
     <>
-    <div className="encabezado-fijo">
-      <Sidebar />
-      
+      <div className="encabezado-fijo">
+        <Sidebar />
+
         <div className="background-container-prod">
           <header className="header">
             <div className='container-header'>
@@ -165,14 +167,33 @@ const fetchProducts = async () => {
               </div>
             </div>
           </header>
-          <div className='optionprod'>
-            <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
-            <NavLink className='option-button' to='/menu'>Cotizaciones</NavLink>
-            <NavLink className='option-button' to="/clientes">Clientes</NavLink>
-            <NavLink className='option-button2' to='/productos'>Productos</NavLink>
-            <NavLink className='option-button' to='/configuracion'>Configuración</NavLink>
-          </div>
+      <div className="option">
+  {/* Dashboard: admin y gerente */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
+    <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+  )}
+
+  {/* Cotizaciones: todos */}
+  <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+
+  {/* Clientes y Productos: solo vendedor y admin */}
+  {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
+    <>
+      <NavLink className="option-button" to="/clientes">Clientes</NavLink>
+      <NavLink className="option-button" to="/productos">Productos</NavLink>
+    </>
+  )}
+
+  {/* Configuración: solo admin */}
+  {usuario?.rol === "administrador" && (
+    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+  )}
+</div>
         </div>
+
+
+
+
 
         <div className='menu-superior-prod'>
           <div className='cotizatitlecontainer'>
@@ -191,59 +212,58 @@ const fetchProducts = async () => {
             />
           </div>
           <div className='botonescontainer'>
-             
-              <button className='nc' style={{background:'white', border:'white', boxShadow:'none'}} >+ Nuevo Cliente</button>
-            </div>
+
+            <button className='nc' style={{ background: 'white', border: 'white', boxShadow: 'none' }} >+ Nuevo Cliente</button>
+          </div>
         </div>
       </div>
 
 
-    
-     <div
-  className={`cart-modal-wrapper ${
-    showCart ? 'fade-in' : ocultarCart ? 'fade-out' : 'd-none'
-  }`}
->
-  <div className="cart-modal">
-    <button className="btn-close float-end" onClick={cerrarCartConTransicion}></button>
-    <h5 className="cart-title">🧾 Tu Cotización</h5>
 
-    {cart.length === 0 ? (
-      <p className="text-muted">No hay productos seleccionados.</p>
-    ) : (
-      <>
-        <ul className="cart-list">
-          {cart.map(item => (
-            <li key={item.id} className="cart-item">
-              <span className="fw-bold">{item.detalle}</span>
-              <div className="quantity-controls">
-                <button onClick={() => handleDecrement(item.id)}>-</button>
-                <span>{item.quantity}</span>
-                <button onClick={() => handleIncrement(item.id)}>+</button>
-                <button className="remove-btn" onClick={() => handleRemove(item.id)}>✕</button>
-              </div>
-            </li>
-          ))}
-        </ul>
+      <div
+        className={`cart-modal-wrapper ${showCart ? 'fade-in' : ocultarCart ? 'fade-out' : 'd-none'
+          }`}
+      >
+        <div className="cart-modal">
+          <button className="btn-close float-end" onClick={cerrarCartConTransicion}></button>
+          <h5 className="cart-title">🧾 Tu Cotización</h5>
 
-        <button
-          className="btn btn-success finalizar-btn"
-          onClick={() => navigate('/nuevacotizacion', { state: { carrito: cart } })}
-          disabled={cart.length === 0}
-        >
-          <i className="bi bi-file-earmark-plus me-2"></i> Generar cotización
-        </button>
+          {cart.length === 0 ? (
+            <p className="text-muted">No hay productos seleccionados.</p>
+          ) : (
+            <>
+              <ul className="cart-list">
+                {cart.map(item => (
+                  <li key={item.id} className="cart-item">
+                    <span className="fw-bold">{item.detalle}</span>
+                    <div className="quantity-controls">
+                      <button onClick={() => handleDecrement(item.id)}>-</button>
+                      <span>{item.quantity}</span>
+                      <button onClick={() => handleIncrement(item.id)}>+</button>
+                      <button className="remove-btn" onClick={() => handleRemove(item.id)}>✕</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
 
-        <button
-          className="btn btn-outline-danger finalizar-btn mt-2"
-          onClick={() => setCart([])}
-        >
-          <i className="bi bi-trash me-2"></i> Cancelar carrito
-        </button>
-      </>
-    )}
-  </div>
-</div>
+              <button
+                className="btn btn-success finalizar-btn"
+                onClick={() => navigate('/nuevacotizacion', { state: { carrito: cart } })}
+                disabled={cart.length === 0}
+              >
+                <i className="bi bi-file-earmark-plus me-2"></i> Generar cotización
+              </button>
+
+              <button
+                className="btn btn-outline-danger finalizar-btn mt-2"
+                onClick={() => setCart([])}
+              >
+                <i className="bi bi-trash me-2"></i> Cancelar carrito
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
       <div className="menuboxprod">
         <div className="productos-container">
