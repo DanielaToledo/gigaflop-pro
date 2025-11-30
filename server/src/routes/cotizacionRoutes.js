@@ -5,7 +5,7 @@ import {
   obtenerCotizacionesBorrador,
   finalizarCotizacion, verCotizacionCompleta, obtenerCotizacionBorradorPorId,
   actualizarCotizacionBorrador, marcarCotizacionComoPendiente,
-  actualizarEstado, obtenerTodasLasCotizaciones
+  actualizarEstado, obtenerTodasLasCotizaciones, listarCotizacionesDashboard
 } from '../controllers/cotizacionController.js';
 import * as cotizacionController from '../controllers/cotizacionController.js';
 
@@ -28,6 +28,10 @@ router.put('/:id/actualizar', authRequired, actualizarCotizacionBorrador); // ac
 router.put('/estado/pendiente/:id', marcarCotizacionComoPendiente);
 router.put('/estado/:id', actualizarEstado);
 router.post('/alerta-vencimiento/:id', cotizacionController.enviarAlertaVencimiento);
+// Nueva ruta para dashboard
+router.get('/dashboard', listarCotizacionesDashboard);
+
+
 
 
 

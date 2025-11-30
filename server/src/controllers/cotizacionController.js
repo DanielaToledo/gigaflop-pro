@@ -1088,3 +1088,16 @@ export async function enviarAlertaVencimiento(req, res) {
   }
 }
 
+// controllers/cotizacionControllers.js
+export async function listarCotizacionesDashboard(req, res) {
+  const db = req.app.get('db');
+  const model = new Cotizacion(db);
+
+  try {
+    const rows = await model.obtenerTodasParaDashboard();
+    res.json(rows);
+  } catch (err) {
+    console.error('Error listarCotizacionesDashboard:', err);
+    res.status(500).json({ error: 'Error al listar cotizaciones para dashboard' });
+  }
+}
