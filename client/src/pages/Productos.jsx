@@ -180,7 +180,7 @@ const Productos = () => {
   {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
     <>
       <NavLink className="option-button" to="/clientes">Clientes</NavLink>
-      <NavLink className="option-button" to="/productos">Productos</NavLink>
+      <NavLink className="option-button2" to="/productos">Productos</NavLink>
     </>
   )}
 

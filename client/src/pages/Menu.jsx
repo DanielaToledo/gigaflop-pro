@@ -227,7 +227,7 @@ const Menu = () => {
   )}
 
   {/* Cotizaciones: todos */}
-  <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+  <NavLink className="option-button2" to="/menu">Cotizaciones</NavLink>
 
   {/* Clientes y Productos: solo vendedor y admin */}
   {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
