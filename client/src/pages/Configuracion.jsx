@@ -177,7 +177,7 @@ const Configuracion = () => {
 
   {/* Configuración: solo admin */}
   {usuario?.rol === "administrador" && (
-    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+    <NavLink className="option-button2" to="/configuracion">Configuración</NavLink>
   )}
 </div> 
         </div>

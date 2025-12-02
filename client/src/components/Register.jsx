@@ -1,9 +1,3 @@
-//REGISTRAR UN CLINETE EN EL MODULO CLIENTE
-//DESDE CLIENTES.JSX CUANDO SE HACE CLICK EN "NUEVO CLIENTE"
-//SE ABRE ESTE MODAL DONDE SE COMPLETAN LOS DATOS Y SE GUARDAN EN LA BD
-//LUEGO SE REFRESCA LA LISTA DE CLIENTES EN CLIENTES.JSX
-
-
 import React, { useState } from 'react';
 import axios from 'axios';
 
@@ -191,8 +185,8 @@ const handleEliminarCondicionComercial = (index) => {
 
   return (
 
-    <div className="modal show d-block" tabIndex="-1" role="dialog">
-      <div className="modal-dialog modal-xl" role="document">
+    <div className="modal show d-block h-100 " tabIndex="-1" role="dialog"style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
+      <div className="modal-dialog modal-xl  "  role="document" style={{ maxHeight: '90vh', margin: 'auto' }}>
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title">
@@ -220,81 +214,98 @@ const handleEliminarCondicionComercial = (index) => {
             )}
 
             {/* Datos generales */}
-            <div className="row g-3 mb-4">
-              <div className="col-md-6">
-                <label className="form-label">Razón Social</label>
-                <input type="text" className="form-control" value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} />
+        
+            <div className="row form-box p-4 mb-4 shadow-sm rounded bg-white" style={{backgroundColor: '#fff',border: '1px solid #dee2e6'}}>
+             {/* <div className="row g-3">*/}
+                <div className="col-md-6">
+                  <label className="form-label">Razón Social<span style={{ color: 'red' }}>*</span></label>
+                  <input
+                    type="text"
+                    placeholder="Ingrese Razón Social"
+                    className="form-control"
+                    value={razonSocial}
+                    onChange={(e) => setRazonSocial(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">CUIT<span style={{ color: 'red' }}>*</span></label>
+                  <input
+                    type="text"
+                    placeholder="Ingrese CUIT"
+                    className="form-control"
+                    value={cuit}
+                    onChange={(e) => setCuit(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="col-md-6">
-                <label className="form-label">CUIT</label>
-                <input type="text" className="form-control" value={cuit} onChange={(e) => setCuit(e.target.value)} />
-              </div>
+       
 
-
-            </div>
 
             {/* Direcciones */}
-            <h5 className="mb-3"><i className="bi bi-geo-alt"></i> <strong>Direcciones</strong>
-
-            </h5>
-            <div className="row g-3 mb-3">
-              <div className="col-md-4">
-                <label className="form-label">Calle</label>
-                <input type="text" className="form-control" value={direccionActual.calle} onChange={(e) => setDireccionActual({ ...direccionActual, calle: e.target.value })} />
+            <h5 className="mb-3" ><i className="bi bi-geo-alt"></i> <strong>Direcciones</strong> </h5>
+            <div className="row form-box p-4 mb-4 shadow-sm rounded bg-white" style={{backgroundColor: '#fff',border: '1px solid #dee2e6', }}>
+          
+              <div className="col-md-3" >
+                <label className="form-label " >Calle<span style={{ color: 'red' }}>*</span></label>
+                <input type="text" className="form-control" placeholder='Ingrese calle' value={direccionActual.calle} onChange={(e) => setDireccionActual({ ...direccionActual, calle: e.target.value })} />
               </div>
 
-              <div className="col-md-2">
-                <label className="form-label">Número</label>
-                <input type="text" className="form-control" value={direccionActual.numeracion} onChange={(e) => setDireccionActual({ ...direccionActual, numeracion: e.target.value })} />
-              </div>
-
-              <div className="col-md-3">
-                <label className="form-label">Localidad</label>
-                <input type="text" className="form-control" value={direccionActual.localidad} onChange={(e) => setDireccionActual({ ...direccionActual, localidad: e.target.value })} />
-              </div>
-
-              <div className="col-md-2">
-                <label className="form-label">Provincia</label>
-                <input type="text" className="form-control" value={direccionActual.provincia} onChange={(e) => setDireccionActual({ ...direccionActual, provincia: e.target.value })} />
-              </div>
-
-              <div className="col-md-1">
-                <label className="form-label">CP</label>
-                <input type="text" className="form-control" value={direccionActual.codigo_postal} onChange={(e) => setDireccionActual({ ...direccionActual, codigo_postal: e.target.value })} />
+              <div className="col-auto md-3" >
+                <label className="form-label " >Número<span style={{ color: 'red' }}>*</span></label>
+                <input type="text" className="form-control"  placeholder='Ej: 567' value={direccionActual.numeracion} onChange={(e) => setDireccionActual({ ...direccionActual, numeracion: e.target.value })} />
               </div>
 
               <div className="col-md-3">
-                <label className="form-label">Piso</label>
+                <label className="form-label" >Localidad<span style={{ color: 'red' }}>*</span></label>
+                <input type="text" className="form-control" placeholder='Ingrese localidad' value={direccionActual.localidad} onChange={(e) => setDireccionActual({ ...direccionActual, localidad: e.target.value })} />
+              </div>
+
+              <div className="col-md-2">
+                <label className="form-label" >Provincia<span style={{ color: 'red' }}>*</span></label>
+                <input type="text" className="form-control" placeholder='Ingrese provincia' value={direccionActual.provincia} onChange={(e) => setDireccionActual({ ...direccionActual, provincia: e.target.value })} />
+              </div>
+
+              <div className="col-md-3">
+                <label className="form-label" >CP<span style={{ color: 'red' }}>*</span></label>
+                <input type="text" className="form-control " placeholder='Ingrese codigo postal' value={direccionActual.codigo_postal} onChange={(e) => setDireccionActual({ ...direccionActual, codigo_postal: e.target.value })} />
+              </div>
+
+              <div className="col-md-3">
+                <label className="form-label" >Piso</label>
                 <input
                   type="text"
                   className="form-control"
+                  placeholder='Ingrese piso'
                   value={direccionActual.piso}
                   onChange={(e) => setDireccionActual({ ...direccionActual, piso: e.target.value })}
                 />
               </div>
 
               <div className="col-md-3">
-                <label className="form-label">Depto</label>
+                <label className="form-label" >Depto</label>
                 <input
                   type="text"
                   className="form-control"
+                  placeholder='Ej: A, B, 1, 2...'
                   value={direccionActual.depto}
                   onChange={(e) => setDireccionActual({ ...direccionActual, depto: e.target.value })}
                 />
               </div>
 
               <div className="col-md-3">
-                <label className="form-label">Locación</label>
+                <label className="form-label" >Locación</label>
                 <input
                   type="text"
                   className="form-control"
+                  placeholder='Ingrese locación'
                   value={direccionActual.locacion}
                   onChange={(e) => setDireccionActual({ ...direccionActual, locacion: e.target.value })}
                 />
               </div>
 
-              <div className="col-md-3">
-                <label className="form-label">Zona de envío</label>
+              <div className="col-md-3 mb-3">
+                <label className="form-label">Zona de envío<span style={{ color: 'red' }}>*</span></label>
                 <select
                   className="form-select"
                   value={direccionActual.zona_envio}
@@ -367,52 +378,56 @@ const handleEliminarCondicionComercial = (index) => {
               )}
             </div>
 
-            {/* Contactos */}
+
             {/* Contactos */}
             <h5 className="mb-3"><i className="bi bi-person-lines-fill"></i> <strong> Contactos</strong> </h5>
-            <div className="row g-3 mb-3">
+       <div className="row form-box p-4 mb-4 shadow-sm rounded bg-white" style={{backgroundColor: '#fff',border: '1px solid #dee2e6', }}>
               <div className="col-md-4">
-                <label className="form-label"> Nombre </label>
+                <label className="form-label" > Nombre<span style={{ color: 'red' }}>*</span> </label>
                 <input
                   type="text"
                   className="form-control"
+                  placeholder='Ingrese nombre completo'
                   value={contactoActual.nombre_contacto}
                   onChange={(e) => setContactoActual({ ...contactoActual, nombre_contacto: e.target.value })}
                 />
               </div>
 
               <div className="col-md-3">
-                <label className="form-label">Apellido </label>
-                <input type="text" className="form-control" value={contactoActual.apellido} onChange={(e) => setContactoActual({ ...contactoActual, apellido: e.target.value })}
+                <label className="form-label" >Apellido<span style={{ color: 'red' }}>*</span> </label>
+                <input type="text" className="form-control" placeholder='Ingrese apellidos' value={contactoActual.apellido} onChange={(e) => setContactoActual({ ...contactoActual, apellido: e.target.value })}
                 />
               </div>
 
               <div className="row">
-                <div className="col-md-4">
-                  <label className="form-label">Área de contacto</label>
+                <div className="col-md-4 mb-3">
+                  <label className="form-label" >Área de contacto<span style={{ color: 'red' }}>*</span></label>
                   <input
                     type="text"
                     className="form-control"
+                    placeholder='Ej: Ventas'
                     value={contactoActual.area_contacto}
                     onChange={(e) => setContactoActual({ ...contactoActual, area_contacto: e.target.value })}
                   />
                 </div>
 
                 <div className="col-md-4">
-                  <label className="form-label">Teléfono</label>
+                  <label className="form-label" >Teléfono<span style={{ color: 'red' }}>*</span></label>
                   <input
                     type="text"
                     className="form-control"
+                    placeholder='Ingrese teléfono'
                     value={contactoActual.telefono}
                     onChange={(e) => setContactoActual({ ...contactoActual, telefono: e.target.value })}
                   />
                 </div>
 
                 <div className="col-md-4">
-                  <label className="form-label">Email</label>
+                  <label className="form-label" >Email<span style={{ color: 'red' }}>*</span></label>
                   <input
                     type="email"
                     className="form-control"
+                    placeholder='Ingrese email'
                     value={contactoActual.email}
                     onChange={(e) => setContactoActual({ ...contactoActual, email: e.target.value })}
                   />
@@ -481,9 +496,9 @@ const handleEliminarCondicionComercial = (index) => {
 
 <h5 className="mb-3"><i className="bi bi-cash-coin"></i> <strong>Condiciones comerciales</strong></h5>
 
-<div className="row g-3 mb-3">
-  <div className="col-md-3">
-    <label className="form-label">Forma de pago</label>
+<div className="row form-box p-4 mb-4 shadow-sm rounded bg-white" style={{backgroundColor: '#fff',border: '1px solid #dee2e6', }}>
+  <div className="col-md-3 mb-3">
+    <label className="form-label">Forma de pago<span style={{ color: 'red' }}>*</span></label>
     <select
       className="form-select"
       value={condicionActual.forma_pago}
@@ -498,7 +513,7 @@ const handleEliminarCondicionComercial = (index) => {
   </div>
 
   <div className="col-md-3">
-    <label className="form-label">Tipo de cambio</label>
+    <label className="form-label">Tipo de cambio<span style={{ color: 'red' }}>*</span></label>
     <select
       className="form-select"
       value={condicionActual.tipo_cambio}
@@ -511,7 +526,7 @@ const handleEliminarCondicionComercial = (index) => {
   </div>
 
   <div className="col-md-3">
-    <label className="form-label">Día de pago</label>
+    <label className="form-label">Día de pago<span style={{ color: 'red' }}>*</span></label>
     <select
       className="form-select"
       value={condicionActual.dias_pago}
@@ -525,7 +540,7 @@ const handleEliminarCondicionComercial = (index) => {
   </div>
 
   <div className="col-md-3">
-    <label className="form-label">Mark-up máximo (%)</label>
+    <label className="form-label">Mark-up máximo<span style={{ color: 'red' }}>*</span> (%)</label>
     <input
       type="number"
       className="form-control"
@@ -609,13 +624,14 @@ const handleEliminarCondicionComercial = (index) => {
   </div>
 )}
 
+          
           </div>
 
 
 
         
           {/* Footer */}
-          <div className="modal-footer">
+          <div className="modal-footer" >
             <button className="btn btn-secondary" onClick={handleCancelar}>Cancelar</button>
             <button className="btn btn-success" onClick={handleGuardar}>Guardar Cliente</button>
           </div>

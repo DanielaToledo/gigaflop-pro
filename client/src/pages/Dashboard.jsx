@@ -125,7 +125,7 @@ const Dashboard = () => {
           </header>
           <div className="option">
             {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
-              <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+              <NavLink className="option-button2" to="/dashboard">Dashboard</NavLink>
             )}
             <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
             {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
