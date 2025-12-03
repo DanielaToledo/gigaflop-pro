@@ -265,7 +265,37 @@ const NuevaCotizacion = () => {
     return true;
   };
 
-  // Construir payload para enviar al servidor
+  //validacion!!!!!! ESPECIAL!!!!!!!!!!!!!
+  // Validación especial para finalizar/enviar
+  const validarFinalizacion = () => {
+  // Primero correr la validación existente (máximos)
+  const okMaximos = validarAntesDeEnviar();
+  if (!okMaximos) return false;
+
+  // Ahora validar que todos los productos tengan markup ingresado y que no sea 0
+  const productosInvalidos = (Array.isArray(carrito) ? carrito : []).filter((p, i) => {
+    const ingreso = p.markup_ingresado;
+    return ingreso === null || ingreso === undefined || ingreso === '' || Number(ingreso) === 0;
+  });
+
+  if (productosInvalidos.length > 0) {
+    const errores = {};
+    productosInvalidos.forEach((p, idx) => {
+      const key = getProductKey(p, idx);
+      errores[key] = `El producto ${p.part_number ?? `id ${p.id_producto ?? p.id}`} no tiene markup válido (debe ser mayor a 0).`;
+    });
+    setErroresProductos(errores);
+    setMensajeError(`Debes ingresar un markup mayor a 0 en todos los productos seleccionados.`);
+    return false;
+  }
+
+  // Si todo está bien
+  setErroresProductos({});
+  setMensajeError('');
+  return true;
+};
+
+  // construye el objeto final (que se me manda al backend) Construir payload para enviar al servidor
   const buildPayload = (estadoNombreOrId = 'borrador', extra = {}) => {
     const productos = (Array.isArray(carrito) ? carrito : [])
       .map(normalizarProducto)
@@ -1748,8 +1778,8 @@ const NuevaCotizacion = () => {
 
     console.log('📤 Payload borrador (pre-send):', payloadBorrador);
 
-    if (typeof validarAntesDeEnviar === 'function') {
-      const ok = validarAntesDeEnviar();
+    if (typeof validarFinalizacion === 'function') {
+      const ok = validarFinalizacion();
       if (!ok) {
         console.log('⛔ Finalizar cancelado: productos con markup fuera de rango');
         return;
@@ -1850,13 +1880,13 @@ const NuevaCotizacion = () => {
       const clienteResumen = {
         nombre: cabecera?.cliente_nombre ?? clienteObjeto?.razon_social ?? 'Sin nombre',
         contacto: contactoNombreFinal,
-       contacto_apellido:
-  respSave?.data?.cliente?.contacto_apellido ??
-  cabecera?.contacto_apellido ??
-  contactoDesdeCliente?.contacto_apellido ??
-  contactoSeleccionadoFinal?.contacto_apellido ??
-  (typeof contacto === 'object' ? contacto.contacto_apellido : '') ??
-  '', 
+        contacto_apellido:
+          respSave?.data?.cliente?.contacto_apellido ??
+          cabecera?.contacto_apellido ??
+          contactoDesdeCliente?.contacto_apellido ??
+          contactoSeleccionadoFinal?.contacto_apellido ??
+          (typeof contacto === 'object' ? contacto.contacto_apellido : '') ??
+          '',
         cuit: respSave?.data?.cliente?.cuit ?? clienteObjeto?.cuit ?? '',
         direccion: direccionTexto,
         fecha_emision: fechaHoy,
@@ -2689,62 +2719,62 @@ const NuevaCotizacion = () => {
 
 
           {/* Resumen: calcula totales y muestra */}
-<div className="card card-soft mt-3 summary-panel">
-  <div className="card-body p-3">
-    <h6 className="section-title mb-2">Resumen</h6>
+          <div className="card card-soft mt-3 summary-panel">
+            <div className="card-body p-3">
+              <h6 className="section-title mb-2">Resumen</h6>
 
-    {resumen.envioBonificado && (
-      <div className="alert alert-success py-1 px-2 mb-2 text-center">
-        ¡Envío bonificado por superar los US$ 1500!
-      </div>
-    )}
+              {resumen.envioBonificado && (
+                <div className="alert alert-success py-1 px-2 mb-2 text-center">
+                  ¡Envío bonificado por superar los US$ 1500!
+                </div>
+              )}
 
-    <table className="table table-sm mb-0 totales-table">
-      <tbody>
-        <tr>
-          <th className="text-muted fw-normal">Subtotal productos</th>
-          <td className="text-end fw-semibold">US$ {resumen.baseProd.toFixed(2)}</td>
-        </tr>
+              <table className="table table-sm mb-0 totales-table">
+                <tbody>
+                  <tr>
+                    <th className="text-muted fw-normal">Subtotal productos</th>
+                    <td className="text-end fw-semibold">US$ {resumen.baseProd.toFixed(2)}</td>
+                  </tr>
 
-        <tr>
-          <th className="text-muted fw-normal">Costo de envío</th>
-          <td className="text-end fw-semibold">US$ {resumen.envio.toFixed(2)}</td>
-        </tr>
+                  <tr>
+                    <th className="text-muted fw-normal">Costo de envío</th>
+                    <td className="text-end fw-semibold">US$ {resumen.envio.toFixed(2)}</td>
+                  </tr>
 
-        <tr>
-          <th className="text-muted fw-normal">Base imponible</th>
-          <td className="text-end fw-semibold">US$ {resumen.baseImp.toFixed(2)}</td>
-        </tr>
+                  <tr>
+                    <th className="text-muted fw-normal">Base imponible</th>
+                    <td className="text-end fw-semibold">US$ {resumen.baseImp.toFixed(2)}</td>
+                  </tr>
 
-        <tr>
-          <th className="text-muted fw-normal">IVA 21% {resumen.envio > 0 ? '(incluye envío)' : ''}</th>
-          <td className="text-end fw-semibold">US$ {resumen.iva21.toFixed(2)}</td>
-        </tr>
+                  <tr>
+                    <th className="text-muted fw-normal">IVA 21% {resumen.envio > 0 ? '(incluye envío)' : ''}</th>
+                    <td className="text-end fw-semibold">US$ {resumen.iva21.toFixed(2)}</td>
+                  </tr>
 
-        {resumen.iva105 > 0 && (
-          <tr>
-            <th className="text-muted fw-normal">IVA 10.5%</th>
-            <td className="text-end fw-semibold">US$ {resumen.iva105.toFixed(2)}</td>
-          </tr>
-        )}
+                  {resumen.iva105 > 0 && (
+                    <tr>
+                      <th className="text-muted fw-normal">IVA 10.5%</th>
+                      <td className="text-end fw-semibold">US$ {resumen.iva105.toFixed(2)}</td>
+                    </tr>
+                  )}
 
-        {resumen.totalDescuentos > 0 && (
-          <tr>
-            <th className="text-muted fw-normal">Descuento total aplicado</th>
-            <td className="text-end fw-semibold">US$ {resumen.totalDescuentos.toFixed(2)}</td>
-          </tr>
-        )}
+                  {resumen.totalDescuentos > 0 && (
+                    <tr>
+                      <th className="text-muted fw-normal">Descuento total aplicado</th>
+                      <td className="text-end fw-semibold">US$ {resumen.totalDescuentos.toFixed(2)}</td>
+                    </tr>
+                  )}
 
-        <tr className="total-row">
-          <th className="text-uppercase">Total</th>
-          <td className="text-end">
-            <strong>US$ {resumen.total.toFixed(2)}</strong>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+                  <tr className="total-row">
+                    <th className="text-uppercase">Total</th>
+                    <td className="text-end">
+                      <strong>US$ {resumen.total.toFixed(2)}</strong>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
 
 
