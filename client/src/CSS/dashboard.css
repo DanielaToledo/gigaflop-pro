@@ -91,3 +91,17 @@ select,input{background:#fff;border:1px solid var(--border);border-radius:12px;p
   background: var(--kpi-blue);
   color: #fff;
 }
+
+.dash{
+  overflow-y: auto;
+  width: 100%;
+  height: 32vw;
+  padding: 15px;
+  
+}
+
+.dashbtn:hover{
+  background: #4285f4;
+  color: white;
+  transition: 0.3s ;
+}

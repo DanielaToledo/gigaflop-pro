@@ -191,7 +191,7 @@ const Configuracion = () => {
         </div>
        <button
   type="button"
-  className="btn nc config-topbar-btn"
+  className="nc"
   onClick={handleOpenModal}
 >
   + Nuevo usuario
@@ -200,7 +200,10 @@ const Configuracion = () => {
       </div>
 
       {/* CONTENIDO */}
-      <main className="config-page"style={{marginTop: '15%'}}>
+      <main className="config-page"style={{marginTop: '15%', width: '100%',
+    height: '29vw',
+    padding: '10px',
+    overflowY: 'auto'}}>
         <CompanyData
           empresa={empresa || {
             razon_social: "",

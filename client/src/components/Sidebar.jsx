@@ -42,14 +42,14 @@ const Sidebar = () => {
         <div className="cont-menu">
           <nav className="text-center mb-3">
           <div className="usuario-sidebar">
-  <h5 className="nombre-sidebar">
-    {usuario?.nombre}
-  </h5>
-  <span className={`badge ${getRolColor(usuario?.rol)} rol-badge`}>
-    {usuario?.rol}
-  </span>
-</div>
-            <a href="#">Mi Perfil</a>
+            <h5 className=" nombre-sidebar">
+              {usuario?.nombre}
+            </h5>
+            <span className={`badge ${getRolColor(usuario?.rol)} rol-badge`}>
+              {usuario?.rol}
+            </span>
+          </div>
+            
             <a href="#" onClick={handleLogout}>Cerrar Sesión</a>
           </nav>
           <label htmlFor="btn-menu">

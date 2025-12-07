@@ -13,7 +13,7 @@ function usd(n) {
 
 const KpiGridDashb = ({ kpiCot, kpiAcept, kpiRech, kpiPend, kpiVenc, ticket, kpiTasa }) => {
   return (
-    <section className="kpi-grid">
+    <section className="kpi-grid ">
       <article className="kpi-card kpi--blue">
         <div className="kpi-label">Cotizaciones</div>
         <div className="kpi-value">{kpiCot}</div>

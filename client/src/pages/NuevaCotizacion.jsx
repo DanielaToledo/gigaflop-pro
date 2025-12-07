@@ -2101,9 +2101,13 @@ const NuevaCotizacion = () => {
   };
 
 
+
+
+
+{/* Renderizado del componente */}
   return (
 
-    <div className="bg-light d-flex flex-column min-vh-100">
+    <div className="container-fluid bg-light d-flex flex-column min-vh-100">
 
 
       <main className="flex-grow-1">
@@ -2134,7 +2138,7 @@ const NuevaCotizacion = () => {
 
               {/* Input de búsqueda */}
               <div className="col-md-6 buscador-cliente-container">
-                <label className="form-label">Cliente / CUIT</label>
+                <label className="form-label">Cliente / CUIT<span style={{ color: 'red' }}>*</span></label>
 
                 {clienteObjeto ? (
                   <div className="form-control bg-light">
@@ -2188,7 +2192,7 @@ const NuevaCotizacion = () => {
 
               {/* Contacto */}
               <div className="col-md-6">
-                <label className="form-label">Contacto</label>
+                <label className="form-label">Contacto<span style={{ color: 'red' }}>*</span></label>
                 <select
                   className="form-select"
                   value={contacto}
@@ -2212,9 +2216,9 @@ const NuevaCotizacion = () => {
 
 
           {/* modalidad de emtrega */}
-          <div className="row g-3 mt-3 align-items-end">
+          <div className="row g-3 mb-2 align-items-center px-3">
             <div className="col-md-3">
-              <label className="form-label">Modalidad</label>
+              <label className="form-label">Modalidad<span style={{ color: 'red' }}>*</span></label>
               <select
                 className="form-select"
                 value={modalidadEntrega}
@@ -2236,7 +2240,7 @@ const NuevaCotizacion = () => {
 
             {/* Dirección */}
             <div className="col-md-3">
-              <label className="form-label">Dirección</label>
+              <label className="form-label">Dirección<span style={{ color: 'red' }}>*</span></label>
               <select
                 className="form-select"
                 value={direccionIdSeleccionada}
@@ -2302,7 +2306,7 @@ const NuevaCotizacion = () => {
               <h5 className="section-title"><i className="bi bi-credit-card-2-front"></i> Condiciones Comerciales</h5>
               <div className="row g-3">
                 <div className="col-md-4">
-                  <label className="form-label">Forma de pago</label>
+                  <label className="form-label">Forma de pago<span style={{ color: 'red' }}>*</span></label>
                   {/* Select construido desde condiciones cargadas */}
 
                   <select
@@ -2365,7 +2369,7 @@ const NuevaCotizacion = () => {
                   <div className="d-flex flex-wrap gap-3 mb-3">
                     {/* Plazo de entrega */}
                     <div className="flex-grow-1">
-                      <label htmlFor="plazoEntrega" className="form-label">Plazo de entrega</label>
+                      <label htmlFor="plazoEntrega" className="form-label">Plazo de entrega<span style={{ color: 'red' }}>*</span></label>
                       <input
                         type="text"
                         className="form-control"
@@ -2378,7 +2382,7 @@ const NuevaCotizacion = () => {
 
                     {/* Vencimiento */}
                     <div style={{ width: '180px' }}>
-                      <label htmlFor="vencimiento" className="form-label">Vencimiento (días)</label>
+                      <label htmlFor="vencimiento" className="form-label">Vencimiento (días)<span style={{ color: 'red' }}>*</span></label>
                       <input
                         type="number"
                         className="form-control"
@@ -2420,7 +2424,7 @@ const NuevaCotizacion = () => {
 
                 {/*Tipo de cambio */}
                 <div className="col-md-4">
-                  <label className="form-label">Tipo de cambio</label>
+                  <label className="form-label">Tipo de cambio<span style={{ color: 'red' }}>*</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -2432,7 +2436,7 @@ const NuevaCotizacion = () => {
 
                 {/*Plazo de pago */}
                 <div className="col-md-4">
-                  <label className="form-label">Plazo de pago</label>
+                  <label className="form-label">Plazo de pago<span style={{ color: 'red' }}>*</span></label>
                   <div className="input-group">
                     <select
                       className="form-select"
@@ -2773,12 +2777,12 @@ const NuevaCotizacion = () => {
             ) : (
               <>
                 {/* Cancelar creación */}
-                <button className="btn btn-sm btn-outline-danger" onClick={handleCancelarCreacion}>
+                <button className="btn btn-sm btn-outline-danger mx-3 " onClick={handleCancelarCreacion}>
                   <i className="bi bi-x-circle me-1"></i> Cancelar cotización
                 </button>
 
                 {/* Botones centrales: Guardar + Finalizar */}
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 mx-3">
                   <button className="btn btn-sm btn-outline-secondary" onClick={handleGuardarBorrador}>
                     <i className="bi bi-save me-1"></i> Guardar borrador
                   </button>
