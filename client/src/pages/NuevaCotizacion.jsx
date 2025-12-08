@@ -1426,7 +1426,7 @@ const NuevaCotizacion = () => {
     }
   };
 
-const handleActualizarCotizacion = async () => {
+  const handleActualizarCotizacion = async () => {
     if (!idCotizacionActual) {
       setMensajeError('No hay cotización activa para actualizar');
       setMensajeExito('');
@@ -1446,39 +1446,33 @@ const handleActualizarCotizacion = async () => {
       };
 
       // Construir payload (preferir buildPayload si existe)
-      const payload = (typeof buildPayload === 'function')
-        ? buildPayload(idEstadoBorradorLocal ?? 'borrador')
-        : (() => {
-          const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
-            id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
-            cantidad: normalizarNumero(p.cantidad) || 1,
-            precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
-            descuento: Number(p.descuento ?? 0) || 0,
-            // PRIORIDAD: markup_ingresado (input) > markup (modelo) > null
-            markup_ingresado: normalizeMarkup(p.markup_ingresado),
-            tasa_iva: Number(p.tasa_iva ?? 21) || 21,
-            part_number: p.part_number ?? p.partNumber ?? null,
-            detalle: p.detalle ?? p.nombre ?? null,
-            subtotal: Number(p.subtotal ?? ((Number(p.precio_unitario ?? p.precio ?? 0) - Number(p.descuento ?? 0)) * (p.cantidad || 1))) || 0,
-            // si existe id_detalle local (temporal o real), mandarlo para ayudar al backend a casar
-            id_detalle: p.id_detalle ?? null
-          })).filter(x => Number.isFinite(x.id_producto));
+      const payload = (() => {
+        const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
+          id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
+          cantidad: normalizarNumero(p.cantidad) || 1,
+          precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+          descuento: Number(p.descuento ?? 0) || 0,
+          markup_ingresado: normalizeMarkup(p.markup_ingresado),
+          tasa_iva: Number(p.tasa_iva ?? 21) || 21,
+          part_number: p.part_number ?? p.partNumber ?? null,
+          detalle: p.detalle ?? p.nombre ?? null,
+          subtotal: Number(p.subtotal ?? ((Number(p.precio_unitario ?? p.precio ?? 0) - Number(p.descuento ?? 0)) * (p.cantidad || 1))) || 0,
+          id_detalle: p.id_detalle ?? null
+        })).filter(x => Number.isFinite(x.id_producto));
 
-          return {
-            id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
-            id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
-            id_usuario: Number(usuarioActual?.id) || null,
-            id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
-            id_condicion: null,
-            forma_pago: '',
-            vigencia_hasta: (typeof toYYYYMMDD === 'function') ? toYYYYMMDD(vigenciaHasta) : (vigenciaHasta || null),
-            observaciones: observaciones || '',
-            plazo_entrega: plazoEntrega || '',
-            costo_envio: normalizarNumero(costoEnvio) || 0,
-            ...(idEstadoBorradorLocal ? { id_estado: idEstadoBorradorLocal } : {}),
-            productos
-          };
-        })();
+        return {
+          id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+          id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+          id_usuario: Number(usuarioActual?.id) || null,
+          id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+          vigencia_hasta: (typeof toYYYYMMDD === 'function') ? toYYYYMMDD(vigenciaHasta) : (vigenciaHasta || null),
+          observaciones: observaciones || '',
+          plazo_entrega: plazoEntrega || '',
+          costo_envio: normalizarNumero(costoEnvio) || 0,
+          ...(idEstadoBorradorLocal ? { id_estado: idEstadoBorradorLocal } : {}),
+          productos
+        };
+      })();
 
       // Prioridad diasPago select > diasPagoExtra input
       const diasUi = typeof diasPago === 'string' ? diasPago.trim() : (diasPago != null ? String(diasPago).trim() : '');
@@ -1682,7 +1676,7 @@ const handleActualizarCotizacion = async () => {
     }
   };
 
-  
+
   // Cancelar creación o edición de cotización
   const handleCancelarCreacion = () => {
     // Acción sugerida: navegar al menú principal o limpiar el formulario
@@ -1699,7 +1693,7 @@ const handleActualizarCotizacion = async () => {
   // Finalizar cotización (botón Finalizar)
   // Finalizar cotización (botón Finalizar)
   // Guardar/Finalizar cotización. Param enviar = true => además la enviamos (cambia a pendiente)
-   const handleFinalizarCotizacion = async () => {
+  const handleFinalizarCotizacion = async () => {
     console.log({
       clienteSeleccionado,
       id_usuario: usuarioActual?.id,
@@ -1736,6 +1730,7 @@ const handleActualizarCotizacion = async () => {
       ? buildPayload(idEstadoBorradorLocal ?? 'borrador', { vigencia_hasta: fechaVencimiento, vencimiento })
       : (() => {
         const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+        
 
         const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
           id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
@@ -1755,33 +1750,53 @@ const handleActualizarCotizacion = async () => {
 
         const resolvedIdCond = normalizarNumero(getCondicionId(condicionSeleccionada)) || null;
 
+        console.log('DEBUG condiciones:', {
+          condicionSeleccionada,
+          diasPago,
+          diasPagoExtra,
+          observaciones
+        });
 
-console.log('DEBUG condiciones:', {
-  condicionSeleccionada,
-  diasPago,
-  diasPagoExtra,
-  tipoCambioSeleccionado,
-  observaciones
-});
+// ✅ Lógica tolerante para condiciones comerciales
+const formaPagoFinal = condicionSeleccionada?.forma_pago
+  ?? cabecera?.forma_pago
+  ?? null;
 
-        const basePayload = {
-          id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
-          id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
-          id_usuario: Number(usuarioActual?.id) || null,
-          id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
-          id_condicion: resolvedIdCond,
-          forma_pago: (condicionSeleccionada && typeof condicionSeleccionada === 'object')
-            ? (condicionSeleccionada.forma_pago ?? '')
-            : (String(condicionSeleccionada || '') || ''),
-           dias_pago: Number(diasPago) || Number(diasPagoExtra) || null,   // ← agregar
-  tipo_cambio: tipoCambioSeleccionado ?? null,                    // ← agregar
-          vigencia_hasta: fechaVencimiento,
-          observaciones: observaciones || '',
-          plazo_entrega: plazoEntrega || '',
-          costo_envio: Number(costoEnvio) || 0,
-          productos
-        };
+const tipoCambioFinal = condicionSeleccionada?.tipo_cambio
+  ?? cabecera?.tipo_cambio
+  ?? null;
 
+const diasPagoFinal = condicionSeleccionada?.dias_pago
+  ?? Number(diasPago)
+  ?? Number(diasPagoExtra)
+  ?? cabecera?.dias_pago
+  ?? null;
+
+const observacionesFinal = condicionSeleccionada?.observaciones
+  ?? observaciones
+  ?? cabecera?.observaciones
+  ?? '';
+
+const basePayload = {
+  id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+  id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+  id_usuario: Number(usuarioActual?.id) || null,
+  id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+  id_condicion: resolvedIdCond,
+
+  // ✅ Condiciones comerciales completas
+ forma_pago: formaPagoFinal,
+tipo_cambio: tipoCambioFinal,
+dias_pago: diasPagoFinal,
+observaciones: observacionesFinal,
+
+  // Resto de cabecera
+  vigencia_hasta: fechaVencimiento,
+  plazo_entrega: plazoEntrega || '',
+  costo_envio: Number(costoEnvio) || 0,
+  productos
+};
+     
         if (idEstadoBorradorLocal) basePayload.id_estado = idEstadoBorradorLocal;
         basePayload.vencimiento = Number.isFinite(Number(vencimiento)) ? Number(vencimiento) : null;
         return basePayload;
@@ -1789,16 +1804,28 @@ console.log('DEBUG condiciones:', {
 
     console.log('📤 Payload borrador (pre-send):', payloadBorrador);
 
-  // ⚠️ Aquí usamos la validación especial
-if (typeof validarFinalizacion === 'function') {
-  const ok = validarFinalizacion();
-  if (!ok) {
-    console.log('⛔ Finalizar cancelado: validación especial fallida');
-    return;
-  }
-}
 
-  
+ 
+  console.log('✅ basePayload con condiciones:', {
+    forma_pago: payloadBorrador.forma_pago,
+    tipo_cambio: payloadBorrador.tipo_cambio,
+    dias_pago: payloadBorrador.dias_pago,
+    observaciones: payloadBorrador.observaciones
+  });
+
+
+
+
+    // ⚠️ Aquí usamos la validación especial
+    if (typeof validarFinalizacion === 'function') {
+      const ok = validarFinalizacion();
+      if (!ok) {
+        console.log('⛔ Finalizar cancelado: validación especial fallida');
+        return;
+      }
+    }
+
+
     try {
       let respSave;
 
@@ -1894,13 +1921,13 @@ if (typeof validarFinalizacion === 'function') {
       const clienteResumen = {
         nombre: cabecera?.cliente_nombre ?? clienteObjeto?.razon_social ?? 'Sin nombre',
         contacto: contactoNombreFinal,
-       contacto_apellido:
-  respSave?.data?.cliente?.contacto_apellido ??
-  cabecera?.contacto_apellido ??
-  contactoDesdeCliente?.contacto_apellido ??
-  contactoSeleccionadoFinal?.contacto_apellido ??
-  (typeof contacto === 'object' ? contacto.contacto_apellido : '') ??
-  '', 
+        contacto_apellido:
+          respSave?.data?.cliente?.contacto_apellido ??
+          cabecera?.contacto_apellido ??
+          contactoDesdeCliente?.contacto_apellido ??
+          contactoSeleccionadoFinal?.contacto_apellido ??
+          (typeof contacto === 'object' ? contacto.contacto_apellido : '') ??
+          '',
         cuit: respSave?.data?.cliente?.cuit ?? clienteObjeto?.cuit ?? '',
         direccion: direccionTexto,
         fecha_emision: fechaHoy,
@@ -1926,14 +1953,25 @@ if (typeof validarFinalizacion === 'function') {
       }));
 
 
-  // ✅ Condiciones agrupadas
+     // ✅ Condiciones agrupadas con lógica tolerante
 const condicionesResumen = {
-  forma_pago: cabecera?.forma_pago ?? payloadBorrador.forma_pago ?? '-',
-  tipo_cambio: cabecera?.tipo_cambio ?? payloadBorrador.tipo_cambio ?? null,
-  dias_pago: cabecera?.dias_pago ?? payloadBorrador.dias_pago ?? null,
-  observaciones: cabecera?.observaciones ?? payloadBorrador.observaciones ?? ''
+  forma_pago: payloadBorrador.forma_pago 
+    ?? respSave?.data?.condiciones?.forma_pago 
+    ?? cabecera?.forma_pago 
+    ?? '-',
+  tipo_cambio: payloadBorrador.tipo_cambio 
+    ?? respSave?.data?.condiciones?.tipo_cambio 
+    ?? cabecera?.tipo_cambio 
+    ?? '-',
+  dias_pago: payloadBorrador.dias_pago 
+    ?? respSave?.data?.condiciones?.dias_pago 
+    ?? cabecera?.dias_pago 
+    ?? '-',
+  observaciones: payloadBorrador.observaciones 
+    ?? respSave?.data?.condiciones?.observaciones 
+    ?? cabecera?.observaciones 
+    ?? ''
 };
-
 
       console.log('🧪 direccionIdFinal:', direccionIdFinal);
       console.log('🧪 direccionDesdeClienteObjeto:', direccionDesdeClienteObjeto);
@@ -1942,25 +1980,29 @@ const condicionesResumen = {
       console.log('🧪 dirección buscada:', direccionIdFinal);
       console.log('🧪 dirección encontrada:', direccionDesdeClienteObjeto);
       console.log('condicionesResumen:', condicionesResumen);
+      console.log('DEBUG condicionSeleccionada:', condicionSeleccionada);
+
+
+
 
       // ✅ Navegación con resumen completo
-navigate('/resumen-cotizacion', {
-  state: {
-    cotizacion: {
-      ...payloadBorrador,
-      productos: productosEnriquecidos,
-      cliente: clienteResumen,
-      condiciones: condicionesResumen,   // bloque agrupado
-      forma_pago: condicionesResumen.forma_pago,   // sueltos para compatibilidad
-      dias_pago: condicionesResumen.dias_pago,
-      tipo_cambio: condicionesResumen.tipo_cambio,
-      observaciones: condicionesResumen.observaciones,
-      vigencia_hasta: payloadBorrador.vigencia_hasta || cabecera?.vigencia_hasta || '-',
-      id_cotizacion: idCotizacionActual ?? respSave?.data?.id_cotizacion ?? respSave?.data?.id,
-      numero_cotizacion: numeroCotizacionFinal
-    }
-  }
-});
+      navigate('/resumen-cotizacion', {
+        state: {
+          cotizacion: {
+            ...payloadBorrador,
+            productos: productosEnriquecidos,
+            cliente: clienteResumen,
+            condiciones: condicionesResumen,   // bloque agrupado
+            forma_pago: condicionesResumen.forma_pago,   // sueltos para compatibilidad
+            dias_pago: condicionesResumen.dias_pago,
+            tipo_cambio: condicionesResumen.tipo_cambio,
+            observaciones: condicionesResumen.observaciones,
+            vigencia_hasta: payloadBorrador.vigencia_hasta || cabecera?.vigencia_hasta || '-',
+            id_cotizacion: idCotizacionActual ?? respSave?.data?.id_cotizacion ?? respSave?.data?.id,
+            numero_cotizacion: numeroCotizacionFinal
+          }
+        }
+      });
 
 
 
@@ -2357,70 +2399,105 @@ navigate('/resumen-cotizacion', {
 
 
 
-          {/* Condiciones Comerciales */}
-          <div className="card card-soft mb-3">
-            <div className="card-body">
-              <h5 className="section-title"><i className="bi bi-credit-card-2-front"></i> Condiciones Comerciales</h5>
-              <div className="row g-3">
-                <div className="col-md-4">
-                  <label className="form-label">Forma de pago</label>
-                  {/* Select construido desde condiciones cargadas */}
+       {/* Condiciones Comerciales */}
+<div className="card card-soft mb-3">
+  <div className="card-body">
+    <h5 className="section-title">
+      <i className="bi bi-credit-card-2-front"></i> Condiciones Comerciales
+    </h5>
+    <div className="row g-3">
+      <div className="col-md-4">
+        <label className="form-label">Forma de pago</label>
 
-                  <select
-                    className="form-select"
-                    value={condicionSeleccionada && condicionSeleccionada.id ? String(condicionSeleccionada.id) : (condicionSeleccionada && condicionSeleccionada.forma_pago ? '__custom_sel' : '')}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (!val) {
-                        setCondicionSeleccionada('');
-                        setFormaPago('');
-                        return;
-                      }
-                      if (val === '__custom_sel') return;
+      
+        {/* Select construido desde condiciones cargadas */}
+        <select
+          className="form-select"
+          value={
+            condicionSeleccionada && condicionSeleccionada.id
+              ? String(condicionSeleccionada.id)
+              : (condicionSeleccionada && condicionSeleccionada.forma_pago
+                  ? '__custom_sel'
+                  : '')
+          }
+          onChange={(e) => {
+            const val = e.target.value;
+            if (!val) {
+              setCondicionSeleccionada('');
+              setFormaPago('');
+              return;
+            }
+            if (val === '__custom_sel') return;
 
-                      const seleccionado = Array.isArray(condiciones) ? condiciones.find(c => Number(c.id) === Number(val)) : undefined;
+            const seleccionado = Array.isArray(condiciones)
+              ? condiciones.find(c => Number(c.id) === Number(val))
+              : undefined;
 
-                      if (seleccionado) {
-                        const forma = String(seleccionado.forma_pago ?? seleccionado.nombre ?? '').trim();
-                        setCondicionSeleccionada({ id: seleccionado.id, forma_pago: forma });
-                        setFormaPago(forma);
+            if (seleccionado) {
+              const forma = String(seleccionado.forma_pago ?? seleccionado.nombre ?? '').trim();
+              // ✅ Guardamos el objeto completo del backend, normalizando forma_pago
+             const condicionFinal = {
+  ...seleccionado,
+  forma_pago: forma // solo normalizamos el texto, sin perder los demás campos
+};
 
-                        if (seleccionado.dias_pago !== undefined && seleccionado.dias_pago !== null) {
-                          const diasStr = String(seleccionado.dias_pago ?? '').trim();
-                          if (typeof setDiasPendiente === 'function') {
-                            setDiasPendiente(diasStr);
-                          } else {
-                            const opciones = Array.isArray(opcionesDiasPago) ? opcionesDiasPago.map(x => String(x ?? '').trim()) : [];
-                            if (diasStr && opciones.includes(diasStr)) { setDiasPago(diasStr); setDiasPagoExtra(''); }
-                            else if (diasStr) { setDiasPago(''); setDiasPagoExtra(diasStr); }
-                            diasResueltoRef.current = true;
-                          }
-                        }
-                      } else {
-                        const text = e.target.options[e.target.selectedIndex]?.text ?? '';
-                        setCondicionSeleccionada({ id: null, forma_pago: String(text).trim() });
-                        setFormaPago(String(text).trim());
-                        // NO tocar dias aquí
-                      }
-                    }}
-                  >
-                    <option value="">Seleccioná...</option>
+setCondicionSeleccionada(condicionFinal);
+console.log('✅ Condición seleccionada actualizada:', condicionFinal);
 
-                    {Array.isArray(condiciones) && condiciones.length > 0
-                      ? condiciones.map(c => (
-                        <option key={c.id} value={String(c.id)}>
-                          {String(c.forma_pago ?? c.nombre ?? '').trim()}
-                        </option>
-                      ))
-                      : null
-                    }
+              if (seleccionado.dias_pago !== undefined && seleccionado.dias_pago !== null) {
+                const diasStr = String(seleccionado.dias_pago ?? '').trim();
+                if (typeof setDiasPendiente === 'function') {
+                  setDiasPendiente(diasStr);
+                } else {
+                  const opciones = Array.isArray(opcionesDiasPago)
+                    ? opcionesDiasPago.map(x => String(x ?? '').trim())
+                    : [];
+                  if (diasStr && opciones.includes(diasStr)) {
+                    setDiasPago(diasStr);
+                    setDiasPagoExtra('');
+                  } else if (diasStr) {
+                    setDiasPago('');
+                    setDiasPagoExtra(diasStr);
+                  }
+                  diasResueltoRef.current = true;
+                }
+              }
+            } else {
+              const text = e.target.options[e.target.selectedIndex]?.text ?? '';
+              setCondicionSeleccionada({
+                id: null,
+                forma_pago: String(text).trim(),
+                tipo_cambio: null,
+                dias_pago: null,
+                observaciones: null
+              });
+              setFormaPago(String(text).trim());
+              // NO tocar dias aquí
+            }
+          }}
+        >
+          <option value="">Seleccioná...</option>
 
-                    {condicionSeleccionada && (condicionSeleccionada.id === null || condicionSeleccionada.id === undefined) && condicionSeleccionada.forma_pago ? (
-                      <option key="__custom_sel" value="__custom_sel" disabled>
-                        {String(condicionSeleccionada.forma_pago).trim()}
-                      </option>
-                    ) : null}
-                  </select>
+          {Array.isArray(condiciones) && condiciones.length > 0
+            ? condiciones.map(c => (
+                <option key={c.id} value={String(c.id)}>
+                  {String(c.forma_pago ?? c.nombre ?? '').trim()}
+                </option>
+              ))
+            : null}
+
+          {condicionSeleccionada &&
+            (condicionSeleccionada.id === null ||
+              condicionSeleccionada.id === undefined) &&
+            condicionSeleccionada.forma_pago ? (
+              <option key="__custom_sel" value="__custom_sel" disabled>
+                {String(condicionSeleccionada.forma_pago).trim()}
+              </option>
+            ) : null}
+        </select>
+
+
+
 
 
                   <div className="d-flex flex-wrap gap-3 mb-3">

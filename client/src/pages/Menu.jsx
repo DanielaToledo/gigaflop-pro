@@ -10,22 +10,19 @@ import ModalVistaPreviaCot from '../components/ModalVistaPreviaCot.jsx';
 
 
 const Menu = () => {
-  const { usuario, cargando } = useUser(); // ✅ incluye cargando
-  useEffect(() => {
-  console.log("Rol del usuario:", usuario?.rol);
-}, [usuario]);
-
-
-  
-  
+  const { usuario, cargando } = useUser();
   const navigate = useNavigate();
   const [cotizaciones, setCotizaciones] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [deletedCotizacion, setDeletedCotizacion] = useState(null);
   const [estadoFiltro, setEstadoFiltro] = useState(null);
   const [alertasEnviadas, setAlertasEnviadas] = useState(new Set());
-  const [modalVisible, setModalVisible] = useState(false);//para el modal de ver cotizacion resumen 
-  const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);// para el modal de ver cotizacion resumen
+  const [modalVisible, setModalVisible] = useState(false);
+  const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);
+
+  useEffect(() => {
+    console.log("Rol del usuario:", usuario?.rol);
+  }, [usuario]);
 
   const abrirVistaPrevia = async (cotizacion) => {
     try {
@@ -54,6 +51,24 @@ const Menu = () => {
     }
   };
 
+  // 👉 Función centralizada para calcular el total
+  const calcularTotalCotizacion = (cotizacion) => {
+    if (Array.isArray(cotizacion.detalle_cotizacion) && cotizacion.detalle_cotizacion.length > 0) {
+      const totalDetalles = cotizacion.detalle_cotizacion.reduce((acc, d) => {
+        return acc + Number(d.total_iva_incluido || 0);
+      }, 0);
+
+      const costoEnvio = Number(cotizacion.costo_envio || 0);
+      return (totalDetalles + costoEnvio).toFixed(2);
+    }
+
+    // Fallback: usar c.total como subtotal y recalcular IVA + envío
+    const subtotal = Number(cotizacion.total || 0);
+    const costoEnvio = Number(cotizacion.costo_envio || 0);
+    const baseImponible = subtotal + costoEnvio;
+    const iva = baseImponible * 0.21;
+    return (baseImponible + iva).toFixed(2);
+  };
 
   useEffect(() => {
     if (cargando || !usuario?.id) return;
@@ -62,12 +77,10 @@ const Menu = () => {
       try {
         let res;
         if (usuario.rol === "administrador" || usuario.rol === "gerente") {
-          // Admin y gerente ven todas las cotizaciones
           res = await axios.get("/api/cotizaciones/todas", {
             headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
           });
         } else {
-          // Vendedor solo ve las suyas
           res = await axios.get(`/api/cotizaciones/todas/${usuario.id}`, {
             headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
           });
@@ -92,7 +105,7 @@ const Menu = () => {
           contacto: c.contacto_nombre && c.contacto_apellido
             ? `${c.contacto_nombre} ${c.contacto_apellido}`
             : "—",
-          total: c.total ?? 0
+          total: calcularTotalCotizacion(c) // 👈 usamos la función
         }));
         setCotizaciones(transformadas);
       } catch (error) {
@@ -102,10 +115,6 @@ const Menu = () => {
 
     cargarCotizaciones();
   }, [cargando, usuario]);
-
-
-
-
 
   function confirmarEstado(id, nuevoEstado) {
     const texto = nuevoEstado === 'finalizada_aceptada'
@@ -120,9 +129,6 @@ const Menu = () => {
     manejarCambioDeEstado(id, nuevoEstado);
   }
 
-
-
-  //enviar alerta al cliente de cotizacion por vencer
   async function enviarAlertaVencimiento(cotizacion) {
     try {
       await axios.post(
@@ -138,7 +144,6 @@ const Menu = () => {
       alert('No se pudo enviar la alerta.');
     }
   }
-
 
   async function manejarCambioDeEstado(id, nuevoEstado) {
     try {
@@ -160,7 +165,6 @@ const Menu = () => {
     }
   }
 
-  // filtrar defensivamente (proteger toLowerCase)
   const safeToLower = v => String(v ?? '').toLowerCase();
   const filteredCotizaciones = cotizaciones.filter(cotizacion => {
     const term = safeToLower(searchTerm);
@@ -199,10 +203,9 @@ const Menu = () => {
     return coincideTexto || coincideEstado;
   });
 
+  if (cargando) return <p className="text-center mt-5">Cargando usuario...</p>;
 
 
-
-  if (cargando) return <p className="text-center mt-5">Cargando usuario...</p>; // ✅ loader
 
     return (
     <>
@@ -334,7 +337,7 @@ const Menu = () => {
                       <td><EtiquetaEstado estado={cotizacion.estado} /></td>
                       <td>{cotizacion.cliente}</td>
                       <td>{cotizacion.contacto}</td>
-                      <td>${Number(cotizacion.total).toFixed(2)}</td>
+                      <td>${calcularTotalCotizacion(cotizacion)}</td>
 
                       <td className="text-end">
                         <div className="dropdown">

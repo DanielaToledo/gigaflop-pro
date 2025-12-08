@@ -24,7 +24,6 @@ const ResumenCotizacion = () => {
  const formaPago = cotizacion.condiciones?.forma_pago || cotizacion.forma_pago || cotizacion.cabecera?.forma_pago || '-';
 const tipoCambio = cotizacion.condiciones?.tipo_cambio || cotizacion.tipo_cambio || cotizacion.cabecera?.tipo_cambio || '-';
 const diasPago = cotizacion.condiciones?.dias_pago || cotizacion.dias_pago || cotizacion.cabecera?.dias_pago || '-';
-// ❌ markupMaximo ya no lo usamos en la vista
 const observaciones = cotizacion.condiciones?.observaciones || cotizacion.observaciones || cotizacion.cabecera?.observaciones || '';
 
   const contactoTexto = [cotizacion?.cliente?.contacto_nombre ?? cotizacion?.cliente?.contacto, cotizacion?.cliente?.contacto_apellido]
@@ -259,7 +258,6 @@ const handleDescargarPDF = () => {
     `Forma de pago: ${formaPago}`,
     `Tipo de cambio: ${tipoCambio}`,
     `Plazo de pago: ${diasPago}`,
-    `Markup máximo: ${markupMaximo}%`,
     observaciones ? `Observaciones: ${observaciones}` : null
   ];
 
