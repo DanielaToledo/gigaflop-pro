@@ -213,27 +213,37 @@ export async function iniciarCotizacion(req, res) {
           const precio_unitario = Number(item.precio_unitario ?? item.precio ?? 0);
           const descuento = Number(item.descuento ?? 0);
           const markup_ingresado = aNumeroONuloLocal(item.markup_ingresado);
-          const subtotal = (precio_unitario - descuento) * cantidad;
-          const iva = 0;
-          const total = subtotal;
+      // Subtotal sin IVA
+const subtotal = (precio_unitario - descuento) * cantidad;
 
-          await db.query(
-            `INSERT INTO detalle_cotizacion (
-              id_cotizacion, id_producto, cantidad, precio_unitario,
-              descuento, subtotal, iva, total_iva_incluido, markup_ingresado
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              idCotizacion,
-              item.id_producto,
-              cantidad,
-              precio_unitario,
-              descuento,
-              subtotal,
-              iva,
-              total,
-              markup_ingresado
-            ]
-          );
+// Recuperar tasa de IVA del producto
+const [productoRows] = await db.query(
+  `SELECT tasa_iva FROM productos WHERE id = ?`,
+  [item.id_producto]
+);
+const tasaIva = productoRows[0] ? Number(productoRows[0].tasa_iva || 21) : 21;
+
+// Calcular IVA y total con IVA incluido
+const iva = subtotal * (tasaIva / 100);
+const total = subtotal + iva;
+
+await db.query(
+  `INSERT INTO detalle_cotizacion (
+    id_cotizacion, id_producto, cantidad, precio_unitario,
+    descuento, subtotal, iva, total_iva_incluido, markup_ingresado
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [
+    idCotizacion,
+    item.id_producto,
+    cantidad,
+    precio_unitario,
+    descuento,
+    subtotal,
+    iva,
+    total, // 👈 ahora guarda subtotal + IVA
+    markup_ingresado
+  ]
+);
         }
       }
 
@@ -648,11 +658,18 @@ export async function verCotizacionCompleta(req, res) {
       condiciones = condRows[0] ?? null;
     }
 
+    // ✅ Calcular total con IVA incluido + costo de envío
+    const totalProductos = (cotizacion.productos || []).reduce((acc, p) => {
+      return acc + Number(p.total_iva_incluido || 0);
+    }, 0);
+    const costoEnvio = Number(cotizacion?.cabecera?.costo_envio || 0);
+    const totalGeneral = totalProductos + costoEnvio;
+
     res.json({
       ...cotizacion,
       numero_cotizacion: cotizacion?.cabecera?.numero_cotizacion ?? '',
       productos: cotizacion.productos ?? [],
-      total: cotizacion?.cabecera?.total ?? null,
+      total: totalGeneral.toFixed(2), // 👈 ahora sí devuelve el total correcto
       fecha: cotizacion?.cabecera?.fecha ?? null,
       vigencia_hasta: cotizacion?.cabecera?.vigencia_hasta ?? null,
       observaciones: cotizacion?.cabecera?.observaciones ?? '',

@@ -121,22 +121,83 @@ export class Cotizacion {
 
 
   // Agregar detalle tomando precios desde tabla productos (opcional)
-  async agregarDetalle(idCotizacion, productos) {
-    for (const item of productos) {
+// Agregar detalle tomando precios desde tabla productos (opcional)
+async agregarDetalle(idCotizacion, productos) {
+  for (const item of productos) {
+    const [productoRows] = await this.db.query(
+      `SELECT precio, tasa_iva FROM productos WHERE id = ?`,
+      [item.id_producto]
+    );
+    const producto = productoRows[0];
+    if (!producto) continue;
+
+    const precioUnitario = Number(producto.precio); // precio base del producto
+    const tasaIva = Number(producto.tasa_iva || 21); // por defecto 21%
+    const descuento = Number(item.descuento || 0);
+    const cantidad = Number(item.cantidad || 1);
+    const markupIngresado = Number(item.markup_ingresado ?? item.markup ?? 0);
+
+    // Subtotal sin IVA
+    const subtotal = (precioUnitario - descuento) * cantidad;
+
+    // IVA calculado según tasa
+    const iva = subtotal * (tasaIva / 100);
+
+    // Total con IVA incluido
+    const totalIvaIncluido = subtotal + iva;
+
+    await this.db.query(
+      `INSERT INTO detalle_cotizacion (
+        id_cotizacion, id_producto, cantidad, precio_unitario,
+        descuento, subtotal, iva, total_iva_incluido, markup_ingresado
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        idCotizacion,
+        item.id_producto,
+        cantidad,
+        precioUnitario,
+        descuento,
+        subtotal,
+        iva,
+        totalIvaIncluido,
+        markupIngresado
+      ]
+    );
+  }
+}
+
+  // Reemplaza los productos del detalle y persiste markup_ingresado
+  // Ejecuta delete + inserts dentro de una transacción para atomicidad
+// Reemplaza los productos del detalle y persiste markup_ingresado
+// Ejecuta delete + inserts dentro de una transacción para atomicidad
+async reemplazarProductos(idCotizacion, productos) {
+  await this.db.query('START TRANSACTION');
+  try {
+    await this.db.query(`DELETE FROM detalle_cotizacion WHERE id_cotizacion = ?`, [idCotizacion]);
+
+    for (const p of productos) {
+      if (!p.id_producto || Number(p.cantidad) <= 0) continue;
+
+      const cantidad = Number(p.cantidad) || 1;
+      const precio_unitario = Number(p.precio_unitario ?? p.precio ?? 0);
+      const descuento = Number(p.descuento ?? 0);
+      const markup_ingresado = Number(p.markup_ingresado ?? p.markup ?? 0);
+
+      // ⚡ Recuperar tasa de IVA del producto
       const [productoRows] = await this.db.query(
-        `SELECT precio, tasa_iva FROM productos WHERE id = ?`,
-        [item.id_producto]
+        `SELECT tasa_iva FROM productos WHERE id = ?`,
+        [p.id_producto]
       );
-      const producto = productoRows[0];
-      if (!producto) continue;
+      const tasaIva = productoRows[0] ? Number(productoRows[0].tasa_iva || 21) : 21;
 
-      const precioConIva = Number(producto.precio);
-      const descuento = Number(item.descuento || 0);
-      const cantidad = Number(item.cantidad || 1);
+      // Subtotal sin IVA
+      const subtotal = (precio_unitario - descuento) * cantidad;
 
-      const subtotal = (precioConIva - descuento) * cantidad;
-      const iva = 0;
-      const total = subtotal;
+      // IVA calculado según tasa
+      const iva = subtotal * (tasaIva / 100);
+
+      // Total con IVA incluido
+      const totalIvaIncluido = subtotal + iva;
 
       await this.db.query(
         `INSERT INTO detalle_cotizacion (
@@ -145,63 +206,24 @@ export class Cotizacion {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           idCotizacion,
-          item.id_producto,
+          p.id_producto,
           cantidad,
-          precioConIva,
+          precio_unitario,
           descuento,
           subtotal,
           iva,
-          total,
-          Number(item.markup_ingresado ?? item.markup ?? 0)
+          totalIvaIncluido,
+          markup_ingresado
         ]
       );
     }
+
+    await this.db.query('COMMIT');
+  } catch (err) {
+    await this.db.query('ROLLBACK');
+    throw err;
   }
-
-  // Reemplaza los productos del detalle y persiste markup_ingresado
-  // Ejecuta delete + inserts dentro de una transacción para atomicidad
-  async reemplazarProductos(idCotizacion, productos) {
-    await this.db.query('START TRANSACTION');
-    try {
-      await this.db.query(`DELETE FROM detalle_cotizacion WHERE id_cotizacion = ?`, [idCotizacion]);
-
-      for (const p of productos) {
-        if (!p.id_producto || Number(p.cantidad) <= 0) continue;
-
-        const cantidad = Number(p.cantidad) || 1;
-        const precio_unitario = Number(p.precio_unitario ?? p.precio ?? 0);
-        const descuento = Number(p.descuento ?? 0);
-        const markup_ingresado = Number(p.markup_ingresado ?? p.markup ?? 0);
-        const subtotal = (precio_unitario - descuento) * cantidad;
-        const iva = 0;
-        const total = subtotal;
-
-        await this.db.query(
-          `INSERT INTO detalle_cotizacion (
-            id_cotizacion, id_producto, cantidad, precio_unitario,
-            descuento, subtotal, iva, total_iva_incluido, markup_ingresado
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            idCotizacion,
-            p.id_producto,
-            cantidad,
-            precio_unitario,
-            descuento,
-            subtotal,
-            iva,
-            total,
-            markup_ingresado
-          ]
-        );
-      }
-
-      await this.db.query('COMMIT');
-    } catch (err) {
-      await this.db.query('ROLLBACK');
-      throw err;
-    }
-  }
-
+}
 
   async actualizarVencidas() {
     await this.db.query(`
@@ -293,33 +315,40 @@ async obtenerBorradoresPorUsuario(id_usuario) {
 async obtenerTodasPorUsuario(id_usuario) {
   const [rows] = await this.db.query(
     `SELECT
-      c.id,
-      c.numero_cotizacion,
-      c.fecha,
-      c.vigencia_hasta,
-      c.observaciones,
-      e.id AS estado_id,
-      e.nombre AS estado_nombre,
-      e.es_final AS estado_es_final,
-      e.requiere_vencimiento AS estado_requiere_vencimiento,
-      cl.razon_social AS cliente_nombre,
-      u.nombre AS usuario_nombre,
-      ct.nombre_contacto AS contacto_nombre,
-      ct.apellido AS contacto_apellido,
-      cc.forma_pago,
-      cc.tipo_cambio,
-      cc.dias_pago,
-      COALESCE(SUM(dp.precio_unitario * dp.cantidad * (1 - dp.descuento / 100)), 0) AS total
-    FROM cotizaciones c
-    LEFT JOIN estados e ON c.id_estado = e.id
-    LEFT JOIN cliente cl ON c.id_cliente = cl.id
-    LEFT JOIN usuarios u ON c.id_usuario = u.id
-    LEFT JOIN contactos ct ON c.id_contacto = ct.id
-    LEFT JOIN detalle_cotizacion dp ON c.id = dp.id_cotizacion
-    LEFT JOIN condiciones_comerciales cc ON c.id_condicion = cc.id
-    WHERE c.id_usuario = ?
-    GROUP BY c.id
-    ORDER BY c.fecha DESC`,
+       c.id,
+       c.numero_cotizacion,
+       c.fecha,
+       c.vigencia_hasta,
+       c.observaciones,
+       e.id AS estado_id,
+       e.nombre AS estado_nombre,
+       e.es_final AS estado_es_final,
+       e.requiere_vencimiento AS estado_requiere_vencimiento,
+       cl.razon_social AS cliente_nombre,
+       u.nombre AS usuario_nombre,
+       ct.nombre_contacto AS contacto_nombre,
+       ct.apellido AS contacto_apellido,
+       cc.forma_pago,
+       cc.tipo_cambio,
+       cc.dias_pago,
+       ROUND(
+         COALESCE(SUM(CASE WHEN p.tasa_iva = 21 THEN dp.subtotal ELSE 0 END), 0) +
+         COALESCE(SUM(CASE WHEN p.tasa_iva = 10.5 THEN dp.subtotal ELSE 0 END), 0) +
+         c.costo_envio +
+         (COALESCE(SUM(CASE WHEN p.tasa_iva = 21 THEN dp.subtotal ELSE 0 END), 0) + c.costo_envio) * 0.21 +
+         COALESCE(SUM(CASE WHEN p.tasa_iva = 10.5 THEN dp.subtotal ELSE 0 END), 0) * 0.105
+       , 2) AS total
+     FROM cotizaciones c
+     LEFT JOIN estados e ON c.id_estado = e.id
+     LEFT JOIN cliente cl ON c.id_cliente = cl.id
+     LEFT JOIN usuarios u ON c.id_usuario = u.id
+     LEFT JOIN contactos ct ON c.id_contacto = ct.id
+     LEFT JOIN detalle_cotizacion dp ON c.id = dp.id_cotizacion
+     LEFT JOIN productos p ON dp.id_producto = p.id
+     LEFT JOIN condiciones_comerciales cc ON c.id_condicion = cc.id
+     WHERE c.id_usuario = ?
+     GROUP BY c.id
+     ORDER BY c.fecha DESC`,
     [id_usuario]
   );
 
@@ -332,28 +361,27 @@ async obtenerTodasPorUsuario(id_usuario) {
 }
 
 
-
-  // Devuelve la cabecera + productos con datos enriquecidos (incluye mark_up_maximo desde condiciones_comerciales)
-  async obtenerCotizacionCompleta(idCotizacion) {
-    const [cabeceraRows] = await this.db.query(
-      `SELECT c.*,
+// Devuelve la cabecera + productos con datos enriquecidos (incluye mark_up_maximo desde condiciones_comerciales)
+async obtenerCotizacionCompleta(idCotizacion) {
+  const [cabeceraRows] = await this.db.query(
+    `SELECT c.*,
       e.id AS estado_id, 
       e.nombre AS estado_nombre,
       e.es_final AS estado_es_final,
-     e.requiere_vencimiento AS estado_requiere_vencimiento,
-     cl.razon_social AS cliente_nombre, cl.cuit,
-     u.nombre AS usuario_nombre, u.apellido AS usuario_apellido,
-     cc.forma_pago, cc.tipo_cambio, cc.dias_pago, cc.mark_up_maximo, cc.observaciones AS condiciones_observaciones,
-     dc.locacion, dc.localidad, dc.provincia,
-     con.nombre_contacto AS nombre_contacto,
-     con.apellido AS contacto_apellido,
-     con.email AS contacto_email,
-     v.nombre AS vendedor_nombre,
+      e.requiere_vencimiento AS estado_requiere_vencimiento,
+      cl.razon_social AS cliente_nombre, cl.cuit,
+      u.nombre AS usuario_nombre, u.apellido AS usuario_apellido,
+      cc.forma_pago, cc.tipo_cambio, cc.dias_pago, cc.mark_up_maximo, cc.observaciones AS condiciones_observaciones,
+      dc.locacion, dc.localidad, dc.provincia,
+      con.nombre_contacto AS nombre_contacto,
+      con.apellido AS contacto_apellido,
+      con.email AS contacto_email,
+      v.nombre AS vendedor_nombre,
       v.apellido AS vendedor_apellido,
       v.email AS vendedor_email,
-     v.legajo AS vendedor_legajo,
-     v.status AS vendedor_status,
-     CONCAT_WS(' ', dir.calle, dir.numeracion, dir.piso, dir.depto, '-', dir.localidad, '-', dir.provincia) AS direccion_cliente
+      v.legajo AS vendedor_legajo,
+      v.status AS vendedor_status,
+      CONCAT_WS(' ', dir.calle, dir.numeracion, dir.piso, dir.depto, '-', dir.localidad, '-', dir.provincia) AS direccion_cliente
      FROM cotizaciones c
      LEFT JOIN estados e ON c.id_estado = e.id
      JOIN cliente cl ON c.id_cliente = cl.id
@@ -364,125 +392,129 @@ async obtenerTodasPorUsuario(id_usuario) {
      LEFT JOIN direccion_cliente dir ON dir.id = c.id_direccion_cliente
      LEFT JOIN vendedores v ON v.id_usuario = u.id
      WHERE c.id = ?`,
-      [idCotizacion]
-    );
+    [idCotizacion]
+  );
 
-    const cabeceraRaw = cabeceraRows[0] ?? null;
-    let cabecera = cabeceraRaw;
+  const cabeceraRaw = cabeceraRows[0] ?? null;
+  let cabecera = cabeceraRaw;
 
-const vendedor = {
-  nombre: cabeceraRaw.vendedor_nombre ?? cabeceraRaw.usuario_nombre ?? '',
-  apellido: cabeceraRaw.vendedor_apellido ?? cabeceraRaw.usuario_apellido ?? '',
-  email: cabeceraRaw.vendedor_email ?? '',
-  legajo: cabeceraRaw.vendedor_legajo ?? null,
-  estado: cabeceraRaw.vendedor_status ?? null
-};
+  const vendedor = {
+    nombre: cabeceraRaw.vendedor_nombre ?? cabeceraRaw.usuario_nombre ?? '',
+    apellido: cabeceraRaw.vendedor_apellido ?? cabeceraRaw.usuario_apellido ?? '',
+    email: cabeceraRaw.vendedor_email ?? '',
+    legajo: cabeceraRaw.vendedor_legajo ?? null,
+    estado: cabeceraRaw.vendedor_status ?? null
+  };
 
-    const [contactosCliente] = await this.db.query(
-      `SELECT id, nombre_contacto FROM contactos WHERE id_cliente = ?`,
-      [cabecera.id_cliente]
-    );
+  const [contactosCliente] = await this.db.query(
+    `SELECT id, nombre_contacto FROM contactos WHERE id_cliente = ?`,
+    [cabecera.id_cliente]
+  );
 
-    const [direccionesCliente] = await this.db.query(
-      `SELECT id,
+  const [direccionesCliente] = await this.db.query(
+    `SELECT id,
         CONCAT_WS(' ', calle, numeracion, piso, depto, '-', localidad, '-', provincia) AS texto
      FROM direccion_cliente
      WHERE id_cliente = ?`,
-      [cabecera.id_cliente]
-    );
+    [cabecera.id_cliente]
+  );
 
-    cabecera.contactos = contactosCliente ?? [];
-    cabecera.direcciones = direccionesCliente ?? [];
+  cabecera.contactos = contactosCliente ?? [];
+  cabecera.direcciones = direccionesCliente ?? [];
 
-    if (cabecera) {
-      const rawMark = cabecera.mark_up_maximo;
-      if (rawMark === null || rawMark === undefined || rawMark === '') {
-        cabecera.mark_up_maximo = null;
-      } else {
-        const parsed = parseFloat(String(rawMark).replace(',', '.').trim());
-        cabecera.mark_up_maximo = Number.isFinite(parsed) ? parsed : null;
-      }
-
-      cabecera.fecha = cabecera.fecha ? new Date(cabecera.fecha).toISOString() : null;
-      cabecera.vigencia_hasta = cabecera.vigencia_hasta ? new Date(cabecera.vigencia_hasta).toISOString() : null;
-      cabecera.estado = {
-        id: cabecera.id_estado,
-        nombre: cabecera.estado_nombre,
-        es_final: Boolean(cabecera.estado_es_final),
-        requiere_vencimiento: Boolean(cabecera.estado_requiere_vencimiento)
-      };
+  if (cabecera) {
+    const rawMark = cabecera.mark_up_maximo;
+    if (rawMark === null || rawMark === undefined || rawMark === '') {
+      cabecera.mark_up_maximo = null;
+    } else {
+      const parsed = parseFloat(String(rawMark).replace(',', '.').trim());
+      cabecera.mark_up_maximo = Number.isFinite(parsed) ? parsed : null;
     }
 
-
-    const [detalleRows] = await this.db.query(
-      `SELECT dc.*, p.detalle, p.part_number, p.marca, p.categoria, p.subcategoria, p.tasa_iva, p.precio
-     FROM detalle_cotizacion dc
-     JOIN productos p ON dc.id_producto = p.id
-     WHERE dc.id_cotizacion = ?`,
-      [idCotizacion]
-    );
-
-    const productos = (detalleRows || []).map(item => {
-      const tasa = Number(item.tasa_iva ?? 21);
-      const precio_unitario_raw = Number(item.precio_unitario ?? item.precio ?? 0);
-      const precio_unitario = parseFloat(precio_unitario_raw.toFixed(2));
-      const descuento = parseFloat(Number(item.descuento ?? 0).toFixed(2));
-      const cantidad = Number(item.cantidad ?? 1);
-      const subtotal = parseFloat(Number(item.subtotal ?? (precio_unitario - descuento) * cantidad).toFixed(2));
-      const ivaDesglosado = tasa > 0 ? precio_unitario * (tasa / (100 + tasa)) : 0;
-
-      return {
-        ...item,
-        precio_unitario,
-        descuento,
-        cantidad,
-        subtotal,
-        iva_desglosado: parseFloat(ivaDesglosado.toFixed(2)),
-        markup_ingresado: item.markup_ingresado !== undefined && item.markup_ingresado !== null
-          ? Number(item.markup_ingresado)
-          : 0
-      };
-    });
-
-    // 🧮 Cálculo fiscal extendido
-    let base21 = 0, base105 = 0, descuentosTotales = 0;
-
-    productos.forEach(p => {
-      const base = p.subtotal ?? 0;
-      const iva = Number(p.tasa_iva ?? 21);
-      const descuento = Number(p.descuento ?? 0);
-
-      descuentosTotales += descuento;
-
-      if (iva === 21) base21 += base;
-      else if (iva === 10.5) base105 += base;
-      else base21 += base; // fallback
-    });
-
-    const iva21 = base21 * 0.21;
-    const iva105 = base105 * 0.105;
-    const baseImponible = base21 + base105;
-    const totalFinal = baseImponible + iva21 + iva105;
-
-    // 🧾 Asignación a cabecera
-    cabecera.total = parseFloat(totalFinal.toFixed(2));
-    cabecera.resumen_fiscal = {
-      base21: parseFloat(base21.toFixed(2)),
-      base105: parseFloat(base105.toFixed(2)),
-      iva21: parseFloat(iva21.toFixed(2)),
-      iva105: parseFloat(iva105.toFixed(2)),
-      baseImponible: parseFloat(baseImponible.toFixed(2)),
-      descuentosTotales: parseFloat(descuentosTotales.toFixed(2)),
-      totalFinal: parseFloat(totalFinal.toFixed(2))
-    };
-
-    return {
-      cabecera,
-      productos,
-      vendedor
+    cabecera.fecha = cabecera.fecha ? new Date(cabecera.fecha).toISOString() : null;
+    cabecera.vigencia_hasta = cabecera.vigencia_hasta ? new Date(cabecera.vigencia_hasta).toISOString() : null;
+    cabecera.estado = {
+      id: cabecera.id_estado,
+      nombre: cabecera.estado_nombre,
+      es_final: Boolean(cabecera.estado_es_final),
+      requiere_vencimiento: Boolean(cabecera.estado_requiere_vencimiento)
     };
   }
 
+  const [detalleRows] = await this.db.query(
+    `SELECT dc.*, p.detalle, p.part_number, p.marca, p.categoria, p.subcategoria, p.tasa_iva, p.precio
+     FROM detalle_cotizacion dc
+     JOIN productos p ON dc.id_producto = p.id
+     WHERE dc.id_cotizacion = ?`,
+    [idCotizacion]
+  );
+
+  const productos = (detalleRows || []).map(item => {
+    const tasa = Number(item.tasa_iva ?? 21);
+    const precio_unitario_raw = Number(item.precio_unitario ?? item.precio ?? 0);
+    const precio_unitario = parseFloat(precio_unitario_raw.toFixed(2));
+    const descuento = parseFloat(Number(item.descuento ?? 0).toFixed(2));
+    const cantidad = Number(item.cantidad ?? 1);
+    const subtotal = parseFloat(Number(item.subtotal ?? (precio_unitario - descuento) * cantidad).toFixed(2));
+
+    return {
+      ...item,
+      precio_unitario,
+      descuento,
+      cantidad,
+      subtotal,
+      markup_ingresado: item.markup_ingresado !== undefined && item.markup_ingresado !== null
+        ? Number(item.markup_ingresado)
+        : 0
+    };
+  });
+
+  // 🧮 Cálculo fiscal extendido
+  let base21 = 0, base105 = 0, descuentosTotales = 0;
+
+  productos.forEach(p => {
+    const base = p.subtotal ?? 0;
+    const iva = Number(p.tasa_iva ?? 21);
+    const descuento = Number(p.descuento ?? 0);
+
+    descuentosTotales += descuento;
+
+    if (iva === 21) base21 += base;
+    else if (iva === 10.5) base105 += base;
+    else base21 += base; // fallback
+  });
+
+  const costoEnvio = Number(cabecera?.costo_envio || 0);
+
+  // ✅ IVA 21% incluye productos + envío
+  const iva21 = (base21 + costoEnvio) * 0.21;
+  const iva105 = base105 * 0.105;
+
+  // ✅ Base imponible incluye envío
+  const baseImponible = base21 + base105 + costoEnvio;
+
+  // ✅ Total final = base imponible + IVA - descuentos
+  const totalFinal = baseImponible + iva21 + iva105 - descuentosTotales;
+
+  // 🧾 Asignación a cabecera
+  cabecera.total = parseFloat(totalFinal.toFixed(2));
+  cabecera.resumen_fiscal = {
+    base21: parseFloat(base21.toFixed(2)),
+    base105: parseFloat(base105.toFixed(2)),
+    iva21: parseFloat(iva21.toFixed(2)),
+    iva105: parseFloat(iva105.toFixed(2)),
+    baseImponible: parseFloat(baseImponible.toFixed(2)),
+    descuentosTotales: parseFloat(descuentosTotales.toFixed(2)),
+    costoEnvio: parseFloat(costoEnvio.toFixed(2)),
+    totalFinal: parseFloat(totalFinal.toFixed(2))
+  };
+
+  return {
+    cabecera,
+    productos,
+    vendedor
+  };
+}
 
  // Obtener cotización para edición (cabecera + productos) — devuelve estado_nombre, fechas normalizadas y condiciones comerciales
 async obtenerCotizacionParaEdicion(id) {
@@ -580,7 +612,7 @@ async obtenerCotizacionParaEdicion(id) {
 } 
 
 // Este método obtiene todas las cotizaciones sin filtrar por usuario (para administradores)
-// Ahora incluye condiciones comerciales
+// Ahora incluye condiciones comerciales y calcula el total con IVA + envío
 async obtenerTodas() {
   const [rows] = await this.db.query(
     `SELECT
@@ -600,13 +632,20 @@ async obtenerTodas() {
        cc.forma_pago,
        cc.tipo_cambio,
        cc.dias_pago,
-       COALESCE(SUM(dp.precio_unitario * dp.cantidad * (1 - dp.descuento / 100)), 0) AS total
+       ROUND(
+         COALESCE(SUM(CASE WHEN p.tasa_iva = 21 THEN dp.subtotal ELSE 0 END), 0) +
+         COALESCE(SUM(CASE WHEN p.tasa_iva = 10.5 THEN dp.subtotal ELSE 0 END), 0) +
+         c.costo_envio +
+         (COALESCE(SUM(CASE WHEN p.tasa_iva = 21 THEN dp.subtotal ELSE 0 END), 0) + c.costo_envio) * 0.21 +
+         COALESCE(SUM(CASE WHEN p.tasa_iva = 10.5 THEN dp.subtotal ELSE 0 END), 0) * 0.105
+       , 2) AS total
      FROM cotizaciones c
      LEFT JOIN estados e ON c.id_estado = e.id
      LEFT JOIN cliente cl ON c.id_cliente = cl.id
      LEFT JOIN usuarios u ON c.id_usuario = u.id
      LEFT JOIN contactos ct ON c.id_contacto = ct.id
      LEFT JOIN detalle_cotizacion dp ON c.id = dp.id_cotizacion
+     LEFT JOIN productos p ON dp.id_producto = p.id
      LEFT JOIN condiciones_comerciales cc ON c.id_condicion = cc.id
      GROUP BY c.id
      ORDER BY c.fecha DESC`

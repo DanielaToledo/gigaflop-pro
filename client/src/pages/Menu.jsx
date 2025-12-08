@@ -51,25 +51,6 @@ const Menu = () => {
     }
   };
 
-  // 👉 Función centralizada para calcular el total
-  const calcularTotalCotizacion = (cotizacion) => {
-    if (Array.isArray(cotizacion.detalle_cotizacion) && cotizacion.detalle_cotizacion.length > 0) {
-      const totalDetalles = cotizacion.detalle_cotizacion.reduce((acc, d) => {
-        return acc + Number(d.total_iva_incluido || 0);
-      }, 0);
-
-      const costoEnvio = Number(cotizacion.costo_envio || 0);
-      return (totalDetalles + costoEnvio).toFixed(2);
-    }
-
-    // Fallback: usar c.total como subtotal y recalcular IVA + envío
-    const subtotal = Number(cotizacion.total || 0);
-    const costoEnvio = Number(cotizacion.costo_envio || 0);
-    const baseImponible = subtotal + costoEnvio;
-    const iva = baseImponible * 0.21;
-    return (baseImponible + iva).toFixed(2);
-  };
-
   useEffect(() => {
     if (cargando || !usuario?.id) return;
 
@@ -105,7 +86,7 @@ const Menu = () => {
           contacto: c.contacto_nombre && c.contacto_apellido
             ? `${c.contacto_nombre} ${c.contacto_apellido}`
             : "—",
-          total: calcularTotalCotizacion(c) // 👈 usamos la función
+          total: Number(c.total || 0).toFixed(2) // 👈 usamos directamente el total del backend
         }));
         setCotizaciones(transformadas);
       } catch (error) {
@@ -202,6 +183,8 @@ const Menu = () => {
 
     return coincideTexto || coincideEstado;
   });
+
+
 
   if (cargando) return <p className="text-center mt-5">Cargando usuario...</p>;
 
@@ -337,7 +320,7 @@ const Menu = () => {
                       <td><EtiquetaEstado estado={cotizacion.estado} /></td>
                       <td>{cotizacion.cliente}</td>
                       <td>{cotizacion.contacto}</td>
-                      <td>${calcularTotalCotizacion(cotizacion)}</td>
+                      <td>${Number(cotizacion.total || 0).toFixed(2)}</td>
 
                       <td className="text-end">
                         <div className="dropdown">

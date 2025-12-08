@@ -1309,15 +1309,16 @@ const NuevaCotizacion = () => {
 
   // Resumen de la cotización: totales, IVA, descuentos, etc.
   const resumen = useMemo(() => {
-    let base21 = 0, base105 = 0;
-    let totalDescuentos = 0;
+    let base21 = 0, base105 = 0; //inicializo las bases suma de productos con IVA 21% y 10.5%
+    let totalDescuentos = 0; //suma de todos los descuentos aplicados.
 
-    const safeNum = v => {
+    const safeNum = v => { // helper para parsear números seguros
       const n = parseFloat(v);
       return Number.isFinite(n) ? n : 0;
     };
 
-    (Array.isArray(carrito) ? carrito : []).forEach(p => {
+    //quí se calcula el subtotal de cada producto con markup y descuento, y se lo acumula en la base correspondiente según la tasa de IVA.
+    (Array.isArray(carrito) ? carrito : []).forEach(p => {// recorro productos en el carrito
       const precio = safeNum(p.precio);
       const cantidad = safeNum(p.cantidad) || 1;
       const markup = safeNum(p.markup);
@@ -1339,15 +1340,18 @@ const NuevaCotizacion = () => {
     const envio = safeNum(costoEnvio);
 
     // Bonificación si el total supera 1500
-    const envioBonificado = baseProd >= 1500;
-    const envioFinal = envioBonificado ? 0 : envio;
+    const envioBonificado = baseProd >= 1500; // envío gratis si baseProd >= 1500
+    const envioFinal = envioBonificado ? 0 : envio;// costo de envío final
 
-    const iva21 = (base21 + envioFinal) * 0.21;
-    const iva105 = base105 * 0.105;
-    const baseImp = baseProd + envioFinal;
-    const total = baseImp + iva21 + iva105;
+    // Cálculo de IVA y total final de la cotización
 
-    return {
+    const iva21 = (base21 + envioFinal) * 0.21;// IVA sobre base 21%
+    const iva105 = base105 * 0.105;// IVA sobre base 10.5%
+    const baseImp = baseProd + envioFinal;// base imponible total
+    const total = baseImp + iva21 + iva105;// total final incluyendo IVA El total final incluye productos + envío + IVA.
+
+
+    return {// retorno del resumen calculado
       baseProd,
       envio: envioFinal,
       envioBonificado,
