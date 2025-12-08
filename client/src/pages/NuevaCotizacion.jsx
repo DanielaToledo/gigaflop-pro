@@ -268,32 +268,32 @@ const NuevaCotizacion = () => {
   //validacion!!!!!! ESPECIAL!!!!!!!!!!!!!
   // Validación especial para finalizar/enviar
   const validarFinalizacion = () => {
-  // Primero correr la validación existente (máximos)
-  const okMaximos = validarAntesDeEnviar();
-  if (!okMaximos) return false;
+    // Primero correr la validación existente (máximos)
+    const okMaximos = validarAntesDeEnviar();
+    if (!okMaximos) return false;
 
-  // Ahora validar que todos los productos tengan markup ingresado y que no sea 0
-  const productosInvalidos = (Array.isArray(carrito) ? carrito : []).filter((p, i) => {
-    const ingreso = p.markup_ingresado;
-    return ingreso === null || ingreso === undefined || ingreso === '' || Number(ingreso) === 0;
-  });
-
-  if (productosInvalidos.length > 0) {
-    const errores = {};
-    productosInvalidos.forEach((p, idx) => {
-      const key = getProductKey(p, idx);
-      errores[key] = `El producto ${p.part_number ?? `id ${p.id_producto ?? p.id}`} no tiene markup válido (debe ser mayor a 0).`;
+    // Ahora validar que todos los productos tengan markup ingresado y que no sea 0
+    const productosInvalidos = (Array.isArray(carrito) ? carrito : []).filter((p, i) => {
+      const ingreso = p.markup_ingresado;
+      return ingreso === null || ingreso === undefined || ingreso === '' || Number(ingreso) === 0;
     });
-    setErroresProductos(errores);
-    setMensajeError(`Debes ingresar un markup mayor a 0 en todos los productos seleccionados.`);
-    return false;
-  }
 
-  // Si todo está bien
-  setErroresProductos({});
-  setMensajeError('');
-  return true;
-};
+    if (productosInvalidos.length > 0) {
+      const errores = {};
+      productosInvalidos.forEach((p, idx) => {
+        const key = getProductKey(p, idx);
+        errores[key] = `El producto ${p.part_number ?? `id ${p.id_producto ?? p.id}`} no tiene markup válido (debe ser mayor a 0).`;
+      });
+      setErroresProductos(errores);
+      setMensajeError(`Debes ingresar un markup mayor a 0 en todos los productos seleccionados.`);
+      return false;
+    }
+
+    // Si todo está bien
+    setErroresProductos({});
+    setMensajeError('');
+    return true;
+  };
 
   // construye el objeto final (que se me manda al backend) Construir payload para enviar al servidor
   const buildPayload = (estadoNombreOrId = 'borrador', extra = {}) => {
@@ -1426,8 +1426,7 @@ const NuevaCotizacion = () => {
     }
   };
 
-
-  const handleActualizarCotizacion = async () => {
+const handleActualizarCotizacion = async () => {
     if (!idCotizacionActual) {
       setMensajeError('No hay cotización activa para actualizar');
       setMensajeExito('');
@@ -1683,6 +1682,7 @@ const NuevaCotizacion = () => {
     }
   };
 
+  
   // Cancelar creación o edición de cotización
   const handleCancelarCreacion = () => {
     // Acción sugerida: navegar al menú principal o limpiar el formulario
@@ -1699,7 +1699,7 @@ const NuevaCotizacion = () => {
   // Finalizar cotización (botón Finalizar)
   // Finalizar cotización (botón Finalizar)
   // Guardar/Finalizar cotización. Param enviar = true => además la enviamos (cambia a pendiente)
-  const handleFinalizarCotizacion = async () => {
+   const handleFinalizarCotizacion = async () => {
     console.log({
       clienteSeleccionado,
       id_usuario: usuarioActual?.id,
@@ -1755,6 +1755,15 @@ const NuevaCotizacion = () => {
 
         const resolvedIdCond = normalizarNumero(getCondicionId(condicionSeleccionada)) || null;
 
+
+console.log('DEBUG condiciones:', {
+  condicionSeleccionada,
+  diasPago,
+  diasPagoExtra,
+  tipoCambioSeleccionado,
+  observaciones
+});
+
         const basePayload = {
           id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
           id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
@@ -1764,6 +1773,8 @@ const NuevaCotizacion = () => {
           forma_pago: (condicionSeleccionada && typeof condicionSeleccionada === 'object')
             ? (condicionSeleccionada.forma_pago ?? '')
             : (String(condicionSeleccionada || '') || ''),
+           dias_pago: Number(diasPago) || Number(diasPagoExtra) || null,   // ← agregar
+  tipo_cambio: tipoCambioSeleccionado ?? null,                    // ← agregar
           vigencia_hasta: fechaVencimiento,
           observaciones: observaciones || '',
           plazo_entrega: plazoEntrega || '',
@@ -1778,13 +1789,16 @@ const NuevaCotizacion = () => {
 
     console.log('📤 Payload borrador (pre-send):', payloadBorrador);
 
-    if (typeof validarFinalizacion === 'function') {
-      const ok = validarFinalizacion();
-      if (!ok) {
-        console.log('⛔ Finalizar cancelado: productos con markup fuera de rango');
-        return;
-      }
-    }
+  // ⚠️ Aquí usamos la validación especial
+if (typeof validarFinalizacion === 'function') {
+  const ok = validarFinalizacion();
+  if (!ok) {
+    console.log('⛔ Finalizar cancelado: validación especial fallida');
+    return;
+  }
+}
+
+  
     try {
       let respSave;
 
@@ -1880,13 +1894,13 @@ const NuevaCotizacion = () => {
       const clienteResumen = {
         nombre: cabecera?.cliente_nombre ?? clienteObjeto?.razon_social ?? 'Sin nombre',
         contacto: contactoNombreFinal,
-        contacto_apellido:
-          respSave?.data?.cliente?.contacto_apellido ??
-          cabecera?.contacto_apellido ??
-          contactoDesdeCliente?.contacto_apellido ??
-          contactoSeleccionadoFinal?.contacto_apellido ??
-          (typeof contacto === 'object' ? contacto.contacto_apellido : '') ??
-          '',
+       contacto_apellido:
+  respSave?.data?.cliente?.contacto_apellido ??
+  cabecera?.contacto_apellido ??
+  contactoDesdeCliente?.contacto_apellido ??
+  contactoSeleccionadoFinal?.contacto_apellido ??
+  (typeof contacto === 'object' ? contacto.contacto_apellido : '') ??
+  '', 
         cuit: respSave?.data?.cliente?.cuit ?? clienteObjeto?.cuit ?? '',
         direccion: direccionTexto,
         fecha_emision: fechaHoy,
@@ -1911,27 +1925,44 @@ const NuevaCotizacion = () => {
         subcategoria: p.subcategoria || ''
       }));
 
+
+  // ✅ Condiciones agrupadas
+const condicionesResumen = {
+  forma_pago: cabecera?.forma_pago ?? payloadBorrador.forma_pago ?? '-',
+  tipo_cambio: cabecera?.tipo_cambio ?? payloadBorrador.tipo_cambio ?? null,
+  dias_pago: cabecera?.dias_pago ?? payloadBorrador.dias_pago ?? null,
+  observaciones: cabecera?.observaciones ?? payloadBorrador.observaciones ?? ''
+};
+
+
       console.log('🧪 direccionIdFinal:', direccionIdFinal);
       console.log('🧪 direccionDesdeClienteObjeto:', direccionDesdeClienteObjeto);
       console.log('clienteResumen:', clienteResumen);
       console.log('🧪 direccionesClienteFinal:', direccionesClienteFinal);
       console.log('🧪 dirección buscada:', direccionIdFinal);
       console.log('🧪 dirección encontrada:', direccionDesdeClienteObjeto);
+      console.log('condicionesResumen:', condicionesResumen);
 
       // ✅ Navegación con resumen completo
-      navigate('/resumen-cotizacion', {
-        state: {
-          cotizacion: {
-            ...payloadBorrador,
-            productos: productosEnriquecidos,
-            cliente: clienteResumen,
-            forma_pago: cabecera?.forma_pago ?? payloadBorrador.forma_pago ?? '-',
-            vigencia_hasta: payloadBorrador.vigencia_hasta || cabecera?.vigencia_hasta || '-',
-            id_cotizacion: idCotizacionActual ?? respSave?.data?.id_cotizacion ?? respSave?.data?.id,
-            numero_cotizacion: numeroCotizacionFinal
-          }
-        }
-      });
+navigate('/resumen-cotizacion', {
+  state: {
+    cotizacion: {
+      ...payloadBorrador,
+      productos: productosEnriquecidos,
+      cliente: clienteResumen,
+      condiciones: condicionesResumen,   // bloque agrupado
+      forma_pago: condicionesResumen.forma_pago,   // sueltos para compatibilidad
+      dias_pago: condicionesResumen.dias_pago,
+      tipo_cambio: condicionesResumen.tipo_cambio,
+      observaciones: condicionesResumen.observaciones,
+      vigencia_hasta: payloadBorrador.vigencia_hasta || cabecera?.vigencia_hasta || '-',
+      id_cotizacion: idCotizacionActual ?? respSave?.data?.id_cotizacion ?? respSave?.data?.id,
+      numero_cotizacion: numeroCotizacionFinal
+    }
+  }
+});
+
+
 
     } catch (error) {
       console.error('Error al finalizar cotización:', error.response?.data || error.message || error);
