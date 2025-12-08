@@ -265,7 +265,37 @@ const NuevaCotizacion = () => {
     return true;
   };
 
-  // Construir payload para enviar al servidor
+  //validacion!!!!!! ESPECIAL!!!!!!!!!!!!!
+  // Validación especial para finalizar/enviar
+  const validarFinalizacion = () => {
+    // Primero correr la validación existente (máximos)
+    const okMaximos = validarAntesDeEnviar();
+    if (!okMaximos) return false;
+
+    // Ahora validar que todos los productos tengan markup ingresado y que no sea 0
+    const productosInvalidos = (Array.isArray(carrito) ? carrito : []).filter((p, i) => {
+      const ingreso = p.markup_ingresado;
+      return ingreso === null || ingreso === undefined || ingreso === '' || Number(ingreso) === 0;
+    });
+
+    if (productosInvalidos.length > 0) {
+      const errores = {};
+      productosInvalidos.forEach((p, idx) => {
+        const key = getProductKey(p, idx);
+        errores[key] = `El producto ${p.part_number ?? `id ${p.id_producto ?? p.id}`} no tiene markup válido (debe ser mayor a 0).`;
+      });
+      setErroresProductos(errores);
+      setMensajeError(`Debes ingresar un markup mayor a 0 en todos los productos seleccionados.`);
+      return false;
+    }
+
+    // Si todo está bien
+    setErroresProductos({});
+    setMensajeError('');
+    return true;
+  };
+
+  // construye el objeto final (que se me manda al backend) Construir payload para enviar al servidor
   const buildPayload = (estadoNombreOrId = 'borrador', extra = {}) => {
     const productos = (Array.isArray(carrito) ? carrito : [])
       .map(normalizarProducto)
@@ -1279,15 +1309,16 @@ const NuevaCotizacion = () => {
 
   // Resumen de la cotización: totales, IVA, descuentos, etc.
   const resumen = useMemo(() => {
-    let base21 = 0, base105 = 0;
-    let totalDescuentos = 0;
+    let base21 = 0, base105 = 0; //inicializo las bases suma de productos con IVA 21% y 10.5%
+    let totalDescuentos = 0; //suma de todos los descuentos aplicados.
 
-    const safeNum = v => {
+    const safeNum = v => { // helper para parsear números seguros
       const n = parseFloat(v);
       return Number.isFinite(n) ? n : 0;
     };
 
-    (Array.isArray(carrito) ? carrito : []).forEach(p => {
+    //quí se calcula el subtotal de cada producto con markup y descuento, y se lo acumula en la base correspondiente según la tasa de IVA.
+    (Array.isArray(carrito) ? carrito : []).forEach(p => {// recorro productos en el carrito
       const precio = safeNum(p.precio);
       const cantidad = safeNum(p.cantidad) || 1;
       const markup = safeNum(p.markup);
@@ -1309,15 +1340,18 @@ const NuevaCotizacion = () => {
     const envio = safeNum(costoEnvio);
 
     // Bonificación si el total supera 1500
-    const envioBonificado = baseProd >= 1500;
-    const envioFinal = envioBonificado ? 0 : envio;
+    const envioBonificado = baseProd >= 1500; // envío gratis si baseProd >= 1500
+    const envioFinal = envioBonificado ? 0 : envio;// costo de envío final
 
-    const iva21 = (base21 + envioFinal) * 0.21;
-    const iva105 = base105 * 0.105;
-    const baseImp = baseProd + envioFinal;
-    const total = baseImp + iva21 + iva105;
+    // Cálculo de IVA y total final de la cotización
 
-    return {
+    const iva21 = (base21 + envioFinal) * 0.21;// IVA sobre base 21%
+    const iva105 = base105 * 0.105;// IVA sobre base 10.5%
+    const baseImp = baseProd + envioFinal;// base imponible total
+    const total = baseImp + iva21 + iva105;// total final incluyendo IVA El total final incluye productos + envío + IVA.
+
+
+    return {// retorno del resumen calculado
       baseProd,
       envio: envioFinal,
       envioBonificado,
@@ -1396,7 +1430,6 @@ const NuevaCotizacion = () => {
     }
   };
 
-
   const handleActualizarCotizacion = async () => {
     if (!idCotizacionActual) {
       setMensajeError('No hay cotización activa para actualizar');
@@ -1417,39 +1450,33 @@ const NuevaCotizacion = () => {
       };
 
       // Construir payload (preferir buildPayload si existe)
-      const payload = (typeof buildPayload === 'function')
-        ? buildPayload(idEstadoBorradorLocal ?? 'borrador')
-        : (() => {
-          const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
-            id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
-            cantidad: normalizarNumero(p.cantidad) || 1,
-            precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
-            descuento: Number(p.descuento ?? 0) || 0,
-            // PRIORIDAD: markup_ingresado (input) > markup (modelo) > null
-            markup_ingresado: normalizeMarkup(p.markup_ingresado),
-            tasa_iva: Number(p.tasa_iva ?? 21) || 21,
-            part_number: p.part_number ?? p.partNumber ?? null,
-            detalle: p.detalle ?? p.nombre ?? null,
-            subtotal: Number(p.subtotal ?? ((Number(p.precio_unitario ?? p.precio ?? 0) - Number(p.descuento ?? 0)) * (p.cantidad || 1))) || 0,
-            // si existe id_detalle local (temporal o real), mandarlo para ayudar al backend a casar
-            id_detalle: p.id_detalle ?? null
-          })).filter(x => Number.isFinite(x.id_producto));
+      const payload = (() => {
+        const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
+          id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
+          cantidad: normalizarNumero(p.cantidad) || 1,
+          precio_unitario: Number(p.precio_unitario ?? p.precio) || 0,
+          descuento: Number(p.descuento ?? 0) || 0,
+          markup_ingresado: normalizeMarkup(p.markup_ingresado),
+          tasa_iva: Number(p.tasa_iva ?? 21) || 21,
+          part_number: p.part_number ?? p.partNumber ?? null,
+          detalle: p.detalle ?? p.nombre ?? null,
+          subtotal: Number(p.subtotal ?? ((Number(p.precio_unitario ?? p.precio ?? 0) - Number(p.descuento ?? 0)) * (p.cantidad || 1))) || 0,
+          id_detalle: p.id_detalle ?? null
+        })).filter(x => Number.isFinite(x.id_producto));
 
-          return {
-            id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
-            id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
-            id_usuario: Number(usuarioActual?.id) || null,
-            id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
-            id_condicion: null,
-            forma_pago: '',
-            vigencia_hasta: (typeof toYYYYMMDD === 'function') ? toYYYYMMDD(vigenciaHasta) : (vigenciaHasta || null),
-            observaciones: observaciones || '',
-            plazo_entrega: plazoEntrega || '',
-            costo_envio: normalizarNumero(costoEnvio) || 0,
-            ...(idEstadoBorradorLocal ? { id_estado: idEstadoBorradorLocal } : {}),
-            productos
-          };
-        })();
+        return {
+          id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+          id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+          id_usuario: Number(usuarioActual?.id) || null,
+          id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+          vigencia_hasta: (typeof toYYYYMMDD === 'function') ? toYYYYMMDD(vigenciaHasta) : (vigenciaHasta || null),
+          observaciones: observaciones || '',
+          plazo_entrega: plazoEntrega || '',
+          costo_envio: normalizarNumero(costoEnvio) || 0,
+          ...(idEstadoBorradorLocal ? { id_estado: idEstadoBorradorLocal } : {}),
+          productos
+        };
+      })();
 
       // Prioridad diasPago select > diasPagoExtra input
       const diasUi = typeof diasPago === 'string' ? diasPago.trim() : (diasPago != null ? String(diasPago).trim() : '');
@@ -1653,6 +1680,7 @@ const NuevaCotizacion = () => {
     }
   };
 
+
   // Cancelar creación o edición de cotización
   const handleCancelarCreacion = () => {
     // Acción sugerida: navegar al menú principal o limpiar el formulario
@@ -1706,6 +1734,7 @@ const NuevaCotizacion = () => {
       ? buildPayload(idEstadoBorradorLocal ?? 'borrador', { vigencia_hasta: fechaVencimiento, vencimiento })
       : (() => {
         const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
+        
 
         const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
           id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
@@ -1725,22 +1754,53 @@ const NuevaCotizacion = () => {
 
         const resolvedIdCond = normalizarNumero(getCondicionId(condicionSeleccionada)) || null;
 
-        const basePayload = {
-          id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
-          id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
-          id_usuario: Number(usuarioActual?.id) || null,
-          id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
-          id_condicion: resolvedIdCond,
-          forma_pago: (condicionSeleccionada && typeof condicionSeleccionada === 'object')
-            ? (condicionSeleccionada.forma_pago ?? '')
-            : (String(condicionSeleccionada || '') || ''),
-          vigencia_hasta: fechaVencimiento,
-          observaciones: observaciones || '',
-          plazo_entrega: plazoEntrega || '',
-          costo_envio: Number(costoEnvio) || 0,
-          productos
-        };
+        console.log('DEBUG condiciones:', {
+          condicionSeleccionada,
+          diasPago,
+          diasPagoExtra,
+          observaciones
+        });
 
+// ✅ Lógica tolerante para condiciones comerciales
+const formaPagoFinal = condicionSeleccionada?.forma_pago
+  ?? cabecera?.forma_pago
+  ?? null;
+
+const tipoCambioFinal = condicionSeleccionada?.tipo_cambio
+  ?? cabecera?.tipo_cambio
+  ?? null;
+
+const diasPagoFinal = condicionSeleccionada?.dias_pago
+  ?? Number(diasPago)
+  ?? Number(diasPagoExtra)
+  ?? cabecera?.dias_pago
+  ?? null;
+
+const observacionesFinal = condicionSeleccionada?.observaciones
+  ?? observaciones
+  ?? cabecera?.observaciones
+  ?? '';
+
+const basePayload = {
+  id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+  id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+  id_usuario: Number(usuarioActual?.id) || null,
+  id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+  id_condicion: resolvedIdCond,
+
+  // ✅ Condiciones comerciales completas
+ forma_pago: formaPagoFinal,
+tipo_cambio: tipoCambioFinal,
+dias_pago: diasPagoFinal,
+observaciones: observacionesFinal,
+
+  // Resto de cabecera
+  vigencia_hasta: fechaVencimiento,
+  plazo_entrega: plazoEntrega || '',
+  costo_envio: Number(costoEnvio) || 0,
+  productos
+};
+     
         if (idEstadoBorradorLocal) basePayload.id_estado = idEstadoBorradorLocal;
         basePayload.vencimiento = Number.isFinite(Number(vencimiento)) ? Number(vencimiento) : null;
         return basePayload;
@@ -1748,13 +1808,28 @@ const NuevaCotizacion = () => {
 
     console.log('📤 Payload borrador (pre-send):', payloadBorrador);
 
-    if (typeof validarAntesDeEnviar === 'function') {
-      const ok = validarAntesDeEnviar();
+
+ 
+  console.log('✅ basePayload con condiciones:', {
+    forma_pago: payloadBorrador.forma_pago,
+    tipo_cambio: payloadBorrador.tipo_cambio,
+    dias_pago: payloadBorrador.dias_pago,
+    observaciones: payloadBorrador.observaciones
+  });
+
+
+
+
+    // ⚠️ Aquí usamos la validación especial
+    if (typeof validarFinalizacion === 'function') {
+      const ok = validarFinalizacion();
       if (!ok) {
-        console.log('⛔ Finalizar cancelado: productos con markup fuera de rango');
+        console.log('⛔ Finalizar cancelado: validación especial fallida');
         return;
       }
     }
+
+
     try {
       let respSave;
 
@@ -1850,13 +1925,13 @@ const NuevaCotizacion = () => {
       const clienteResumen = {
         nombre: cabecera?.cliente_nombre ?? clienteObjeto?.razon_social ?? 'Sin nombre',
         contacto: contactoNombreFinal,
-       contacto_apellido:
-  respSave?.data?.cliente?.contacto_apellido ??
-  cabecera?.contacto_apellido ??
-  contactoDesdeCliente?.contacto_apellido ??
-  contactoSeleccionadoFinal?.contacto_apellido ??
-  (typeof contacto === 'object' ? contacto.contacto_apellido : '') ??
-  '', 
+        contacto_apellido:
+          respSave?.data?.cliente?.contacto_apellido ??
+          cabecera?.contacto_apellido ??
+          contactoDesdeCliente?.contacto_apellido ??
+          contactoSeleccionadoFinal?.contacto_apellido ??
+          (typeof contacto === 'object' ? contacto.contacto_apellido : '') ??
+          '',
         cuit: respSave?.data?.cliente?.cuit ?? clienteObjeto?.cuit ?? '',
         direccion: direccionTexto,
         fecha_emision: fechaHoy,
@@ -1881,12 +1956,38 @@ const NuevaCotizacion = () => {
         subcategoria: p.subcategoria || ''
       }));
 
+
+     // ✅ Condiciones agrupadas con lógica tolerante
+const condicionesResumen = {
+  forma_pago: payloadBorrador.forma_pago 
+    ?? respSave?.data?.condiciones?.forma_pago 
+    ?? cabecera?.forma_pago 
+    ?? '-',
+  tipo_cambio: payloadBorrador.tipo_cambio 
+    ?? respSave?.data?.condiciones?.tipo_cambio 
+    ?? cabecera?.tipo_cambio 
+    ?? '-',
+  dias_pago: payloadBorrador.dias_pago 
+    ?? respSave?.data?.condiciones?.dias_pago 
+    ?? cabecera?.dias_pago 
+    ?? '-',
+  observaciones: payloadBorrador.observaciones 
+    ?? respSave?.data?.condiciones?.observaciones 
+    ?? cabecera?.observaciones 
+    ?? ''
+};
+
       console.log('🧪 direccionIdFinal:', direccionIdFinal);
       console.log('🧪 direccionDesdeClienteObjeto:', direccionDesdeClienteObjeto);
       console.log('clienteResumen:', clienteResumen);
       console.log('🧪 direccionesClienteFinal:', direccionesClienteFinal);
       console.log('🧪 dirección buscada:', direccionIdFinal);
       console.log('🧪 dirección encontrada:', direccionDesdeClienteObjeto);
+      console.log('condicionesResumen:', condicionesResumen);
+      console.log('DEBUG condicionSeleccionada:', condicionSeleccionada);
+
+
+
 
       // ✅ Navegación con resumen completo
       navigate('/resumen-cotizacion', {
@@ -1895,13 +1996,19 @@ const NuevaCotizacion = () => {
             ...payloadBorrador,
             productos: productosEnriquecidos,
             cliente: clienteResumen,
-            forma_pago: cabecera?.forma_pago ?? payloadBorrador.forma_pago ?? '-',
+            condiciones: condicionesResumen,   // bloque agrupado
+            forma_pago: condicionesResumen.forma_pago,   // sueltos para compatibilidad
+            dias_pago: condicionesResumen.dias_pago,
+            tipo_cambio: condicionesResumen.tipo_cambio,
+            observaciones: condicionesResumen.observaciones,
             vigencia_hasta: payloadBorrador.vigencia_hasta || cabecera?.vigencia_hasta || '-',
             id_cotizacion: idCotizacionActual ?? respSave?.data?.id_cotizacion ?? respSave?.data?.id,
             numero_cotizacion: numeroCotizacionFinal
           }
         }
       });
+
+
 
     } catch (error) {
       console.error('Error al finalizar cotización:', error.response?.data || error.message || error);
@@ -2296,70 +2403,105 @@ const NuevaCotizacion = () => {
 
 
 
-          {/* Condiciones Comerciales */}
-          <div className="card card-soft mb-3">
-            <div className="card-body">
-              <h5 className="section-title"><i className="bi bi-credit-card-2-front"></i> Condiciones Comerciales</h5>
-              <div className="row g-3">
-                <div className="col-md-4">
-                  <label className="form-label">Forma de pago</label>
-                  {/* Select construido desde condiciones cargadas */}
+       {/* Condiciones Comerciales */}
+<div className="card card-soft mb-3">
+  <div className="card-body">
+    <h5 className="section-title">
+      <i className="bi bi-credit-card-2-front"></i> Condiciones Comerciales
+    </h5>
+    <div className="row g-3">
+      <div className="col-md-4">
+        <label className="form-label">Forma de pago</label>
 
-                  <select
-                    className="form-select"
-                    value={condicionSeleccionada && condicionSeleccionada.id ? String(condicionSeleccionada.id) : (condicionSeleccionada && condicionSeleccionada.forma_pago ? '__custom_sel' : '')}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (!val) {
-                        setCondicionSeleccionada('');
-                        setFormaPago('');
-                        return;
-                      }
-                      if (val === '__custom_sel') return;
+      
+        {/* Select construido desde condiciones cargadas */}
+        <select
+          className="form-select"
+          value={
+            condicionSeleccionada && condicionSeleccionada.id
+              ? String(condicionSeleccionada.id)
+              : (condicionSeleccionada && condicionSeleccionada.forma_pago
+                  ? '__custom_sel'
+                  : '')
+          }
+          onChange={(e) => {
+            const val = e.target.value;
+            if (!val) {
+              setCondicionSeleccionada('');
+              setFormaPago('');
+              return;
+            }
+            if (val === '__custom_sel') return;
 
-                      const seleccionado = Array.isArray(condiciones) ? condiciones.find(c => Number(c.id) === Number(val)) : undefined;
+            const seleccionado = Array.isArray(condiciones)
+              ? condiciones.find(c => Number(c.id) === Number(val))
+              : undefined;
 
-                      if (seleccionado) {
-                        const forma = String(seleccionado.forma_pago ?? seleccionado.nombre ?? '').trim();
-                        setCondicionSeleccionada({ id: seleccionado.id, forma_pago: forma });
-                        setFormaPago(forma);
+            if (seleccionado) {
+              const forma = String(seleccionado.forma_pago ?? seleccionado.nombre ?? '').trim();
+              // ✅ Guardamos el objeto completo del backend, normalizando forma_pago
+             const condicionFinal = {
+  ...seleccionado,
+  forma_pago: forma // solo normalizamos el texto, sin perder los demás campos
+};
 
-                        if (seleccionado.dias_pago !== undefined && seleccionado.dias_pago !== null) {
-                          const diasStr = String(seleccionado.dias_pago ?? '').trim();
-                          if (typeof setDiasPendiente === 'function') {
-                            setDiasPendiente(diasStr);
-                          } else {
-                            const opciones = Array.isArray(opcionesDiasPago) ? opcionesDiasPago.map(x => String(x ?? '').trim()) : [];
-                            if (diasStr && opciones.includes(diasStr)) { setDiasPago(diasStr); setDiasPagoExtra(''); }
-                            else if (diasStr) { setDiasPago(''); setDiasPagoExtra(diasStr); }
-                            diasResueltoRef.current = true;
-                          }
-                        }
-                      } else {
-                        const text = e.target.options[e.target.selectedIndex]?.text ?? '';
-                        setCondicionSeleccionada({ id: null, forma_pago: String(text).trim() });
-                        setFormaPago(String(text).trim());
-                        // NO tocar dias aquí
-                      }
-                    }}
-                  >
-                    <option value="">Seleccioná...</option>
+setCondicionSeleccionada(condicionFinal);
+console.log('✅ Condición seleccionada actualizada:', condicionFinal);
 
-                    {Array.isArray(condiciones) && condiciones.length > 0
-                      ? condiciones.map(c => (
-                        <option key={c.id} value={String(c.id)}>
-                          {String(c.forma_pago ?? c.nombre ?? '').trim()}
-                        </option>
-                      ))
-                      : null
-                    }
+              if (seleccionado.dias_pago !== undefined && seleccionado.dias_pago !== null) {
+                const diasStr = String(seleccionado.dias_pago ?? '').trim();
+                if (typeof setDiasPendiente === 'function') {
+                  setDiasPendiente(diasStr);
+                } else {
+                  const opciones = Array.isArray(opcionesDiasPago)
+                    ? opcionesDiasPago.map(x => String(x ?? '').trim())
+                    : [];
+                  if (diasStr && opciones.includes(diasStr)) {
+                    setDiasPago(diasStr);
+                    setDiasPagoExtra('');
+                  } else if (diasStr) {
+                    setDiasPago('');
+                    setDiasPagoExtra(diasStr);
+                  }
+                  diasResueltoRef.current = true;
+                }
+              }
+            } else {
+              const text = e.target.options[e.target.selectedIndex]?.text ?? '';
+              setCondicionSeleccionada({
+                id: null,
+                forma_pago: String(text).trim(),
+                tipo_cambio: null,
+                dias_pago: null,
+                observaciones: null
+              });
+              setFormaPago(String(text).trim());
+              // NO tocar dias aquí
+            }
+          }}
+        >
+          <option value="">Seleccioná...</option>
 
-                    {condicionSeleccionada && (condicionSeleccionada.id === null || condicionSeleccionada.id === undefined) && condicionSeleccionada.forma_pago ? (
-                      <option key="__custom_sel" value="__custom_sel" disabled>
-                        {String(condicionSeleccionada.forma_pago).trim()}
-                      </option>
-                    ) : null}
-                  </select>
+          {Array.isArray(condiciones) && condiciones.length > 0
+            ? condiciones.map(c => (
+                <option key={c.id} value={String(c.id)}>
+                  {String(c.forma_pago ?? c.nombre ?? '').trim()}
+                </option>
+              ))
+            : null}
+
+          {condicionSeleccionada &&
+            (condicionSeleccionada.id === null ||
+              condicionSeleccionada.id === undefined) &&
+            condicionSeleccionada.forma_pago ? (
+              <option key="__custom_sel" value="__custom_sel" disabled>
+                {String(condicionSeleccionada.forma_pago).trim()}
+              </option>
+            ) : null}
+        </select>
+
+
+
 
 
                   <div className="d-flex flex-wrap gap-3 mb-3">
@@ -2689,62 +2831,62 @@ const NuevaCotizacion = () => {
 
 
           {/* Resumen: calcula totales y muestra */}
-<div className="card card-soft mt-3 summary-panel">
-  <div className="card-body p-3">
-    <h6 className="section-title mb-2">Resumen</h6>
+          <div className="card card-soft mt-3 summary-panel">
+            <div className="card-body p-3">
+              <h6 className="section-title mb-2">Resumen</h6>
 
-    {resumen.envioBonificado && (
-      <div className="alert alert-success py-1 px-2 mb-2 text-center">
-        ¡Envío bonificado por superar los US$ 1500!
-      </div>
-    )}
+              {resumen.envioBonificado && (
+                <div className="alert alert-success py-1 px-2 mb-2 text-center">
+                  ¡Envío bonificado por superar los US$ 1500!
+                </div>
+              )}
 
-    <table className="table table-sm mb-0 totales-table">
-      <tbody>
-        <tr>
-          <th className="text-muted fw-normal">Subtotal productos</th>
-          <td className="text-end fw-semibold">US$ {resumen.baseProd.toFixed(2)}</td>
-        </tr>
+              <table className="table table-sm mb-0 totales-table">
+                <tbody>
+                  <tr>
+                    <th className="text-muted fw-normal">Subtotal productos</th>
+                    <td className="text-end fw-semibold">US$ {resumen.baseProd.toFixed(2)}</td>
+                  </tr>
 
-        <tr>
-          <th className="text-muted fw-normal">Costo de envío</th>
-          <td className="text-end fw-semibold">US$ {resumen.envio.toFixed(2)}</td>
-        </tr>
+                  <tr>
+                    <th className="text-muted fw-normal">Costo de envío</th>
+                    <td className="text-end fw-semibold">US$ {resumen.envio.toFixed(2)}</td>
+                  </tr>
 
-        <tr>
-          <th className="text-muted fw-normal">Base imponible</th>
-          <td className="text-end fw-semibold">US$ {resumen.baseImp.toFixed(2)}</td>
-        </tr>
+                  <tr>
+                    <th className="text-muted fw-normal">Base imponible</th>
+                    <td className="text-end fw-semibold">US$ {resumen.baseImp.toFixed(2)}</td>
+                  </tr>
 
-        <tr>
-          <th className="text-muted fw-normal">IVA 21% {resumen.envio > 0 ? '(incluye envío)' : ''}</th>
-          <td className="text-end fw-semibold">US$ {resumen.iva21.toFixed(2)}</td>
-        </tr>
+                  <tr>
+                    <th className="text-muted fw-normal">IVA 21% {resumen.envio > 0 ? '(incluye envío)' : ''}</th>
+                    <td className="text-end fw-semibold">US$ {resumen.iva21.toFixed(2)}</td>
+                  </tr>
 
-        {resumen.iva105 > 0 && (
-          <tr>
-            <th className="text-muted fw-normal">IVA 10.5%</th>
-            <td className="text-end fw-semibold">US$ {resumen.iva105.toFixed(2)}</td>
-          </tr>
-        )}
+                  {resumen.iva105 > 0 && (
+                    <tr>
+                      <th className="text-muted fw-normal">IVA 10.5%</th>
+                      <td className="text-end fw-semibold">US$ {resumen.iva105.toFixed(2)}</td>
+                    </tr>
+                  )}
 
-        {resumen.totalDescuentos > 0 && (
-          <tr>
-            <th className="text-muted fw-normal">Descuento total aplicado</th>
-            <td className="text-end fw-semibold">US$ {resumen.totalDescuentos.toFixed(2)}</td>
-          </tr>
-        )}
+                  {resumen.totalDescuentos > 0 && (
+                    <tr>
+                      <th className="text-muted fw-normal">Descuento total aplicado</th>
+                      <td className="text-end fw-semibold">US$ {resumen.totalDescuentos.toFixed(2)}</td>
+                    </tr>
+                  )}
 
-        <tr className="total-row">
-          <th className="text-uppercase">Total</th>
-          <td className="text-end">
-            <strong>US$ {resumen.total.toFixed(2)}</strong>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+                  <tr className="total-row">
+                    <th className="text-uppercase">Total</th>
+                    <td className="text-end">
+                      <strong>US$ {resumen.total.toFixed(2)}</strong>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
 
 

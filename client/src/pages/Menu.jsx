@@ -10,22 +10,19 @@ import ModalVistaPreviaCot from '../components/ModalVistaPreviaCot.jsx';
 
 
 const Menu = () => {
-  const { usuario, cargando } = useUser(); // ✅ incluye cargando
-  useEffect(() => {
-  console.log("Rol del usuario:", usuario?.rol);
-}, [usuario]);
-
-
-  
-  
+  const { usuario, cargando } = useUser();
   const navigate = useNavigate();
   const [cotizaciones, setCotizaciones] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [deletedCotizacion, setDeletedCotizacion] = useState(null);
   const [estadoFiltro, setEstadoFiltro] = useState(null);
   const [alertasEnviadas, setAlertasEnviadas] = useState(new Set());
-  const [modalVisible, setModalVisible] = useState(false);//para el modal de ver cotizacion resumen 
-  const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);// para el modal de ver cotizacion resumen
+  const [modalVisible, setModalVisible] = useState(false);
+  const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);
+
+  useEffect(() => {
+    console.log("Rol del usuario:", usuario?.rol);
+  }, [usuario]);
 
   const abrirVistaPrevia = async (cotizacion) => {
     try {
@@ -54,7 +51,6 @@ const Menu = () => {
     }
   };
 
-
   useEffect(() => {
     if (cargando || !usuario?.id) return;
 
@@ -62,12 +58,10 @@ const Menu = () => {
       try {
         let res;
         if (usuario.rol === "administrador" || usuario.rol === "gerente") {
-          // Admin y gerente ven todas las cotizaciones
           res = await axios.get("/api/cotizaciones/todas", {
             headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
           });
         } else {
-          // Vendedor solo ve las suyas
           res = await axios.get(`/api/cotizaciones/todas/${usuario.id}`, {
             headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
           });
@@ -92,7 +86,7 @@ const Menu = () => {
           contacto: c.contacto_nombre && c.contacto_apellido
             ? `${c.contacto_nombre} ${c.contacto_apellido}`
             : "—",
-          total: c.total ?? 0
+          total: Number(c.total || 0).toFixed(2) // 👈 usamos directamente el total del backend
         }));
         setCotizaciones(transformadas);
       } catch (error) {
@@ -102,10 +96,6 @@ const Menu = () => {
 
     cargarCotizaciones();
   }, [cargando, usuario]);
-
-
-
-
 
   function confirmarEstado(id, nuevoEstado) {
     const texto = nuevoEstado === 'finalizada_aceptada'
@@ -120,9 +110,6 @@ const Menu = () => {
     manejarCambioDeEstado(id, nuevoEstado);
   }
 
-
-
-  //enviar alerta al cliente de cotizacion por vencer
   async function enviarAlertaVencimiento(cotizacion) {
     try {
       await axios.post(
@@ -138,7 +125,6 @@ const Menu = () => {
       alert('No se pudo enviar la alerta.');
     }
   }
-
 
   async function manejarCambioDeEstado(id, nuevoEstado) {
     try {
@@ -160,7 +146,6 @@ const Menu = () => {
     }
   }
 
-  // filtrar defensivamente (proteger toLowerCase)
   const safeToLower = v => String(v ?? '').toLowerCase();
   const filteredCotizaciones = cotizaciones.filter(cotizacion => {
     const term = safeToLower(searchTerm);
@@ -201,10 +186,11 @@ const Menu = () => {
 
 
 
+  if (cargando) return <p className="text-center mt-5">Cargando usuario...</p>;
 
-  if (cargando) return <p className="text-center mt-5">Cargando usuario...</p>; // ✅ loader
 
-    return (
+
+  return (
     <>
       <div className="encabezado-fijo">
         <Sidebar />
@@ -220,28 +206,28 @@ const Menu = () => {
             </div>
           </header>
 
-         <div className="option">
-  {/* Dashboard: admin y gerente */}
-  {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
-    <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
-  )}
+          <div className="option">
+            {/* Dashboard: admin y gerente */}
+            {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
+              <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+            )}
 
-  {/* Cotizaciones: todos */}
-  <NavLink className="option-button2" to="/menu">Cotizaciones</NavLink>
+            {/* Cotizaciones: todos */}
+            <NavLink className="option-button2" to="/menu">Cotizaciones</NavLink>
 
-  {/* Clientes y Productos: solo vendedor y admin */}
-  {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
-    <>
-      <NavLink className="option-button" to="/clientes">Clientes</NavLink>
-      <NavLink className="option-button" to="/productos">Productos</NavLink>
-    </>
-  )}
+            {/* Clientes y Productos: solo vendedor y admin */}
+            {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
+              <>
+                <NavLink className="option-button" to="/clientes">Clientes</NavLink>
+                <NavLink className="option-button" to="/productos">Productos</NavLink>
+              </>
+            )}
 
-  {/* Configuración: solo admin */}
-  {usuario?.rol === "administrador" && (
-    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
-  )}
-</div>
+            {/* Configuración: solo admin */}
+            {usuario?.rol === "administrador" && (
+              <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+            )}
+          </div>
         </div>
 
 
@@ -261,7 +247,7 @@ const Menu = () => {
               onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <div className='botonescontainer'>
-            
+
             <button
               className='nc'
               onClick={() => {
@@ -334,7 +320,7 @@ const Menu = () => {
                       <td><EtiquetaEstado estado={cotizacion.estado} /></td>
                       <td>{cotizacion.cliente}</td>
                       <td>{cotizacion.contacto}</td>
-                      <td>${Number(cotizacion.total).toFixed(2)}</td>
+                      <td>${Number(cotizacion.total || 0).toFixed(2)}</td>
 
                       <td className="text-end">
                         <div className="dropdown">
