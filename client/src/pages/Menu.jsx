@@ -190,7 +190,7 @@ const Menu = () => {
 
 
 
-    return (
+  return (
     <>
       <div className="encabezado-fijo">
         <Sidebar />
@@ -206,28 +206,28 @@ const Menu = () => {
             </div>
           </header>
 
-         <div className="option">
-  {/* Dashboard: admin y gerente */}
-  {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
-    <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
-  )}
+          <div className="option">
+            {/* Dashboard: admin y gerente */}
+            {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
+              <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+            )}
 
-  {/* Cotizaciones: todos */}
-  <NavLink className="option-button2" to="/menu">Cotizaciones</NavLink>
+            {/* Cotizaciones: todos */}
+            <NavLink className="option-button2" to="/menu">Cotizaciones</NavLink>
 
-  {/* Clientes y Productos: solo vendedor y admin */}
-  {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
-    <>
-      <NavLink className="option-button" to="/clientes">Clientes</NavLink>
-      <NavLink className="option-button" to="/productos">Productos</NavLink>
-    </>
-  )}
+            {/* Clientes y Productos: solo vendedor y admin */}
+            {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
+              <>
+                <NavLink className="option-button" to="/clientes">Clientes</NavLink>
+                <NavLink className="option-button" to="/productos">Productos</NavLink>
+              </>
+            )}
 
-  {/* Configuración: solo admin */}
-  {usuario?.rol === "administrador" && (
-    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
-  )}
-</div>
+            {/* Configuración: solo admin */}
+            {usuario?.rol === "administrador" && (
+              <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+            )}
+          </div>
         </div>
 
 
@@ -247,7 +247,7 @@ const Menu = () => {
               onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <div className='botonescontainer'>
-            
+
             <button
               className='nc'
               onClick={() => {
