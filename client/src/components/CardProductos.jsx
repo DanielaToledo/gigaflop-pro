@@ -42,7 +42,7 @@ const CardProductos = ({ item, onAddToCart }) => {
               : <span className="text-danger">No disponible</span>}
           </p>
           <button className="btn btn-primary" onClick={() => onAddToCart(item)}>
-            Agregar al carrito
+            Agregar a cotización
           </button>
         </div>
       </div>

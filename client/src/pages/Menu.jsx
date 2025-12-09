@@ -206,11 +206,13 @@ const Menu = () => {
             </div>
           </header>
 
+
           <div className="option">
             {/* Dashboard: admin y gerente */}
             {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
               <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
             )}
+
 
             {/* Cotizaciones: todos */}
             <NavLink className="option-button2" to="/menu">Cotizaciones</NavLink>
@@ -223,11 +225,13 @@ const Menu = () => {
               </>
             )}
 
+
             {/* Configuración: solo admin */}
             {usuario?.rol === "administrador" && (
               <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
             )}
           </div>
+
         </div>
 
 
@@ -236,7 +240,7 @@ const Menu = () => {
 
         <div className='menu-superior'>
           <div className='cotizatitlecontainer'>
-            <h3 className='cotizatitle'>Cotizaciones</h3>
+            <h3 className='cotizatitle'>Mis Cotizaciones</h3>
           </div>
           <div className="buscador-container">
             <input

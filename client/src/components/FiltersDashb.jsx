@@ -70,7 +70,7 @@ const FiltersDashb = ({
       </div>
 
       <div className="filter-row">
-        <label className="search full">
+        <label className="search full mt-4">
           <input
             value={buscar}
             onChange={e => setBuscar(e.target.value)}

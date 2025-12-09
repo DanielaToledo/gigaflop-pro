@@ -38,8 +38,11 @@ const KpiGridDashb = ({
   tasaVenc
 }) => {
   return (
+
+
     <section className="kpi-grid">
       {/* Cotizaciones */}
+
       <article className="kpi-card kpi--blue">
         <div className="kpi-label">Cotizaciones</div>
         <div className="kpi-value">{kpiCot}</div>

@@ -7,9 +7,9 @@
 }
 
 .custom-icon:hover {
-  color: #000000;
-  font-size: 3.7vw;
-  transition: all 0.3s ease;
+  color: #4285f4;
+
+  transition: all 0.5s ease;
 }
 
 
@@ -116,7 +116,7 @@
 .title-menu {
   color: #4285f4;
   font-size: 4vw;
-  text-shadow: 3px 5px #cbcbdd9c;
+  text-shadow: 3px 5px 4px #a5a5b39c;
   font-weight: bold;
   
 }
