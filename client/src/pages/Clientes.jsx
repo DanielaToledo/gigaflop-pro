@@ -384,550 +384,548 @@ const Clientes = () => {
                   </div>
 
 
+{/* Condiciones Comerciales */}
+<h6 className="mt-4"><strong>Condiciones comerciales</strong></h6>
+{Array.isArray(clienteAEditar.condiciones_comerciales) && clienteAEditar.condiciones_comerciales.length > 0 ? (
+  clienteAEditar.condiciones_comerciales.map((cond, i) => {
+    const esNueva = cond.__nuevo;
+    const estaConfirmada = cond.confirmado;
+
+    return (
+      <div
+        key={i}
+        className={`card card-highlight mb-2 p-3 ${estaConfirmada ? 'border-success' : ''} ${!esNueva ? 'text-muted' : ''}`}
+      >
+        {/* Fila 1: Forma de pago */}
+        <div className="row g-2 mb-3">
+          <div className="col-md-12">
+            <label className="form-label">Forma de pago</label>
+            <input
+              type="text"
+              className="form-control"
+              value={cond.forma_pago || ''}
+              disabled={!esNueva || estaConfirmada}
+              onChange={(e) => {
+                const nuevas = [...clienteAEditar.condiciones_comerciales];
+                nuevas[i].forma_pago = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Fila 2: Tipo de cambio + Días de pago */}
+        <div className="row g-2 mb-3">
+          <div className="col-md-6">
+            <label className="form-label">Tipo de cambio</label>
+            <input
+              type="text"
+              className="form-control"
+              value={cond.tipo_cambio || ''}
+              disabled={!esNueva || estaConfirmada}
+              onChange={(e) => {
+                const nuevas = [...clienteAEditar.condiciones_comerciales];
+                nuevas[i].tipo_cambio = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
+              }}
+            />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Días de pago</label>
+            <input
+              type="number"
+              className="form-control"
+              value={cond.dias_pago ?? ''}
+              disabled={!esNueva || estaConfirmada}
+              onChange={(e) => {
+                const nuevas = [...clienteAEditar.condiciones_comerciales];
+                nuevas[i].dias_pago = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Fila 3: Mark-up máximo */}
+        <div className="row g-2 mb-3">
+          <div className="col-md-12">
+            <label className="form-label">Mark-up máximo</label>
+            <input
+              type="number"
+              className="form-control"
+              value={cond.mark_up_maximo ?? ''}
+              disabled={!esNueva || estaConfirmada}
+              onChange={(e) => {
+                const nuevas = [...clienteAEditar.condiciones_comerciales];
+                nuevas[i].mark_up_maximo = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Fila 4: Observaciones */}
+        <div className="row g-2 mb-3">
+          <div className="col-md-12">
+            <label className="form-label">Observaciones</label>
+            <input
+              type="text"
+              className="form-control"
+              value={cond.observaciones || ''}
+              disabled={!esNueva || estaConfirmada}
+              onChange={(e) => {
+                const nuevas = [...clienteAEditar.condiciones_comerciales];
+                nuevas[i].observaciones = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Mensaje de confirmación */}
+        {esNueva && estaConfirmada && (
+          <span className="text-success small mt-2 d-block">
+            Condición agregada correctamente
+          </span>
+        )}
+      </div>
+    );
+  })
+) : (
+  <p className="text-muted">Sin condiciones comerciales registradas.</p>
+)}
+
+{/* Botón verde para confirmar condición */}
+{clienteAEditar.condiciones_comerciales?.some(c => c.__nuevo && !c.confirmado) && (
+  <div className="d-flex align-items-center mb-2">
+    <button
+      type="button"
+      className="btn btn-outline-success btn-sm w-auto"
+      onClick={() => {
+        const nuevas = clienteAEditar.condiciones_comerciales.map((c) =>
+          c.__nuevo && !c.confirmado ? { ...c, confirmado: true } : c
+        );
+        setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
+      }}
+    >
+      Confirmar condición
+    </button>
+  </div>
+)}
+
+{/* Botón azul para agregar nueva condición */}
+<div className="text-start mt-1 mb-3">
+  <button
+    type="button"
+    className="btn btn-outline-primary btn-sm"
+    onClick={() => {
+      const nuevas = [
+        ...(clienteAEditar.condiciones_comerciales || []),
+        {
+          forma_pago: '',
+          tipo_cambio: '',
+          dias_pago: '',
+          mark_up_maximo: '',
+          observaciones: '',
+          __nuevo: true,
+          confirmado: false
+        }
+      ];
+      setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
+    }}
+  >
+    Agregar condición comercial
+  </button>
+</div>
+
+                 
+
+{/* Direcciones */}
+<h6 className="mt-4"><strong>Direcciones</strong></h6>
+{Array.isArray(clienteAEditar.direcciones) && clienteAEditar.direcciones.length > 0 ? (
+  clienteAEditar.direcciones.map((d, i) => (
+    <div
+      key={i}
+      className={`card card-highlight mb-2 p-3 ${d.confirmado ? 'border-success' : ''}`}
+    >
+      {/* Fila 1: Calle */}
+      <div className="row g-2 mb-3">
+        <div className="col-md-12">
+          <label className="form-label">Calle</label>
+          <input
+            type="text"
+            className="form-control"
+            value={d.calle || ''}
+            disabled={!!d.id}
+            required
+            onChange={(e) => {
+              if (!d.id) {
+                const nuevas = [...clienteAEditar.direcciones];
+                nuevas[i].calle = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Fila 2: Numeración + Piso + Depto */}
+      <div className="row g-2 mb-3">
+        <div className="col-md-4">
+          <label className="form-label">Numeración</label>
+          <input
+            type="text"
+            className="form-control"
+            value={d.numeracion || ''}
+            disabled={!!d.id}
+            required
+            onChange={(e) => {
+              if (!d.id) {
+                const nuevas = [...clienteAEditar.direcciones];
+                nuevas[i].numeracion = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+              }
+            }}
+          />
+        </div>
+        <div className="col-md-4">
+          <label className="form-label">Piso</label>
+          <input
+            type="text"
+            className="form-control"
+            value={d.piso || ''}
+            disabled={!!d.id}
+            required
+            onChange={(e) => {
+              if (!d.id) {
+                const nuevas = [...clienteAEditar.direcciones];
+                nuevas[i].piso = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+              }
+            }}
+          />
+        </div>
+        <div className="col-md-4">
+          <label className="form-label">Depto</label>
+          <input
+            type="text"
+            className="form-control"
+            value={d.depto || ''}
+            disabled={!!d.id}
+            required
+            onChange={(e) => {
+              if (!d.id) {
+                const nuevas = [...clienteAEditar.direcciones];
+                nuevas[i].depto = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Fila 3: Locación + Localidad */}
+      <div className="row g-2 mb-3">
+        <div className="col-md-6">
+          <label className="form-label">Locación</label>
+          <input
+            type="text"
+            className="form-control"
+            value={d.locacion || ''}
+            disabled={!!d.id}
+            required
+            onChange={(e) => {
+              if (!d.id) {
+                const nuevas = [...clienteAEditar.direcciones];
+                nuevas[i].locacion = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+              }
+            }}
+          />
+        </div>
+        <div className="col-md-6">
+          <label className="form-label">Localidad</label>
+          <input
+            type="text"
+            className="form-control"
+            value={d.localidad || ''}
+            disabled={!!d.id}
+            required
+            onChange={(e) => {
+              if (!d.id) {
+                const nuevas = [...clienteAEditar.direcciones];
+                nuevas[i].localidad = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Fila 4: Provincia */}
+      <div className="row g-2 mb-3">
+        <div className="col-md-12">
+          <label className="form-label">Provincia</label>
+          <input
+            type="text"
+            className="form-control"
+            value={d.provincia || ''}
+            disabled={!!d.id}
+            required
+            onChange={(e) => {
+              if (!d.id) {
+                const nuevas = [...clienteAEditar.direcciones];
+                nuevas[i].provincia = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Fila 5: Código Postal + Zona de envío */}
+      <div className="row g-2 mb-3">
+        <div className="col-md-6">
+          <label className="form-label">Código Postal</label>
+          <input
+            type="number"
+            className="form-control"
+            value={d.codigo_postal || ''}
+            disabled={!!d.id}
+            required
+            onChange={(e) => {
+              if (!d.id) {
+                const nuevas = [...clienteAEditar.direcciones];
+                nuevas[i].codigo_postal = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+              }
+            }}
+          />
+        </div>
+        <div className="col-md-6">
+          <label className="form-label">Zona de envío</label>
+          <select
+            className="form-select"
+            value={d.zona_envio || 'CABA'}
+            disabled={!!d.id}
+            required
+            onChange={(e) => {
+              if (!d.id) {
+                const nuevas = [...clienteAEditar.direcciones];
+                nuevas[i].zona_envio = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+              }
+            }}
+          >
+            <option value="CABA">CABA</option>
+            <option value="GBA">GBA</option>
+            <option value="INTERIOR">INTERIOR</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Botón de confirmación */}
+      {!d.id && (
+        <div className="mt-2 d-flex align-items-center">
+          <button
+            type="button"
+            className="btn btn-outline-success btn-sm w-auto"
+            onClick={() => {
+              const nuevas = [...clienteAEditar.direcciones];
+              nuevas[i].confirmado = true;
+              setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+            }}
+          >
+            Confirmar dirección
+          </button>
+          {d.confirmado && (
+            <span className="ms-2 text-success small">
+              Dirección agregada correctamente
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  ))
+) : (
+  <p className="text-muted">Sin direcciones registradas.</p>
+)}
+
+<div className="text-start mb-3">
+  <button
+    type="button"
+    className="btn btn-outline-primary btn-sm"
+    onClick={() => {
+      const nuevas = [...(clienteAEditar.direcciones || []), {
+        calle: '',
+        numeracion: '',
+        piso: '',
+        depto: '',
+        locacion: '',
+        localidad: '',
+        provincia: '',
+        codigo_postal: '',
+        zona_envio: 'CABA',
+        confirmado: false
+      }];
+      setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
+    }}
+  >
+    + Agregar dirección
+  </button>
+</div>
 
 
-                  {/* Condiciones Comerciales para leer y agregar (solo lectura + nuevas) */}
-                  {/* Condiciones Comerciales */}
-                  <h6 className="mt-4"><strong>Condiciones comerciales</strong></h6>
-                  {Array.isArray(clienteAEditar.condiciones_comerciales) && clienteAEditar.condiciones_comerciales.length > 0 ? (
-                    clienteAEditar.condiciones_comerciales.map((cond, i) => {
-                      const esNueva = cond.__nuevo;
-                      const estaConfirmada = cond.confirmado;
+             
 
-                      return (
-                        <div
-                          key={i}
-                          className={`card card-highlight mb-2 p-3 ${estaConfirmada ? 'border-success' : ''} ${!esNueva ? 'text-muted' : ''}`}
-                        >
-                          <div className="row g-2">
-                            {/* Forma de pago */}
-                            <div className="col-md-4">
-                              <label className="form-label">Forma de pago</label>
-                              <input
-                                type="text"
-                                className="form-control"
-                                value={cond.forma_pago || ''}
-                                disabled={!esNueva || estaConfirmada}
-                                onChange={(e) => {
-                                  const nuevas = [...clienteAEditar.condiciones_comerciales];
-                                  nuevas[i].forma_pago = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
-                                }}
-                              />
-                            </div>
+{/* Contactos */}
+<h6 className="mt-4"><strong>Contactos</strong></h6>
+{Array.isArray(clienteAEditar.contactos) && clienteAEditar.contactos.length > 0 ? (
+  clienteAEditar.contactos.map((c, i) => (
+    <div key={i} className={`card mb-2 p-3 ${c.confirmado ? 'border-success' : ''}`}>
+      <div className="row g-2 mb-3">
+        {/* Nombre */}
+        <div className="col-md-4">
+          <label className="form-label">Nombre</label>
+          <input
+            type="text"
+            className="form-control"
+            value={c.nombre_contacto || ''}
+            disabled={!!c.id}
+            required
+            onChange={(e) => {
+              if (!c.id) {
+                const nuevos = [...clienteAEditar.contactos];
+                nuevos[i].nombre_contacto = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
+              }
+            }}
+          />
+        </div>
 
-                            {/* Tipo de cambio */}
-                            <div className="col-md-3">
-                              <label className="form-label">Tipo de cambio</label>
-                              <input
-                                type="text"
-                                className="form-control"
-                                value={cond.tipo_cambio || ''}
-                                disabled={!esNueva || estaConfirmada}
-                                onChange={(e) => {
-                                  const nuevas = [...clienteAEditar.condiciones_comerciales];
-                                  nuevas[i].tipo_cambio = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
-                                }}
-                              />
-                            </div>
+        {/* Apellido */}
+        <div className="col-md-4">
+          <label className="form-label">Apellido</label>
+          <input
+            type="text"
+            className="form-control"
+            value={c.apellido || ''}
+            disabled={!!c.id}
+            required
+            onChange={(e) => {
+              if (!c.id) {
+                const nuevos = [...clienteAEditar.contactos];
+                nuevos[i].apellido = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
+              }
+            }}
+          />
+        </div>
 
-                            {/* Días de pago */}
-                            <div className="col-md-2">
-                              <label className="form-label">Días de pago</label>
-                              <input
-                                type="number"
-                                className="form-control"
-                                value={cond.dias_pago ?? ''}
-                                disabled={!esNueva || estaConfirmada}
-                                onChange={(e) => {
-                                  const nuevas = [...clienteAEditar.condiciones_comerciales];
-                                  nuevas[i].dias_pago = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
-                                }}
-                              />
-                            </div>
+        {/* Área */}
+        <div className="col-md-4">
+          <label className="form-label">Área</label>
+          <input
+            type="text"
+            className="form-control"
+            value={c.area_contacto || ''}
+            disabled={!!c.id}
+            required
+            onChange={(e) => {
+              if (!c.id) {
+                const nuevos = [...clienteAEditar.contactos];
+                nuevos[i].area_contacto = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
+              }
+            }}
+          />
+        </div>
+      </div>
 
-                            {/* Mark-up */}
-                            <div className="col-md-2">
-                              <label className="form-label">Mark-up máximo</label>
-                              <input
-                                type="number"
-                                className="form-control"
-                                value={cond.mark_up_maximo ?? ''}
-                                disabled={!esNueva || estaConfirmada}
-                                onChange={(e) => {
-                                  const nuevas = [...clienteAEditar.condiciones_comerciales];
-                                  nuevas[i].mark_up_maximo = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
-                                }}
-                              />
-                            </div>
+      {/* Fila 2: Teléfono + Email */}
+      <div className="row g-2 mb-3">
+        <div className="col-md-6">
+          <label className="form-label">Teléfono</label>
+          <input
+            type="text"
+            className="form-control"
+            value={c.telefono || ''}
+            disabled={!!c.id}
+            required
+            onChange={(e) => {
+              if (!c.id) {
+                const nuevos = [...clienteAEditar.contactos];
+                nuevos[i].telefono = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
+              }
+            }}
+          />
+        </div>
+        <div className="col-md-6">
+          <label className="form-label">Email</label>
+          <input
+            type="email"
+            className="form-control"
+            value={c.email || ''}
+            disabled={!!c.id}
+            required
+            onChange={(e) => {
+              if (!c.id) {
+                const nuevos = [...clienteAEditar.contactos];
+                nuevos[i].email = e.target.value;
+                setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
+              }
+            }}
+          />
+        </div>
+      </div>
 
-                            {/* Observaciones */}
-                            <div className="col-md-12">
-                              <label className="form-label">Observaciones</label>
-                              <input
-                                type="text"
-                                className="form-control"
-                                value={cond.observaciones || ''}
-                                disabled={!esNueva || estaConfirmada}
-                                onChange={(e) => {
-                                  const nuevas = [...clienteAEditar.condiciones_comerciales];
-                                  nuevas[i].observaciones = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
-                                }}
-                              />
-                            </div>
-                          </div>
+      {/* Botón de confirmación */}
+      {!c.id && (
+        <div className="mt-2 d-flex align-items-center">
+          <button
+            type="button"
+            className="btn btn-outline-success btn-sm w-auto"
+            onClick={() => {
+              const nuevos = [...clienteAEditar.contactos];
+              nuevos[i].confirmado = true;
+              setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
+            }}
+          >
+            Confirmar contacto
+          </button>
+          {c.confirmado && (
+            <span className="ms-2 text-success small">
+              Contacto agregado correctamente
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  ))
+) : (
+  <p className="text-muted">Sin contactos registrados.</p>
+)}
 
-                          {/* Mensaje de confirmación */}
-                          {esNueva && estaConfirmada && (
-                            <span className="text-success small mt-2 d-block">
-                              Condición agregada correctamente
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-muted">Sin condiciones comerciales registradas.</p>
-                  )}
-
-                  {/* Botón verde para confirmar condición */}
-                  {clienteAEditar.condiciones_comerciales?.some(c => c.__nuevo && !c.confirmado) && (
-                    <div className="d-flex align-items-center mb-2">
-                      <button
-                        type="button"
-                        className="btn btn-outline-success btn-sm w-auto"
-                        onClick={() => {
-                          const nuevas = clienteAEditar.condiciones_comerciales.map((c) =>
-                            c.__nuevo && !c.confirmado ? { ...c, confirmado: true } : c
-                          );
-                          setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
-                        }}
-                      >
-                        Confirmar condición
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Botón azul para agregar nueva condición */}
-                  <div className="text-start mt-1 mb-3">
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => {
-                        const nuevas = [
-                          ...(clienteAEditar.condiciones_comerciales || []),
-                          {
-                            forma_pago: '',
-                            tipo_cambio: '',
-                            dias_pago: '',
-                            mark_up_maximo: '',
-                            observaciones: '',
-                            __nuevo: true,
-                            confirmado: false
-                          }
-                        ];
-                        setClienteAEditar({ ...clienteAEditar, condiciones_comerciales: nuevas });
-                      }}
-                    >
-                      Agregar condición comercial
-                    </button>
-                  </div>
-
-
-
-
-
-
-                  {/* Direcciones */}
-                  {/* Direcciones */}
-                  {/* Direcciones */}
-                  <h6 className="mt-4"><strong>Direcciones</strong></h6>
-                  {Array.isArray(clienteAEditar.direcciones) && clienteAEditar.direcciones.length > 0 ? (
-                    clienteAEditar.direcciones.map((d, i) => (
-                      <div
-                        key={i}
-                        className={`card card-highlight mb-2 p-3 ${d.confirmado ? 'border-success' : ''}`}
-                      >
-                        <div className="row g-2">
-                          {/* Calle */}
-                          <div className="col-md-6">
-                            <label className="form-label">Calle</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={d.calle || ''}
-                              disabled={!!d.id}
-                              required
-                              onChange={(e) => {
-                                if (!d.id) {
-                                  const nuevas = [...clienteAEditar.direcciones];
-                                  nuevas[i].calle = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Numeración */}
-                          <div className="col-md-2">
-                            <label className="form-label">Numeración</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={d.numeracion || ''}
-                              disabled={!!d.id}
-                              required
-                              onChange={(e) => {
-                                if (!d.id) {
-                                  const nuevas = [...clienteAEditar.direcciones];
-                                  nuevas[i].numeracion = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Piso */}
-                          <div className="col-md-2">
-                            <label className="form-label">Piso</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={d.piso || ''}
-                              disabled={!!d.id}
-                              required
-                              onChange={(e) => {
-                                if (!d.id) {
-                                  const nuevas = [...clienteAEditar.direcciones];
-                                  nuevas[i].piso = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Depto */}
-                          <div className="col-md-2">
-                            <label className="form-label">Depto</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={d.depto || ''}
-                              disabled={!!d.id}
-                              required
-                              onChange={(e) => {
-                                if (!d.id) {
-                                  const nuevas = [...clienteAEditar.direcciones];
-                                  nuevas[i].depto = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Locación */}
-                          <div className="col-md-4">
-                            <label className="form-label">Locación</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={d.locacion || ''}
-                              disabled={!!d.id}
-                              required
-                              onChange={(e) => {
-                                if (!d.id) {
-                                  const nuevas = [...clienteAEditar.direcciones];
-                                  nuevas[i].locacion = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Localidad */}
-                          <div className="col-md-4">
-                            <label className="form-label">Localidad</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={d.localidad || ''}
-                              disabled={!!d.id}
-                              required
-                              onChange={(e) => {
-                                if (!d.id) {
-                                  const nuevas = [...clienteAEditar.direcciones];
-                                  nuevas[i].localidad = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Provincia */}
-                          <div className="col-md-4">
-                            <label className="form-label">Provincia</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={d.provincia || ''}
-                              disabled={!!d.id}
-                              required
-                              onChange={(e) => {
-                                if (!d.id) {
-                                  const nuevas = [...clienteAEditar.direcciones];
-                                  nuevas[i].provincia = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Código Postal */}
-                          <div className="col-md-2">
-                            <label className="form-label">Código Postal</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              value={d.codigo_postal || ''}
-                              disabled={!!d.id}
-                              required
-                              onChange={(e) => {
-                                if (!d.id) {
-                                  const nuevas = [...clienteAEditar.direcciones];
-                                  nuevas[i].codigo_postal = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Zona de envío */}
-                          <div className="col-md-4">
-                            <label className="form-label">Zona de envío</label>
-                            <select
-                              className="form-select"
-                              value={d.zona_envio || 'CABA'}
-                              disabled={!!d.id}
-                              required
-                              onChange={(e) => {
-                                if (!d.id) {
-                                  const nuevas = [...clienteAEditar.direcciones];
-                                  nuevas[i].zona_envio = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                                }
-                              }}
-                            >
-                              <option value="CABA">CABA</option>
-                              <option value="GBA">GBA</option>
-                              <option value="INTERIOR">INTERIOR</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Botón de ayuda visual */}
-                        {!d.id && (
-                          <div className="mt-2 d-flex align-items-center">
-                            <button
-                              type="button"
-                              className="btn btn-outline-success btn-sm w-auto"
-                              onClick={() => {
-                                const nuevas = [...clienteAEditar.direcciones];
-                                nuevas[i].confirmado = true;
-                                setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                              }}
-                            >
-                              Confirmar dirección
-                            </button>
-                            {d.confirmado && (
-                              <span className="ms-2 text-success small">
-                                Dirección agregada correctamente
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted">Sin direcciones registradas.</p>
-                  )}
-
-                  <div className="text-start mb-3">
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => {
-                        const nuevas = [...(clienteAEditar.direcciones || []), {
-                          calle: '',
-                          numeracion: '',
-                          piso: '',
-                          depto: '',
-                          locacion: '',
-                          localidad: '',
-                          provincia: '',
-                          codigo_postal: '',
-                          zona_envio: 'CABA',
-                          confirmado: false
-                        }];
-                        setClienteAEditar({ ...clienteAEditar, direcciones: nuevas });
-                      }}
-                    >
-                      + Agregar dirección
-                    </button>
-                  </div>
-
-
-                  {/* Contactos */}
-                  {Array.isArray(clienteAEditar.contactos) && clienteAEditar.contactos.length > 0 ? (
-                    clienteAEditar.contactos.map((c, i) => (
-                      <div key={i} className={`card mb-2 p-3 ${c.confirmado ? 'border-success' : ''}`}>
-                        <div className="row g-2">
-                          {/* Nombre */}
-                          <div className="col-md-4">
-                            <label className="form-label">Nombre</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={c.nombre_contacto || ''}
-                              disabled={!!c.id}
-                              required
-                              onChange={(e) => {
-                                if (!c.id) {
-                                  const nuevos = [...clienteAEditar.contactos];
-                                  nuevos[i].nombre_contacto = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
-                                }
-                              }}
-                            />
-                          </div>
-                          {/* Apellido */}
-                          <div className="col-md-4">
-                            <label className="form-label">Apellido</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={c.apellido || ''}
-                              disabled={!!c.id}
-                              required
-                              onChange={(e) => {
-                                if (!c.id) {
-                                  const nuevos = [...clienteAEditar.contactos];
-                                  nuevos[i].apellido = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
-                                }
-                              }}
-                            />
-                          </div>
-                          {/* Área */}
-                          <div className="col-md-4">
-                            <label className="form-label">Área</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={c.area_contacto || ''}
-                              disabled={!!c.id}
-                              required
-                              onChange={(e) => {
-                                if (!c.id) {
-                                  const nuevos = [...clienteAEditar.contactos];
-                                  nuevos[i].area_contacto = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
-                                }
-                              }}
-                            />
-                          </div>
-                          {/* Teléfono */}
-                          <div className="col-md-6">
-                            <label className="form-label">Teléfono</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={c.telefono || ''}
-                              disabled={!!c.id}
-                              required
-                              onChange={(e) => {
-                                if (!c.id) {
-                                  const nuevos = [...clienteAEditar.contactos];
-                                  nuevos[i].telefono = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
-                                }
-                              }}
-                            />
-                          </div>
-                          {/* Email */}
-                          <div className="col-md-6">
-                            <label className="form-label">Email</label>
-                            <input
-                              type="email"
-                              className="form-control"
-                              value={c.email || ''}
-                              disabled={!!c.id}
-                              required
-                              onChange={(e) => {
-                                if (!c.id) {
-                                  const nuevos = [...clienteAEditar.contactos];
-                                  nuevos[i].email = e.target.value;
-                                  setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
-                                }
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Botón de ayuda visual */}
-                        {!c.id && (
-                          <div className="mt-2 d-flex align-items-center">
-                            <button
-                              type="button"
-                              className="btn btn-outline-success btn-sm w-auto"
-                              onClick={() => {
-                                const nuevos = [...clienteAEditar.contactos];
-                                nuevos[i].confirmado = true;
-                                setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
-                              }}
-                            >
-                              Confirmar contacto
-                            </button>
-                            {c.confirmado && (
-                              <span className="ms-2 text-success small">
-                                Contacto agregado correctamente
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted">Sin contactos registrados.</p>
-                  )}
-
-                  <div className="text-start mb-3">
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => {
-                        const nuevos = [...(clienteAEditar.contactos || []), {
-                          nombre_contacto: '',
-                          apellido: '',
-                          area_contacto: '',
-                          telefono: '',
-                          email: '',
-                          confirmado: false
-                        }];
-                        setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
-                      }}
-                    >
-                      + Agregar contacto
-                    </button>
-                  </div>
-
-
-
-
-
+<div className="text-start mb-3">
+  <button
+    type="button"
+    className="btn btn-outline-primary btn-sm"
+    onClick={() => {
+      const nuevos = [...(clienteAEditar.contactos || []), {
+        nombre_contacto: '',
+        apellido: '',
+        area_contacto: '',
+        telefono: '',
+        email: '',
+        confirmado: false
+      }];
+      setClienteAEditar({ ...clienteAEditar, contactos: nuevos });
+    }}
+  >
+    + Agregar contacto
+  </button>
+</div>
 
 
 
