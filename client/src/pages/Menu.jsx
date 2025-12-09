@@ -19,6 +19,9 @@ const Menu = () => {
   const [alertasEnviadas, setAlertasEnviadas] = useState(new Set());
   const [modalVisible, setModalVisible] = useState(false);
   const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);
+  const [skip, setSkip] = useState(0);
+  const limit = 10; // cantidad de cotizaciones por página
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     console.log("Rol del usuario:", usuario?.rol);
@@ -96,6 +99,16 @@ const Menu = () => {
 
     cargarCotizaciones();
   }, [cargando, usuario]);
+
+  const onSiguiente = () => {
+    if (skip + limit < total) {
+      setSkip(prev => prev + limit);
+    }
+  };
+
+  const onAnterior = () => {
+    setSkip(prev => Math.max(prev - limit, 0));
+  };
 
   function confirmarEstado(id, nuevoEstado) {
     const texto = nuevoEstado === 'finalizada_aceptada'
@@ -184,7 +197,15 @@ const Menu = () => {
     return coincideTexto || coincideEstado;
   });
 
+  const currentCotizaciones = filteredCotizaciones.slice(skip, skip + limit);
 
+  useEffect(() => {
+    setTotal(filteredCotizaciones.length);
+    // 👇 solo resetea si el skip está fuera de rango
+    if (skip >= filteredCotizaciones.length) {
+      setSkip(0);
+    }
+  }, [filteredCotizaciones, skip]);
 
   if (cargando) return <p className="text-center mt-5">Cargando usuario...</p>;
 
@@ -279,7 +300,7 @@ const Menu = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredCotizaciones.map((cotizacion, index) => {
+                {currentCotizaciones.map((cotizacion, index) => {
                   const fechaIso = cotizacion.fecha ? new Date(cotizacion.fecha) : null;
                   const fechaDisplay = fechaIso && !isNaN(fechaIso.getTime())
                     ? fechaIso.toLocaleDateString('es-AR')
@@ -397,6 +418,26 @@ const Menu = () => {
                 })}
               </tbody>
             </table>
+
+            <div className="pagination justify-content-center mt-3">
+              <button
+                className="btn btn-danger"
+                onClick={onAnterior}
+                disabled={skip === 0}
+              >
+                Anterior
+              </button>
+              <span className="mx-3">
+                Página {Math.floor(skip / limit) + 1} de {Math.ceil(total / limit)}
+              </span>
+              <button
+                className="btn btn-success"
+                onClick={onSiguiente}
+                disabled={skip + limit >= total}
+              >
+                Siguiente
+              </button>
+            </div>
           </div>
         </div>
       </div>
