@@ -3,8 +3,30 @@
 //PERMITE VER TODOS LOS DETALLES DE LA COTIZACIÓN ANTES DE DESCARGAR EL PDF O CERRAR EL MODAL
 //INCLUYE DATOS DEL CLIENTE, VENDEDOR, PRODUCTOS, RESUMEN FISCAL Y OBSERVACIONES
 //TAMBIÉN MUESTRA UNA ALERTA VISUAL SI LA COTIZACIÓN ESTÁ PRÓXIMA A VENCER O SI YA SE HA ENVIADO UNA ALERTA
+//Cómo se calcula el Resumen Fiscal:
+//1. 	Base 21% (productos):
+//Es la suma de todos los productos que pagan IVA al 21%. En tu ejemplo: $86.48.
+//2. 	Base 10.5% (productos):
+//Es la suma de los productos que pagan IVA reducido del 10.5%. En este caso no hay, por eso es $0.00.
+//3. 	Costo de envío:
+//Se agrega el costo de envío de la cotización. Aquí: $10.00.
+//4. 	IVA 21% (incluye envío):
+//Se calcula el 21% sobre la base de productos al 21% más el envío.
+//[(86.48 + 10.00) × 0.21 = 20.26]
+//5. 	IVA 10.5%:
+//Se calcula el 10.5% sobre la base de productos que tributan esa tasa. Como no hay, queda $0.00.
+//6. 	Descuentos:
+//Si hubiera descuentos aplicados, se restan aquí. En este caso: $0.00.
+//7. 	Base imponible (incluye envío):
+//Es la suma de las bases de productos más el envío.
+//[86.48 + 0.00 + 10.00 = 96.48]
+//8. 	Total Final:
+//Es la base imponible + IVA 21% + IVA 10.5% – descuentos.
+//[96.48 + 20.26 + 0.00 – 0.00 = 116.74]
 
-
+//Primero se suman los productos y el envío (96.48).
+//Después se calcula el IVA correspondiente (20.26).
+//Finalmente se suman ambos y se restan descuentos, dando el Total Final: 116.74.
 
 import React from 'react';
 import jsPDF from 'jspdf';
@@ -47,50 +69,52 @@ export default function ModalVistaPreviaCot({ visible, onClose, cotizacion }) {
         estado: estadoVendedor
     } = vendedor;
 
-const generarPDFInterno = () => {
-  const doc = new jsPDF();
+    const generarPDFInterno = () => {
+        const doc = new jsPDF();
 
- doc.setFontSize(14);
-doc.text(`Cotización Interna: ${numero || '—'}`, 14, 20);
+        doc.setFontSize(14);
+        doc.text(`Cotización Interna: ${numero || '—'}`, 14, 20);
 
-doc.setFontSize(10);
-doc.text(`Estado: ${estado?.nombre || '—'}`, 14, 28);
-doc.text(`Cliente: ${clienteNombre || '—'}`, 14, 36);
-doc.text(`Vendedor: ${vendedorNombre || '—'} ${vendedorApellido || ''}`, 14, 44);
-doc.text(`Email vendedor: ${vendedorEmail || '—'}`, 14, 52); 
+        doc.setFontSize(10);
+        doc.text(`Estado: ${estado?.nombre || '—'}`, 14, 28);
+        doc.text(`Cliente: ${clienteNombre || '—'}`, 14, 36);
+        doc.text(`Vendedor: ${vendedorNombre || '—'} ${vendedorApellido || ''}`, 14, 44);
+        doc.text(`Email vendedor: ${vendedorEmail || '—'}`, 14, 52);
 
-  // Tabla de productos
-  doc.autoTable({
-    startY: 60,
-    head: [['Producto', 'Cantidad', 'Unitario', 'Subtotal']],
-    body: cotizacion.productos.map(p => [
-      p.detalle,
-      p.cantidad,
-      `$${p.precio_unitario?.toFixed(2)}`,
-      `$${p.subtotal?.toFixed(2)}`
-    ]),
-  });
+        // Tabla de productos
+        doc.autoTable({
+            startY: 60,
+            head: [['Producto', 'Cantidad', 'Unitario', 'Subtotal']],
+            body: cotizacion.productos.map(p => [
+                p.detalle,
+                p.cantidad,
+                `$${p.precio_unitario?.toFixed(2)}`,
+                `$${p.subtotal?.toFixed(2)}`
+            ]),
+        });
 
-  // Resumen fiscal
-  if (cotizacion.resumen_fiscal) {
-    const y = doc.lastAutoTable.finalY + 10;
-    doc.text('Resumen Fiscal', 14, y);
-    doc.autoTable({
-      startY: y + 4,
-      head: [['Concepto', 'Monto']],
-      body: [
-        ['Base 21%', `$${cotizacion.resumen_fiscal.base21.toFixed(2)}`],
-        ['IVA 21%', `$${cotizacion.resumen_fiscal.iva21.toFixed(2)}`],
-        ['Base 10.5%', `$${cotizacion.resumen_fiscal.base105.toFixed(2)}`],
-        ['IVA 10.5%', `$${cotizacion.resumen_fiscal.iva105.toFixed(2)}`],
-        ['Descuentos', `$${cotizacion.resumen_fiscal.descuentosTotales.toFixed(2)}`],
-        ['Total Final', `$${cotizacion.resumen_fiscal.totalFinal.toFixed(2)}`],
-      ],
-    });
-  }
-
-  doc.save(`cotizacion-interna-${cotizacion.numero || cotizacion.id}.pdf`);
-};
+        // Resumen fiscal
+        // Resumen fiscal
+        if (cotizacion.resumen_fiscal) {
+            const y = doc.lastAutoTable.finalY + 10;
+            doc.text('Resumen Fiscal', 14, y);
+            doc.autoTable({
+                startY: y + 4,
+                head: [['Concepto', 'Monto']],
+                body: [
+                    ['Base 21% (productos con iva 21%)', `$${cotizacion.resumen_fiscal.base21.toFixed(2)}`],
+                    ['Base 10.5% (productos con iva 10.5%)', `$${cotizacion.resumen_fiscal.base105.toFixed(2)}`],
+                    ['Costo de envío', `$${cotizacion.resumen_fiscal.costoEnvio.toFixed(2)}`],
+                    ['IVA 21% (incluye envío)', `$${cotizacion.resumen_fiscal.iva21.toFixed(2)}`],
+                    ['IVA 10.5%', `$${cotizacion.resumen_fiscal.iva105.toFixed(2)}`],
+                    ['Descuentos', `$${cotizacion.resumen_fiscal.descuentosTotales.toFixed(2)}`],
+                    ['Base imponible (incluye envío)', `$${cotizacion.resumen_fiscal.baseImponible.toFixed(2)}`],
+                    ['Total Final', `$${cotizacion.resumen_fiscal.totalFinal.toFixed(2)}`],
+                ],
+            });
+        }
+        doc.save(`cotizacion-interna-${cotizacion.numero || cotizacion.id}.pdf`);
+    };
 
 
 
@@ -118,7 +142,7 @@ doc.text(`Email vendedor: ${vendedorEmail || '—'}`, 14, 52);
                                     <span className="badge bg-light text-dark ms-3">{estado.nombre}</span>
                                 )}
                             </div>
-                         <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>  
+                            <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
                         </div>
 
 
@@ -158,7 +182,8 @@ doc.text(`Email vendedor: ${vendedorEmail || '—'}`, 14, 52);
                                     <table className="table table-sm table-hover table-bordered rounded-2 overflow-hidden">
                                         <thead className="table-light">
                                             <tr>
-                                                <th>Nombre</th>
+                                                {/* 👇 ancho fijo para que el texto se acomode hacia abajo */}
+                                                <th style={{ width: '40%' }}>Nombre</th>
                                                 <th>Cantidad</th>
                                                 <th>Unitario</th>
                                                 <th>Subtotal</th>
@@ -167,24 +192,34 @@ doc.text(`Email vendedor: ${vendedorEmail || '—'}`, 14, 52);
                                         <tbody>
                                             {productos.map((p, i) => (
                                                 <tr key={i}>
-                                                    <td>{p.detalle || '—'}</td>
+                                                    {/* 👇 clases Bootstrap para romper texto largo */}
+                                                    <td className="text-wrap text-break">{p.detalle || '—'}</td>
                                                     <td>{p.cantidad ?? '—'}</td>
                                                     <td>${p.precio_unitario?.toFixed(2) ?? '—'}</td>
                                                     <td>${p.subtotal?.toFixed(2) ?? '—'}</td>
                                                 </tr>
                                             ))}
+                                            {/* 👇 fila extra para subtotal */}
+                                            {total !== undefined && (
+                                                <tr className="table-light fw-bold">
+                                                    <td colSpan="3" className="text-end">
+                                                        Subtotal (sin impuestos)
+                                                    </td>
+                                                    <td>${Number(total).toFixed(2)}</td>
+                                                </tr>
+                                            )}
                                         </tbody>
                                     </table>
                                 ) : (
                                     <p className="text-muted">Sin productos registrados</p>
                                 )}
                                 {margen !== undefined && (
-                                    <p className="mt-2"><strong>Margen:</strong> {margen}%</p>
-                                )}
-                                {total !== undefined && (
-                                    <p><strong>Total:</strong> ${Number(total).toFixed(2)}</p>
+                                    <p className="mt-2">
+                                        <strong>Margen:</strong> {margen}%
+                                    </p>
                                 )}
                             </div>
+
 
                             {/* Resumen Fiscal */}
                             {cotizacion.resumen_fiscal && (
@@ -196,34 +231,59 @@ doc.text(`Email vendedor: ${vendedorEmail || '—'}`, 14, 52);
                                         <table className="table table-sm mb-0">
                                             <tbody>
                                                 <tr>
-                                                    <td>Base 21%</td>
-                                                    <td className="text-end text-primary">${cotizacion.resumen_fiscal.base21.toFixed(2)}</td>
+                                                    <td>Base 21% (productos con iva 21%)</td>
+                                                    <td className="text-end text-primary">
+                                                        ${cotizacion.resumen_fiscal.base21.toFixed(2)}
+                                                    </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>IVA 21%</td>
-                                                    <td className="text-end text-primary">${cotizacion.resumen_fiscal.iva21.toFixed(2)}</td>
+                                                    <td>Base 10.5% (productos con iva 10.5%)</td>
+                                                    <td className="text-end text-info">
+                                                        ${cotizacion.resumen_fiscal.base105.toFixed(2)}
+                                                    </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>Base 10.5%</td>
-                                                    <td className="text-end text-info">${cotizacion.resumen_fiscal.base105.toFixed(2)}</td>
+                                                    <td>Costo de envío</td>
+                                                    <td className="text-end text-secondary">
+                                                        ${cotizacion.resumen_fiscal.costoEnvio.toFixed(2)}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>IVA 21% (incluye envío)</td>
+                                                    <td className="text-end text-primary">
+                                                        ${cotizacion.resumen_fiscal.iva21.toFixed(2)}
+                                                    </td>
                                                 </tr>
                                                 <tr>
                                                     <td>IVA 10.5%</td>
-                                                    <td className="text-end text-info">${cotizacion.resumen_fiscal.iva105.toFixed(2)}</td>
+                                                    <td className="text-end text-info">
+                                                        ${cotizacion.resumen_fiscal.iva105.toFixed(2)}
+                                                    </td>
                                                 </tr>
                                                 <tr>
                                                     <td>Descuentos</td>
-                                                    <td className="text-end text-danger">${cotizacion.resumen_fiscal.descuentosTotales.toFixed(2)}</td>
+                                                    <td className="text-end text-danger">
+                                                        ${cotizacion.resumen_fiscal.descuentosTotales.toFixed(2)}
+                                                    </td>
+                                                </tr>
+                                                <tr className="table-light">
+                                                    <td><strong>Base imponible (incluye envío)</strong></td>
+                                                    <td className="text-end">
+                                                        <strong>${cotizacion.resumen_fiscal.baseImponible.toFixed(2)}</strong>
+                                                    </td>
                                                 </tr>
                                                 <tr className="table-light">
                                                     <td><strong>Total Final</strong></td>
-                                                    <td className="text-end"><strong>${cotizacion.resumen_fiscal.totalFinal.toFixed(2)}</strong></td>
+                                                    <td className="text-end">
+                                                        <strong>${cotizacion.resumen_fiscal.totalFinal.toFixed(2)}</strong>
+                                                    </td>
                                                 </tr>
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
                             )}
+
 
                             {/* Observaciones */}
                             <div className="border-top pt-3 mt-3">
@@ -237,47 +297,47 @@ doc.text(`Email vendedor: ${vendedorEmail || '—'}`, 14, 52);
                         </div>
 
                         {/* Footer */}
-                     <div className="modal-footer bg-light d-flex justify-content-between align-items-center">
-  {/* Alerta visual a la izquierda */}
-  <div>
-    {(() => {
-      const hoy = new Date();
-      const vigencia = cotizacion.vigencia_hasta ? new Date(cotizacion.vigencia_hasta) : null;
-      const diasRestantes = vigencia ? Math.ceil((vigencia - hoy) / (1000 * 60 * 60 * 24)) : null;
+                        <div className="modal-footer bg-light d-flex justify-content-between align-items-center">
+                            {/* Alerta visual a la izquierda */}
+                            <div>
+                                {(() => {
+                                    const hoy = new Date();
+                                    const vigencia = cotizacion.vigencia_hasta ? new Date(cotizacion.vigencia_hasta) : null;
+                                    const diasRestantes = vigencia ? Math.ceil((vigencia - hoy) / (1000 * 60 * 60 * 24)) : null;
 
-      if (cotizacion.alerta_enviada) {
-        const diasDesdeAlerta = diasRestantes !== null ? Math.max(0, 3 - diasRestantes) : null;
-        return (
-          <span className="badge bg-success px-3 py-2 fs-6">
-            <i className="bi bi-check-circle me-1"></i>
-            Alerta enviada hace {diasDesdeAlerta} día{diasDesdeAlerta !== 1 ? 's' : ''}
-          </span>
-        );
-      }
+                                    if (cotizacion.alerta_enviada) {
+                                        const diasDesdeAlerta = diasRestantes !== null ? Math.max(0, 3 - diasRestantes) : null;
+                                        return (
+                                            <span className="badge bg-success px-3 py-2 fs-6">
+                                                <i className="bi bi-check-circle me-1"></i>
+                                                Alerta enviada hace {diasDesdeAlerta} día{diasDesdeAlerta !== 1 ? 's' : ''}
+                                            </span>
+                                        );
+                                    }
 
-      if (diasRestantes !== null && diasRestantes <= 3 && diasRestantes >= 0) {
-        return (
-          <span className="badge bg-warning text-dark px-3 py-2 fs-6">
-            <i className="bi bi-exclamation-triangle me-1"></i>
-            La cotización vence en {diasRestantes} día{diasRestantes !== 1 ? 's' : ''}
-          </span>
-        );
-      }
+                                    if (diasRestantes !== null && diasRestantes <= 3 && diasRestantes >= 0) {
+                                        return (
+                                            <span className="badge bg-warning text-dark px-3 py-2 fs-6">
+                                                <i className="bi bi-exclamation-triangle me-1"></i>
+                                                La cotización vence en {diasRestantes} día{diasRestantes !== 1 ? 's' : ''}
+                                            </span>
+                                        );
+                                    }
 
-      return null;
-    })()}
-  </div>
+                                    return null;
+                                })()}
+                            </div>
 
-  {/* Botones a la derecha */}
-  <div className="d-flex gap-2">
-    <button className="btn btn-outline-primary" onClick={generarPDFInterno}>
-  <i className="bi bi-file-earmark-pdf me-2"></i>Descargar PDF Interno
-</button>
-    <button className="btn btn-outline-secondary" onClick={onClose}>
-      <i className="bi bi-x-circle me-2"></i>Cerrar
-    </button>
-  </div>
-</div>  
+                            {/* Botones a la derecha */}
+                            <div className="d-flex gap-2">
+                                <button className="btn btn-outline-primary" onClick={generarPDFInterno}>
+                                    <i className="bi bi-file-earmark-pdf me-2"></i>Descargar PDF Interno
+                                </button>
+                                <button className="btn btn-outline-secondary" onClick={onClose}>
+                                    <i className="bi bi-x-circle me-2"></i>Cerrar
+                                </button>
+                            </div>
+                        </div>
 
                     </div>
                 </div>

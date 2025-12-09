@@ -46,12 +46,30 @@ const Dashboard = () => {
   // KPIs normalizados
   const kpiCot = all.length;
 
-  const kpiAcept = all.filter(r => ["aceptada", "finalizada_aceptada"].includes(r.estado_nombre?.toLowerCase())).length;
-  const kpiRech = all.filter(r => ["rechazada", "finalizada_rechazada"].includes(r.estado_nombre?.toLowerCase())).length;
-  const kpiPend = all.filter(r => r.estado_nombre?.toLowerCase() === 'pendiente').length;
-  const kpiVenc = all.filter(r => r.estado_nombre?.toLowerCase() === 'vencida').length;
+  const aceptadas = all.filter(r =>
+    ["aceptada", "finalizada_aceptada"].includes(r.estado_nombre?.toLowerCase())
+  );
+  const rechazadas = all.filter(r =>
+    ["rechazada", "finalizada_rechazada"].includes(r.estado_nombre?.toLowerCase())
+  );
+  const pendientes = all.filter(r => r.estado_nombre?.toLowerCase() === 'pendiente');
+  const vencidas = all.filter(r => r.estado_nombre?.toLowerCase() === 'vencida');
 
-  const ticket = (all.reduce((x, y) => x + (y.total || 0), 0) / (kpiCot || 1)) || 0;
+  const kpiAcept = aceptadas.length;
+  const kpiRech = rechazadas.length;
+  const kpiPend = pendientes.length;
+  const kpiVenc = vencidas.length;
+
+  // 🔹 Ticket promedio general
+  const ticket = (
+    all.reduce((acc, r) => acc + Number(r.total || 0), 0) / (kpiCot || 1)
+  ) || 0;
+
+  // 🔹 Tasas por estado
+  const tasaAcept = ((kpiAcept / kpiCot) * 100).toFixed(1);
+  const tasaRech = ((kpiRech / kpiCot) * 100).toFixed(1);
+  const tasaPend = ((kpiPend / kpiCot) * 100).toFixed(1);
+  const tasaVenc = ((kpiVenc / kpiCot) * 100).toFixed(1);
 
   // aplicar filtros
   const apply = () => {
@@ -64,7 +82,6 @@ const Dashboard = () => {
     const fh = (hasta || "");
     const fb = (buscar || "").toLowerCase();
 
-    // 🔹 mapa de equivalencias
     const estadoMap = {
       "aceptada": ["aceptada", "finalizada_aceptada"],
       "rechazada": ["rechazada", "finalizada_rechazada"],
@@ -74,9 +91,6 @@ const Dashboard = () => {
 
     const result = all.filter(r => {
       const estadoReal = r.estado_nombre?.toLowerCase();
-
-      // log para verificar qué valores llegan realmente
-      console.log("Estado recibido:", estadoReal);
 
       if (fe) {
         const permitidos = estadoMap[fe] || [];
@@ -155,6 +169,10 @@ const Dashboard = () => {
           kpiPend={kpiPend}
           kpiVenc={kpiVenc}
           ticket={ticket}
+          tasaAcept={tasaAcept}
+          tasaRech={tasaRech}
+          tasaPend={tasaPend}
+          tasaVenc={tasaVenc}
         />
 
         {/* filtros */}
