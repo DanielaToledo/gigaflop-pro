@@ -13,8 +13,9 @@ const Productos = () => {
   const [products, setProducts] = useState([]);
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
-  const limit = 12;
+  const limit = 12; //establecer limite de productos por pagina
   const [loading, setLoading] = useState(true);
+  const currentProducts = products.slice(skip, skip + limit);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]); // Estado para el carrito que guarda los productos seleccionados
@@ -167,28 +168,28 @@ const Productos = () => {
               </div>
             </div>
           </header>
-      <div className="option">
-  {/* Dashboard: admin y gerente */}
-  {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
-    <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
-  )}
+          <div className="option">
+            {/* Dashboard: admin y gerente */}
+            {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
+              <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+            )}
 
-  {/* Cotizaciones: todos */}
-  <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+            {/* Cotizaciones: todos */}
+            <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
 
-  {/* Clientes y Productos: solo vendedor y admin */}
-  {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
-    <>
-      <NavLink className="option-button" to="/clientes">Clientes</NavLink>
-      <NavLink className="option-button2" to="/productos">Productos</NavLink>
-    </>
-  )}
+            {/* Clientes y Productos: solo vendedor y admin */}
+            {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
+              <>
+                <NavLink className="option-button" to="/clientes">Clientes</NavLink>
+                <NavLink className="option-button2" to="/productos">Productos</NavLink>
+              </>
+            )}
 
-  {/* Configuración: solo admin */}
-  {usuario?.rol === "administrador" && (
-    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
-  )}
-</div>
+            {/* Configuración: solo admin */}
+            {usuario?.rol === "administrador" && (
+              <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+            )}
+          </div>
         </div>
 
 
@@ -273,9 +274,10 @@ const Productos = () => {
             <p className="text-center text-danger">{error}</p>
           ) : (
             <>
+
               <div className='productos-box'>
-                {products.map((item) => (
-                  <CardProductos key={item.id} item={item} onAddToCart={handleAddToCart} />
+                {currentProducts.map((item) => (
+                  <CardProductos key={item._id} item={item} onAddToCart={handleAddToCart} />
                 ))}
               </div>
 
