@@ -24,18 +24,17 @@ const Home = () => {
       <main className="main-content">
         <section className="hero">
           <h2>Soluciones en Hardware y Software para Empresas</h2>
-          <p></p>
+          <p>Transformamos cada cotización en una oportunidad de crecer con nuestros clientes</p>
         </section>
 
         <section id="nosotros" className="about-section">
           <h2>Sobre Nosotros</h2>
-          <p><strong>Gigaflop</strong> es una empresa especializada en la generación de cotizaciones comerciales. Gracias a la incorporación de nuestro sistema de automatización, hoy cuenta con una plataforma tecnológica avanzada que le permite gestionar sus procesos de cotización de forma más eficiente, rápida y precisa.
+          <p><strong>Misión: </strong>
+          Brindar a empresas soluciones confiables en hardware y software, con atención personalizada, cotizaciones ágiles y asesoramiento experto con disponibilidad de stock y precios competitivos.
           <br />
           <br />
-          A través de nuestro portal, los vendedores podrán acceder a herramientas claves como dashboards interactivos, gestión integral de cotizaciones, administración de clientes y visualización de productos con control de stock en tiempo real. 
-          <br />
-          <br />
-          En Gigaflop, la tecnología no reemplaza al vendedor, <strong>lo potencia.</strong> </p>
+          <strong>Visión:</strong> Ser el proveedor de tecnología preferido por las empresas, acompañando cada necesidad con una oferta actualizada, atención profesional y compromiso con el servicio.
+          </p>
           
         </section>
       </main>

@@ -78,7 +78,7 @@ body {
 .bi-person-circle{
   font-size: 2em;
   margin-right: 10px;
-  
+
 }
 .login-home:hover {
  color: #4285f4; /* Cambia el color al pasar el mouse */
@@ -113,6 +113,7 @@ body {
     color: #555;
     font-size: 3.5vh; 
     font-weight: bold;   
+    margin-bottom: 30px;
 }
 
 .hero h2 {
@@ -121,9 +122,10 @@ body {
   color: #4285f4;
   font-size: 6.7vh;
   font-weight: 700; 
+  margin-bottom: 10px;
     /* Aumentar el espacio entre letras levemente */
     letter-spacing: 0.02em; 
-    margin-bottom: 30px;
+    
     /*text-shadow: #4285f4 1px 1px 5px;*/
 }
 
