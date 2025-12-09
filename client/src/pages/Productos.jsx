@@ -158,7 +158,7 @@ const Productos = () => {
                 title="Tu cotización"
                 onClick={() => setShowCart(!showCart)}
               >
-                <span className="cotizacion-icon">C</span>
+                <span ><i className="bi bi-person-circle custom-icon"></i></span>
                 {cart.length > 0 && (
                   <span className="cart-badge">
                     {cart.reduce((acc, item) => acc + item.quantity, 0)}

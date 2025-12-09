@@ -126,7 +126,7 @@ const Dashboard = () => {
 
   return (
     <>
-      <div className="encabezado-fijo">
+      <div className="encabezado-fijo " >
         <Sidebar />
         <div className="background-container-prod">
           <header className="header">
@@ -161,7 +161,7 @@ const Dashboard = () => {
       </div>
 
       {/* KPIS */}
-      <main className="wrap" style={{ marginTop: '15%' }}>
+      <main className="dash" style={{ marginTop: '15%' }}>
         <KpiGridDashb
           kpiCot={kpiCot}
           kpiAcept={kpiAcept}

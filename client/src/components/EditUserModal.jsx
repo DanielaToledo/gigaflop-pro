@@ -35,7 +35,7 @@ const EditUserModal = ({ usuario, onClose, onSubmit, mensaje, exito }) => {
       <div className="modal fade show" style={{ display: "block", zIndex: 1050 }} tabIndex="-1">
         <div className="modal-dialog modal-dialog-centered modal-lg">
           <div className="modal-content">
-            <div className="modal-header bg-warning text-white">
+            <div className="modal-header bg-primary text-white">
               <h5 className="modal-title">Editar Usuario</h5>
               <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
             </div>
@@ -125,7 +125,7 @@ const EditUserModal = ({ usuario, onClose, onSubmit, mensaje, exito }) => {
                 <button type="button" className="btn btn-danger" onClick={onClose}>
                   Cerrar
                 </button>
-                <button type="submit" className="btn btn-warning">
+                <button type="submit" className="btn btn-success">
                   Guardar cambios
                 </button>
               </div>

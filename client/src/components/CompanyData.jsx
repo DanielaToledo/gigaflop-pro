@@ -94,8 +94,8 @@ const CompanyData = ({ empresa, onUpdate, mensaje, esExito, onRefresh }) => {
   return (
     <section className="config-card config-card-company">
       <div className="config-card-header">
-        <i className="bi bi-building config-card-icon" aria-hidden="true"></i>
-        <h2 className="config-card-title">Datos de la empresa</h2>
+        <i className="bi bi-building config-card-icon cotizatitle" aria-hidden="true"></i>
+        <h2 className="config-card-title cotizatitle">Datos de la empresa</h2>
       </div>
 
       <form className="config-company-form" onSubmit={handleSubmit}>

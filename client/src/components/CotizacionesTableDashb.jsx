@@ -1,5 +1,7 @@
 import React from 'react';
 import '../CSS/dashboard.css';  
+import '../CSS/menu.css';
+
 
 function usd(n) {
   return typeof n === 'number'
@@ -33,24 +35,24 @@ function mostrarEstado(nombre) {
 
 const CotizacionesTableDashb = ({ slice, page, pages, setPage, filtered }) => {
   return (
-    <section className="table-wrap">
-      <div className="table-head">
-        <h2>Resultados</h2>
+    <section className="table-wrap ">
+      <div className="table-head ">
+        <h2 className='cotizatitle'>Resultados</h2>
         <div className="right"><span>Total: {filtered.length}</span></div>
       </div>
 
       <div className="table-responsive">
         <table className="table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Fecha</th>
-              <th>Cliente</th>
-              <th>Vendedor</th>
-              <th>Total (USD)</th>
-              <th>Estado</th>
-              <th>Marca</th>
-              <th>Productos</th> 
+          <thead className="table-primary">
+           <tr > 
+            <th style={{ fontSize: '0.9rem' }}>#</th> 
+            <th style={{ fontSize: '0.9rem' }}>Fecha</th> 
+            <th style={{ fontSize: '0.9rem' }}>Cliente</th> 
+            <th style={{ fontSize: '0.9rem' }}>Vendedor</th> 
+            <th style={{ fontSize: '0.9rem' }}>Total (USD)</th> 
+            <th style={{ fontSize: '0.9rem' }}>Estado</th> 
+            <th style={{ fontSize: '0.9rem' }}>Marca</th> 
+            <th style={{ fontSize: '0.9rem' }}>Productos</th> 
             </tr>
           </thead>
           <tbody>
@@ -107,7 +109,7 @@ const CotizacionesTableDashb = ({ slice, page, pages, setPage, filtered }) => {
 
       <div className="pagination">
         <button
-          className="btn-outline"
+          className="btn-outline dashbtn"
           disabled={page <= 1}
           onClick={() => setPage(p => Math.max(1, p - 1))}
         >
@@ -115,7 +117,7 @@ const CotizacionesTableDashb = ({ slice, page, pages, setPage, filtered }) => {
         </button>
         <span>{page} / {pages}</span>
         <button
-          className="btn-outline"
+          className="btn-outline dashbtn"
           disabled={page >= pages}
           onClick={() => setPage(p => Math.min(pages, p + 1))}
         >

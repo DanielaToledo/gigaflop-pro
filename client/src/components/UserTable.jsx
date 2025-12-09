@@ -45,8 +45,8 @@ const UserTable = ({ usuarios, onEdit }) => {
     <section className="config-card">
       <div className="config-card-header config-card-header--users">
         <div className="config-card-header-left">
-          <i className="bi bi-people config-card-icon" aria-hidden="true"></i>
-          <h2 className="config-card-title">Usuarios del sistema</h2>
+          <i className="bi bi-people config-card-icon cotizatitle" aria-hidden="true"></i>
+          <h2 className="config-card-title cotizatitle">Usuarios del sistema</h2>
         </div>
       </div>
 
