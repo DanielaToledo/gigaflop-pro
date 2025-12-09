@@ -8,7 +8,7 @@
 //Card amarilla (Pendientes): muestra el total y la tasa de pendientes %.
 //Card gris (Vencidas): muestra el total y la tasa de vencidas %.
 //Así todas tus cards quedan consistentes: cantidad + tasa %, y la azul además con el ticket promedio.
-
+//todas se calculan a partir de los datos obtenidos en Dashboard.jsx es decir suma de todas las cotizaciones y se divide por el total segun su estado.
 
 
 import React from 'react';
