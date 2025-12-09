@@ -16,6 +16,10 @@ import MensajeAlerta from '../components/MensajeAlerta';
 import '../CSS/menu.css';
 import '../CSS/clientes.css';
 import ModalVistaPreviaCliente from '../components/ModalVistaPreviaCliente';
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
+
 
 const Clientes = () => {
   const { usuario } = useUser();
@@ -112,6 +116,10 @@ const Clientes = () => {
     setClienteAEliminar(null);
   };
 
+
+
+
+
   const handleEditar = async (cliente) => {
     try {
       const res = await axios.get(`http://localhost:4000/api/clientes/completo/${cliente.cuit}`);
@@ -185,6 +193,95 @@ const Clientes = () => {
       setClienteAEditar(null);
     }
   };
+ // 🔽 Agregamos aquí la función para descargar PDF
+ const descargarClientePDF = async (cliente) => {
+  try {
+    // Traer el cliente completo desde el backend
+    const res = await axios.get(`http://localhost:4000/api/clientes/completo/${cliente.cuit}`);
+    const clienteCompleto = res.data;
+
+    const doc = new jsPDF();
+
+    // Encabezado igual al modal
+    doc.setFontSize(16);
+    doc.text("Vista previa del cliente", 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Razón Social: ${clienteCompleto.razon_social}`, 14, 30);
+    doc.text(`CUIT: ${clienteCompleto.cuit}`, 14, 36);
+
+    const fecha = clienteCompleto.fecha_modificacion
+      ? new Date(clienteCompleto.fecha_modificacion).toLocaleDateString("es-AR") +
+        " " +
+        new Date(clienteCompleto.fecha_modificacion).toLocaleTimeString("es-AR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Sin registro";
+
+    doc.text(`Última modificación: ${fecha}`, 14, 42);
+
+    let y = 55;
+
+    // Direcciones
+    if (clienteCompleto.direcciones?.length) {
+      doc.text("Direcciones", 14, y);
+      doc.autoTable({
+        startY: y + 5,
+        head: [["#", "Calle", "Localidad", "Provincia", "CP", "Piso", "Depto", "Locación", "Zona"]],
+        body: clienteCompleto.direcciones.map((d, i) => [
+          i + 1,
+          `${d.calle} ${d.numeracion}`,
+          d.localidad,
+          d.provincia,
+          d.codigo_postal,
+          d.piso || "—",
+          d.depto || "—",
+          d.locacion || "—",
+          d.zona_envio || "—",
+        ]),
+      });
+      y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // Contactos
+    if (clienteCompleto.contactos?.length) {
+      doc.text("Contactos", 14, y);
+      doc.autoTable({
+        startY: y + 5,
+        head: [["#", "Nombre", "Área", "Teléfono", "Email"]],
+        body: clienteCompleto.contactos.map((c, i) => [
+          i + 1,
+          `${c.nombre_contacto} ${c.apellido}`,
+          c.area_contacto,
+          c.telefono,
+          c.email,
+        ]),
+      });
+      y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // Condiciones comerciales
+    if (clienteCompleto.condiciones_comerciales?.length) {
+      doc.text("Condiciones Comerciales", 14, y);
+      doc.autoTable({
+        startY: y + 5,
+        head: [["#", "Forma de pago", "Tipo de cambio", "Días de pago", "Mark-up", "Observaciones"]],
+        body: clienteCompleto.condiciones_comerciales.map((cond, i) => [
+          i + 1,
+          cond.forma_pago,
+          cond.tipo_cambio,
+          cond.dias_pago,
+          `${cond.mark_up_maximo}%`,
+          cond.observaciones || "—",
+        ]),
+      });
+    }
+
+    doc.save(`Cliente_${clienteCompleto.razon_social}.pdf`);
+  } catch (error) {
+    console.error("Error al generar PDF:", error);
+  }
+}; 
 
 
   return (
@@ -259,48 +356,56 @@ const Clientes = () => {
           </div>
         </div>
 
+<div className="menu-matriz">
+  <div className="table-responsive px-2">
+    <table className="table tabla-cotizaciones align-middle">
+      <thead className="table-primary">
+        <tr>
+          <th>Numero de Cliente</th>
+          <th>Razón Social</th>
+          <th>CUIT</th>
+          <th className="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {clientes.map((cliente, index) => (
+          <tr key={index} className="fila-cotizacion">
+            <td>{cliente.id}</td>
+            <td>
+              <button
+                className="btn-link"
+                onClick={() => handleVistaPrevia(cliente)}
+              >
+                {cliente.razon_social}
+              </button>
+            </td>
+            <td>{cliente.cuit}</td>
+            <td className="text-end">
+              {/* Botón descargar PDF */}
+              <button
+                className="btn-cuadro btn-descargar"
+                title="Descargar PDF"
+                onClick={() => descargarClientePDF(cliente)}
+              >
+                <i className="bi bi-file-earmark-arrow-down-fill"></i>
+              </button>
 
+              {/* Botón editar */}
+              <button
+                className="btn-cuadro btn-editar"
+                title="Editar"
+                onClick={() => handleEditar(cliente)}
+              >
+                <i className="bi bi-pencil-fill"></i>
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
 
-
-        <div className="menu-matriz">
-          <div className="table-responsive px-2">
-            <table className="table tabla-cotizaciones align-middle">
-              <thead className="table-primary">
-                <tr>
-                  <th>Numero de Cliente</th>
-                  <th>Razón Social</th>
-                  <th>CUIT</th>
-                  <th className="text-end">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clientes.map((cliente, index) => (
-                  <tr key={index} className="fila-cotizacion">
-                    <td>
-
-                      {cliente.id}
-
-                    </td>
-                    <td><button className="btn-link" onClick={() => handleVistaPrevia(cliente)}>{cliente.razon_social}</button></td>
-                    <td>{cliente.cuit}</td>
-                    <td className="text-end">
-                      <button className="btn-cuadro btn-descargar" title="Descargar PDF">
-                        <i className="bi bi-file-earmark-arrow-down-fill"></i>
-                      </button>
-                      <button
-                        className="btn-cuadro btn-editar"
-                        title="Editar"
-                        onClick={() => handleEditar(cliente)}
-                      >
-                        <i className="bi bi-pencil-fill"></i>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
 
         {/* MODAL PARA EDITAR UN CLIENTE */}
