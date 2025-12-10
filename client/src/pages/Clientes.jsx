@@ -16,6 +16,10 @@ import MensajeAlerta from '../components/MensajeAlerta';
 import '../CSS/menu.css';
 import '../CSS/clientes.css';
 import ModalVistaPreviaCliente from '../components/ModalVistaPreviaCliente';
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
+
 
 const Clientes = () => {
   const { usuario } = useUser();
@@ -112,6 +116,10 @@ const Clientes = () => {
     setClienteAEliminar(null);
   };
 
+
+
+
+
   const handleEditar = async (cliente) => {
     try {
       const res = await axios.get(`http://localhost:4000/api/clientes/completo/${cliente.cuit}`);
@@ -185,6 +193,95 @@ const Clientes = () => {
       setClienteAEditar(null);
     }
   };
+  // 🔽 Agregamos aquí la función para descargar PDF
+  const descargarClientePDF = async (cliente) => {
+    try {
+      // Traer el cliente completo desde el backend
+      const res = await axios.get(`http://localhost:4000/api/clientes/completo/${cliente.cuit}`);
+      const clienteCompleto = res.data;
+
+      const doc = new jsPDF();
+
+      // Encabezado igual al modal
+      doc.setFontSize(16);
+      doc.text("Vista previa del cliente", 14, 20);
+      doc.setFontSize(12);
+      doc.text(`Razón Social: ${clienteCompleto.razon_social}`, 14, 30);
+      doc.text(`CUIT: ${clienteCompleto.cuit}`, 14, 36);
+
+      const fecha = clienteCompleto.fecha_modificacion
+        ? new Date(clienteCompleto.fecha_modificacion).toLocaleDateString("es-AR") +
+        " " +
+        new Date(clienteCompleto.fecha_modificacion).toLocaleTimeString("es-AR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+        : "Sin registro";
+
+      doc.text(`Última modificación: ${fecha}`, 14, 42);
+
+      let y = 55;
+
+      // Direcciones
+      if (clienteCompleto.direcciones?.length) {
+        doc.text("Direcciones", 14, y);
+        doc.autoTable({
+          startY: y + 5,
+          head: [["#", "Calle", "Localidad", "Provincia", "CP", "Piso", "Depto", "Locación", "Zona"]],
+          body: clienteCompleto.direcciones.map((d, i) => [
+            i + 1,
+            `${d.calle} ${d.numeracion}`,
+            d.localidad,
+            d.provincia,
+            d.codigo_postal,
+            d.piso || "—",
+            d.depto || "—",
+            d.locacion || "—",
+            d.zona_envio || "—",
+          ]),
+        });
+        y = doc.lastAutoTable.finalY + 10;
+      }
+
+      // Contactos
+      if (clienteCompleto.contactos?.length) {
+        doc.text("Contactos", 14, y);
+        doc.autoTable({
+          startY: y + 5,
+          head: [["#", "Nombre", "Área", "Teléfono", "Email"]],
+          body: clienteCompleto.contactos.map((c, i) => [
+            i + 1,
+            `${c.nombre_contacto} ${c.apellido}`,
+            c.area_contacto,
+            c.telefono,
+            c.email,
+          ]),
+        });
+        y = doc.lastAutoTable.finalY + 10;
+      }
+
+      // Condiciones comerciales
+      if (clienteCompleto.condiciones_comerciales?.length) {
+        doc.text("Condiciones Comerciales", 14, y);
+        doc.autoTable({
+          startY: y + 5,
+          head: [["#", "Forma de pago", "Tipo de cambio", "Días de pago", "Mark-up", "Observaciones"]],
+          body: clienteCompleto.condiciones_comerciales.map((cond, i) => [
+            i + 1,
+            cond.forma_pago,
+            cond.tipo_cambio,
+            cond.dias_pago,
+            `${cond.mark_up_maximo}%`,
+            cond.observaciones || "—",
+          ]),
+        });
+      }
+
+      doc.save(`Cliente_${clienteCompleto.razon_social}.pdf`);
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+    }
+  };
 
 
   return (
@@ -204,30 +301,30 @@ const Clientes = () => {
             </div>
           </header>
 
-   <div className="option">
-  {/* Dashboard: admin y gerente */}
-  {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
-    <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
-  )}
+          <div className="option">
+            {/* Dashboard: admin y gerente */}
+            {(usuario?.rol === "administrador" || usuario?.rol === "gerente") && (
+              <NavLink className="option-button" to="/dashboard">Dashboard</NavLink>
+            )}
 
-  {/* Cotizaciones: todos */}
-  <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
+            {/* Cotizaciones: todos */}
+            <NavLink className="option-button" to="/menu">Cotizaciones</NavLink>
 
-  {/* Clientes y Productos: solo vendedor y admin */}
-  {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
-    <>
-      <NavLink className="option-button2" to="/clientes">Clientes</NavLink>
-      <NavLink className="option-button" to="/productos">Productos</NavLink>
-    </>
-  )}
+            {/* Clientes y Productos: solo vendedor y admin */}
+            {(usuario?.rol === "administrador" || usuario?.rol === "vendedor") && (
+              <>
+                <NavLink className="option-button2" to="/clientes">Clientes</NavLink>
+                <NavLink className="option-button" to="/productos">Productos</NavLink>
+              </>
+            )}
 
-  {/* Configuración: solo admin */}
-  {usuario?.rol === "administrador" && (
-    <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
-  )}
-</div>
+            {/* Configuración: solo admin */}
+            {usuario?.rol === "administrador" && (
+              <NavLink className="option-button" to="/configuracion">Configuración</NavLink>
+            )}
+          </div>
 
-      
+
         </div>
         {showRegisterForm && (
           <div className="register-modal-overlay" onClick={() => setShowRegisterForm(false)}>
@@ -254,13 +351,10 @@ const Clientes = () => {
             {mensajeError && <p className="mensaje-error">{mensajeError}</p>}
           </div>
           <div className="botonescontainer">
-            
+
             <button className="nc" onClick={() => setShowRegisterForm(true)}>+ Nuevo Cliente</button>
           </div>
         </div>
-
-
-
 
         <div className="menu-matriz">
           <div className="table-responsive px-2">
@@ -276,17 +370,27 @@ const Clientes = () => {
               <tbody>
                 {clientes.map((cliente, index) => (
                   <tr key={index} className="fila-cotizacion">
+                    <td>{cliente.id}</td>
                     <td>
-
-                      {cliente.id}
-
+                      <button
+                        className="btn-link"
+                        onClick={() => handleVistaPrevia(cliente)}
+                      >
+                        {cliente.razon_social}
+                      </button>
                     </td>
-                    <td><button className="btn-link" onClick={() => handleVistaPrevia(cliente)}>{cliente.razon_social}</button></td>
                     <td>{cliente.cuit}</td>
                     <td className="text-end">
-                      <button className="btn-cuadro btn-descargar" title="Descargar PDF">
+                      {/* Botón descargar PDF */}
+                      <button
+                        className="btn-cuadro btn-descargar"
+                        title="Descargar PDF"
+                        onClick={() => descargarClientePDF(cliente)}
+                      >
                         <i className="bi bi-file-earmark-arrow-down-fill"></i>
                       </button>
+
+                      {/* Botón editar */}
                       <button
                         className="btn-cuadro btn-editar"
                         title="Editar"
@@ -303,22 +407,25 @@ const Clientes = () => {
         </div>
 
 
-        {/* MODAL PARA EDITAR UN CLIENTE */}
+
         {/* MODAL PARA EDITAR UN CLIENTE */}
         {modalVisible && clienteAEditar && (
-          <div className="modal-backdrop" style={{ backgroundColor: 'rgba(11, 88, 240, 0.3)' }}>
-            <div className="modal-formulario" style={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: '90vh',
-              width: '90%',
-              maxWidth: '1000px',
-              margin: '40px auto',
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              boxShadow: '0 0 20px rgba(0,0,0,0.2)'
-            }}>
+          <div className="modal-backdrop" style={{ backgroundColor: 'rgba(16, 17, 18, 0.27)' }}>
+            <div
+              className="modal-formulario"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '90vh',
+                width: '90%',
+                maxWidth: '1000px',
+                margin: '40px auto',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                boxShadow: '0 0 20px rgba(0,0,0,0.2)'
+              }}
+            >
               {/* Cabecera fija */}
               <div className="modal-header bg-primary text-white" style={{ position: 'sticky', top: 0, zIndex: 20 }}>
                 <h5 className="modal-title">
@@ -328,14 +435,16 @@ const Clientes = () => {
               </div>
 
               {/* Subcabecera fija */}
-              <div style={{
-                position: 'sticky',
-                top: '48px',
-                zIndex: 15,
-                backgroundColor: '#fff',
-                borderBottom: '1px solid #dee2e6',
-                padding: '12px 20px'
-              }}>
+              <div
+                style={{
+                  position: 'sticky',
+                  top: '48px',
+                  zIndex: 15,
+                  backgroundColor: '#fff',
+                  borderBottom: '1px solid #dee2e6',
+                  padding: '12px 20px'
+                }}
+              >
                 {mensajeExito && (
                   <div className="alert alert-success d-flex align-items-center mb-2">
                     <i className="bi bi-check-circle-fill me-2"></i>
@@ -354,12 +463,20 @@ const Clientes = () => {
                     </p>
                   </div>
                 </div>
-
               </div>
 
+
+
+
+
+
               {/* Contenido scrollable */}
-              <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-                <form onSubmit={confirmarEdicion}>
+              {/* Contenido scrollable */}
+              <div
+                className="modal-body"
+                style={{ flex: 1, overflowY: 'auto', padding: '20px', paddingBottom: '100px' }}
+              >
+                <form id="form-editar" onSubmit={confirmarEdicion}>
                   {/* Razón social */}
                   <div className="mb-3">
                     <input
@@ -386,7 +503,6 @@ const Clientes = () => {
 
 
 
-                  {/* Condiciones Comerciales para leer y agregar (solo lectura + nuevas) */}
                   {/* Condiciones Comerciales */}
                   <h6 className="mt-4"><strong>Condiciones comerciales</strong></h6>
                   {Array.isArray(clienteAEditar.condiciones_comerciales) && clienteAEditar.condiciones_comerciales.length > 0 ? (
@@ -399,9 +515,9 @@ const Clientes = () => {
                           key={i}
                           className={`card card-highlight mb-2 p-3 ${estaConfirmada ? 'border-success' : ''} ${!esNueva ? 'text-muted' : ''}`}
                         >
-                          <div className="row g-2">
-                            {/* Forma de pago */}
-                            <div className="col-md-4">
+                          {/* Fila 1: Forma de pago */}
+                          <div className="row g-2 mb-3">
+                            <div className="col-md-12">
                               <label className="form-label">Forma de pago</label>
                               <input
                                 type="text"
@@ -415,9 +531,11 @@ const Clientes = () => {
                                 }}
                               />
                             </div>
+                          </div>
 
-                            {/* Tipo de cambio */}
-                            <div className="col-md-3">
+                          {/* Fila 2: Tipo de cambio + Días de pago */}
+                          <div className="row g-2 mb-3">
+                            <div className="col-md-6">
                               <label className="form-label">Tipo de cambio</label>
                               <input
                                 type="text"
@@ -431,9 +549,7 @@ const Clientes = () => {
                                 }}
                               />
                             </div>
-
-                            {/* Días de pago */}
-                            <div className="col-md-2">
+                            <div className="col-md-6">
                               <label className="form-label">Días de pago</label>
                               <input
                                 type="number"
@@ -447,9 +563,11 @@ const Clientes = () => {
                                 }}
                               />
                             </div>
+                          </div>
 
-                            {/* Mark-up */}
-                            <div className="col-md-2">
+                          {/* Fila 3: Mark-up máximo */}
+                          <div className="row g-2 mb-3">
+                            <div className="col-md-12">
                               <label className="form-label">Mark-up máximo</label>
                               <input
                                 type="number"
@@ -463,8 +581,10 @@ const Clientes = () => {
                                 }}
                               />
                             </div>
+                          </div>
 
-                            {/* Observaciones */}
+                          {/* Fila 4: Observaciones */}
+                          <div className="row g-2 mb-3">
                             <div className="col-md-12">
                               <label className="form-label">Observaciones</label>
                               <input
@@ -539,11 +659,6 @@ const Clientes = () => {
 
 
 
-
-
-
-                  {/* Direcciones */}
-                  {/* Direcciones */}
                   {/* Direcciones */}
                   <h6 className="mt-4"><strong>Direcciones</strong></h6>
                   {Array.isArray(clienteAEditar.direcciones) && clienteAEditar.direcciones.length > 0 ? (
@@ -552,9 +667,9 @@ const Clientes = () => {
                         key={i}
                         className={`card card-highlight mb-2 p-3 ${d.confirmado ? 'border-success' : ''}`}
                       >
-                        <div className="row g-2">
-                          {/* Calle */}
-                          <div className="col-md-6">
+                        {/* Fila 1: Calle */}
+                        <div className="row g-2 mb-3">
+                          <div className="col-md-12">
                             <label className="form-label">Calle</label>
                             <input
                               type="text"
@@ -571,9 +686,11 @@ const Clientes = () => {
                               }}
                             />
                           </div>
+                        </div>
 
-                          {/* Numeración */}
-                          <div className="col-md-2">
+                        {/* Fila 2: Numeración + Piso + Depto */}
+                        <div className="row g-2 mb-3">
+                          <div className="col-md-4">
                             <label className="form-label">Numeración</label>
                             <input
                               type="text"
@@ -590,9 +707,7 @@ const Clientes = () => {
                               }}
                             />
                           </div>
-
-                          {/* Piso */}
-                          <div className="col-md-2">
+                          <div className="col-md-4">
                             <label className="form-label">Piso</label>
                             <input
                               type="text"
@@ -609,9 +724,7 @@ const Clientes = () => {
                               }}
                             />
                           </div>
-
-                          {/* Depto */}
-                          <div className="col-md-2">
+                          <div className="col-md-4">
                             <label className="form-label">Depto</label>
                             <input
                               type="text"
@@ -628,9 +741,11 @@ const Clientes = () => {
                               }}
                             />
                           </div>
+                        </div>
 
-                          {/* Locación */}
-                          <div className="col-md-4">
+                        {/* Fila 3: Locación + Localidad */}
+                        <div className="row g-2 mb-3">
+                          <div className="col-md-6">
                             <label className="form-label">Locación</label>
                             <input
                               type="text"
@@ -647,9 +762,7 @@ const Clientes = () => {
                               }}
                             />
                           </div>
-
-                          {/* Localidad */}
-                          <div className="col-md-4">
+                          <div className="col-md-6">
                             <label className="form-label">Localidad</label>
                             <input
                               type="text"
@@ -666,9 +779,11 @@ const Clientes = () => {
                               }}
                             />
                           </div>
+                        </div>
 
-                          {/* Provincia */}
-                          <div className="col-md-4">
+                        {/* Fila 4: Provincia */}
+                        <div className="row g-2 mb-3">
+                          <div className="col-md-12">
                             <label className="form-label">Provincia</label>
                             <input
                               type="text"
@@ -685,9 +800,11 @@ const Clientes = () => {
                               }}
                             />
                           </div>
+                        </div>
 
-                          {/* Código Postal */}
-                          <div className="col-md-2">
+                        {/* Fila 5: Código Postal + Zona de envío */}
+                        <div className="row g-2 mb-3">
+                          <div className="col-md-6">
                             <label className="form-label">Código Postal</label>
                             <input
                               type="number"
@@ -704,9 +821,7 @@ const Clientes = () => {
                               }}
                             />
                           </div>
-
-                          {/* Zona de envío */}
-                          <div className="col-md-4">
+                          <div className="col-md-6">
                             <label className="form-label">Zona de envío</label>
                             <select
                               className="form-select"
@@ -728,7 +843,7 @@ const Clientes = () => {
                           </div>
                         </div>
 
-                        {/* Botón de ayuda visual */}
+                        {/* Botón de confirmación */}
                         {!d.id && (
                           <div className="mt-2 d-flex align-items-center">
                             <button
@@ -780,11 +895,14 @@ const Clientes = () => {
                   </div>
 
 
+
+
                   {/* Contactos */}
+                  <h6 className="mt-4"><strong>Contactos</strong></h6>
                   {Array.isArray(clienteAEditar.contactos) && clienteAEditar.contactos.length > 0 ? (
                     clienteAEditar.contactos.map((c, i) => (
                       <div key={i} className={`card mb-2 p-3 ${c.confirmado ? 'border-success' : ''}`}>
-                        <div className="row g-2">
+                        <div className="row g-2 mb-3">
                           {/* Nombre */}
                           <div className="col-md-4">
                             <label className="form-label">Nombre</label>
@@ -803,6 +921,7 @@ const Clientes = () => {
                               }}
                             />
                           </div>
+
                           {/* Apellido */}
                           <div className="col-md-4">
                             <label className="form-label">Apellido</label>
@@ -821,6 +940,7 @@ const Clientes = () => {
                               }}
                             />
                           </div>
+
                           {/* Área */}
                           <div className="col-md-4">
                             <label className="form-label">Área</label>
@@ -839,7 +959,10 @@ const Clientes = () => {
                               }}
                             />
                           </div>
-                          {/* Teléfono */}
+                        </div>
+
+                        {/* Fila 2: Teléfono + Email */}
+                        <div className="row g-2 mb-3">
                           <div className="col-md-6">
                             <label className="form-label">Teléfono</label>
                             <input
@@ -857,7 +980,6 @@ const Clientes = () => {
                               }}
                             />
                           </div>
-                          {/* Email */}
                           <div className="col-md-6">
                             <label className="form-label">Email</label>
                             <input
@@ -877,7 +999,7 @@ const Clientes = () => {
                           </div>
                         </div>
 
-                        {/* Botón de ayuda visual */}
+                        {/* Botón de confirmación */}
                         {!c.id && (
                           <div className="mt-2 d-flex align-items-center">
                             <button
@@ -925,42 +1047,36 @@ const Clientes = () => {
                   </div>
 
 
-
-
-
-
-
-
-
-
-                  {/* Footer fijo */}
-                  <div
-                    className="modal-footer"
-                    style={{
-                      position: 'sticky',
-                      bottom: 0,
-                      zIndex: 20,
-                      backgroundColor: '#fff',
-                      borderTop: '1px solid #dee2e6',
-                      padding: '12px 20px',
-                      display: 'flex',
-                      justifyContent: 'flex-end',
-                      gap: '10px'
-                    }}
-                  >
-                    <button type="submit" className="btn btn-success">
-                      <i className="bi bi-save me-2"></i> Guardar cambios
-                    </button>
-                    <button type="button" className="btn btn-secondary" onClick={() => setModalVisible(false)}>
-                      Cancelar
-                    </button>
-                  </div>
-
                 </form>
+              </div>
+
+              {/* Footer fijo (fuera del form) */}
+              <div
+                className="modal-footer"
+                style={{
+                  marginTop: 'auto',
+                  backgroundColor: '#fff',
+                  borderTop: '1px solid #dee2e6',
+                  padding: '12px 20px',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '10px',
+                  zIndex: 20
+                }}
+              >
+                <button type="submit" form="form-editar" className="btn btn-success">
+                  <i className="bi bi-save me-2"></i> Guardar cambios
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalVisible(false)}>
+                  Cancelar
+                </button>
               </div>
             </div>
           </div>
         )}
+
+
+
         {/* MODAL VISTA PREVIA CLIENTE */}
         {modalVistaPreviaVisible && clienteSeleccionado && (
           <ModalVistaPreviaCliente
@@ -970,7 +1086,7 @@ const Clientes = () => {
             fechaModificacion={fechaModificacion} // 👉 pasamos la fecha como prop
           />
         )}
-      </div>
+      </div >
     </>
   );
 

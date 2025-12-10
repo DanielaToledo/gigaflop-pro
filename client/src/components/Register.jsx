@@ -5,6 +5,7 @@ import axios from 'axios';
 const Register = ({ onClose }) => {
   const [razonSocial, setRazonSocial] = useState('');
   const [cuit, setCuit] = useState('');
+  const [cuitError, setCuitError] = useState("");
   const [direcciones, setDirecciones] = useState([]);
   const [direccionEditando, setDireccionEditando] = useState(null);
 const [condicionEditando, setCondicionEditando] = useState(null);
@@ -130,27 +131,42 @@ const handleEliminarCondicionComercial = (index) => {
 };
 
   // Guardar cliente
-  const handleGuardar = async () => {
-    const nuevoCliente = {
-      razon_social: razonSocial,
-      cuit,
-      direcciones,
-      contactos,
-      condiciones_comerciales: condicionesComerciales
-    };
+const handleGuardar = async () => {
+  // Validación simple de CUIT
+  if (cuit.length !== 11) {
+    setCuitError("El CUIT debe tener exactamente 11 dígitos.");
+    return;
+  }
+  setCuitError("");
 
-    try {
-      console.log('Enviando cliente:', nuevoCliente);
-      await axios.post('http://localhost:4000/api/clientes/completo', nuevoCliente);
-      setInfo('Cliente guardado correctamente');
-      document.querySelector('.modal-body')?.scrollTo({ top: 0, behavior: 'smooth' });
-      setError('');
-    } catch (err) {
-      console.error('Error al guardar cliente:', err.response?.data || err.message);
-      setError('Error al guardar el cliente');
-      setInfo('');
-    }
+  const nuevoCliente = {
+    razon_social: razonSocial,
+    cuit,
+    direcciones,
+    contactos,
+    condiciones_comerciales: condicionesComerciales
   };
+
+  try {
+    console.log("Enviando cliente:", nuevoCliente);
+    await axios.post("http://localhost:4000/api/clientes/completo", nuevoCliente);
+
+    setInfo("Cliente guardado correctamente");
+    document.querySelector(".modal-body")?.scrollTo({ top: 0, behavior: "smooth" });
+    setError("");
+  } catch (err) {
+    console.error("Error al guardar cliente:", err.response?.data || err.message);
+
+    if (err.response?.status === 409) {
+      // Caso de conflicto: cliente ya existe
+      setError("Ya existe un cliente con ese CUIT.");
+    } else {
+      setError("Error al guardar el cliente");
+    }
+
+    setInfo("");
+  }
+};
 
   // Cancelar
   const handleCancelar = () => {
@@ -188,13 +204,23 @@ const handleEliminarCondicionComercial = (index) => {
     <div className="modal show d-block h-100 " tabIndex="-1" role="dialog"style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
       <div className="modal-dialog modal-xl  "  role="document" style={{ maxHeight: '90vh', margin: 'auto' }}>
         <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">
-              <i className="bi bi-person-plus"></i> <stronge>Registrar Nuevo Cliente</stronge>
-            </h5>
-            <button type="button" className="btn-close" onClick={handleCancelar}></button>
-          </div>
 
+        <div
+  className="modal-header bg-primary text-white"
+  style={{
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px 20px',
+    borderBottom: '1px solid #dee2e6'
+  }}
+>
+  <h5 className="modal-title mb-0">
+    <i className="bi bi-person-plus me-2"></i> Registrar Nuevo Cliente
+  </h5>
+  <button type="button" className="btn-close btn-close-white" onClick={handleCancelar}></button>
+</div>
+        
           {/* mensaje de exito */}
           <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
             {info && (
@@ -228,16 +254,24 @@ const handleEliminarCondicionComercial = (index) => {
                     required
                   />
                 </div>
-                <div className="col-md-6">
-                  <label className="form-label">CUIT<span style={{ color: 'red' }}>*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Ingrese CUIT"
-                    className="form-control"
-                    value={cuit}
-                    onChange={(e) => setCuit(e.target.value)}
-                  />
-                </div>
+              <div className="col-md-6">
+  <label className="form-label">
+    CUIT <span style={{ color: 'red' }}>*</span>
+  </label>
+  <input
+    type="text"
+    placeholder="Ingrese CUIT"
+    className={`form-control ${cuitError ? "is-invalid" : ""}`}
+    value={cuit}
+    onChange={(e) => {
+      // Solo permitir números
+      const value = e.target.value.replace(/\D/g, "");
+      setCuit(value);
+    }}
+    maxLength={11} // evita que escriban más de 11 dígitos
+  />
+  {cuitError && <div className="invalid-feedback">{cuitError}</div>}
+</div>
               </div>
        
 
