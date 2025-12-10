@@ -11,6 +11,8 @@ import ResumenCotizacion from "../pages/ResumenCotizacion";
 import Configuracion from "../pages/Configuracion";
 import Dashboard from "../pages/Dashboard";
 import '../CSS/menu.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+
 
 
 

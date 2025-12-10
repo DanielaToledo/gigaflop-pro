@@ -421,7 +421,7 @@ const Menu = () => {
 
             <div className="pagination justify-content-center mt-3">
               <button
-                className="btn btn-danger"
+                className="btn-outline dashbtn"
                 onClick={onAnterior}
                 disabled={skip === 0}
               >
@@ -431,7 +431,7 @@ const Menu = () => {
                 Página {Math.floor(skip / limit) + 1} de {Math.ceil(total / limit)}
               </span>
               <button
-                className="btn btn-success"
+                className="btn-outline dashbtn"
                 onClick={onSiguiente}
                 disabled={skip + limit >= total}
               >

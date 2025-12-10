@@ -7,6 +7,8 @@ import { UserProvider } from './context/UserContext.jsx'; // Asegúrate de que e
 // Asegurate de exportarlo desde donde definís tus rutas
 import 'bootstrap/dist/css/bootstrap.min.css';
 
+
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <UserProvider>
