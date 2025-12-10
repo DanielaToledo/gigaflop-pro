@@ -410,7 +410,7 @@ const Clientes = () => {
 
         {/* MODAL PARA EDITAR UN CLIENTE */}
         {modalVisible && clienteAEditar && (
-          <div className="modal-backdrop" style={{ backgroundColor: 'rgba(224, 228, 236, 0.3)' }}>
+          <div className="modal-backdrop" style={{ backgroundColor: 'rgba(16, 17, 18, 0.27)' }}>
             <div
               className="modal-formulario"
               style={{
@@ -464,6 +464,8 @@ const Clientes = () => {
                   </div>
                 </div>
               </div>
+
+
 
 
 
