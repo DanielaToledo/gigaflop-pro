@@ -175,7 +175,7 @@
 .menuboxprod {
   background-color: rgb(255, 255, 255);
   width: 100%;
-padding-top: 20vw;
+  padding-top: 20vw;
   top:0;
   height: 80vh;
   display: flex;
@@ -183,6 +183,7 @@ padding-top: 20vw;
   justify-content: center;
   align-items: center;
   align-content: center;
+  
 }
 
 .menu-superior-prod{

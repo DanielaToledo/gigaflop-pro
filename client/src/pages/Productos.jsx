@@ -6,6 +6,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import '../CSS/productos.css';
 import Sidebar from '../components/Sidebar';
 import CardProductos from '../components/CardProductos';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+
 
 
 const Productos = () => {
@@ -154,18 +156,9 @@ const Productos = () => {
               </div>
             </div>
             <div className='container-icon'>
-              <div
-                className="cotizacion-icon-container"
-                title="Tu cotización"
-                onClick={() => setShowCart(!showCart)}
-              >
-                <span ><i className="bi bi-person-circle custom-icon"></i></span>
-                {cart.length > 0 && (
-                  <span className="cart-badge">
-                    {cart.reduce((acc, item) => acc + item.quantity, 0)}
-                  </span>
-                )}
-              </div>
+              <label htmlFor="btn-menu">
+                <i className="bi bi-person-circle custom-icon"></i>
+              </label>
             </div>
           </header>
           <div className="option">
@@ -212,31 +205,47 @@ const Productos = () => {
               }}
             />
           </div>
-          <div className='botonescontainer'>
+          <div className='container-icon'>
+              <div
+                className="cotizacion-icon-container"
+                title="Tu cotización"
+                onClick={() => setShowCart(!showCart)}
+              >
+                <span ><i className="bi bi-file-earmark-text-fill" style={{fontSize:'7vh', color:'#4285f4'}}></i></span>
+                {cart.length > 0 && (
+                  <span className="cart-badge">
+                    {cart.reduce((acc, item) => acc + item.quantity, 0)}
+                  </span>
+                )}
+              </div>
+            </div>
+          
 
-            <button className='nc' style={{ background: 'white', border: 'white', boxShadow: 'none' }} >+ Nuevo Cliente</button>
-          </div>
+            
+
+
+          
         </div>
       </div>
 
 
 
       <div
-        className={`cart-modal-wrapper ${showCart ? 'fade-in' : ocultarCart ? 'fade-out' : 'd-none'
-          }`}
+        className={`cart-modal-wrapper  ${showCart ? 'fade-in' : ocultarCart ? 'fade-out'  : 'd-none'
+          }` }
       >
-        <div className="cart-modal">
-          <button className="btn-close float-end" onClick={cerrarCartConTransicion}></button>
+        <div className="cart-modal ">
+          <button className="btn-close float-end " onClick={cerrarCartConTransicion}></button>
           <h5 className="cart-title">🧾 Tu Cotización</h5>
 
           {cart.length === 0 ? (
             <p className="text-muted">No hay productos seleccionados.</p>
           ) : (
             <>
-              <ul className="cart-list">
+              <ul className="cart-list ">
                 {cart.map(item => (
-                  <li key={item.id} className="cart-item">
-                    <span className="fw-bold">{item.detalle}</span>
+                  <li key={item.id} className="cart-item ">
+                    <span className="">{item.detalle}</span>
                     <div className="quantity-controls">
                       <button onClick={() => handleDecrement(item.id)}>-</button>
                       <span>{item.quantity}</span>
@@ -284,14 +293,14 @@ const Productos = () => {
               <div>
                 <ul className="pagination justify-content-center mt-4">
                   <button
-                    className="btn btn-danger"
+                    className="btn-outline dashbtn"
                     onClick={onAnterior}
                     disabled={skip === 0}
                   >
                     Anterior
                   </button>
                   <button
-                    className="btn btn-success ms-2"
+                    className="btn-outline dashbtn"
                     onClick={onSiguiente}
                     disabled={skip + limit >= total}
                   >
