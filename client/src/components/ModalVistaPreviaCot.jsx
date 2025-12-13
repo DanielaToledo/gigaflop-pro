@@ -52,6 +52,12 @@ export default function ModalVistaPreviaCot({ visible, onClose, cotizacion }) {
     } = cotizacion;
 
     const productos = cotizacion.productos ?? [];
+    const subtotalProductos = productos.reduce((acc, p) => {
+    const precio = Number(p.precio_unitario) || 0;
+    const cantidad = Number(p.cantidad) || 1;
+    const descuento = Number(p.descuento) || 0;
+    return acc + (precio * cantidad - descuento);
+}, 0);
 
     const {
         nombre: clienteNombre,
@@ -205,7 +211,7 @@ export default function ModalVistaPreviaCot({ visible, onClose, cotizacion }) {
                                                     <td colSpan="3" className="text-end">
                                                         Subtotal (sin impuestos)
                                                     </td>
-                                                    <td>${Number(total).toFixed(2)}</td>
+                                                    <td>${subtotalProductos.toFixed(2)}</td>
                                                 </tr>
                                             )}
                                         </tbody>
