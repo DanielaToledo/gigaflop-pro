@@ -83,208 +83,260 @@ const ResumenCotizacion = () => {
     `;
   };
 
-const generarPDFCotizacion = () => {
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const margin = 10;
-  let y = margin;
+  const generarPDFCotizacion = () => {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const margin = 10;
+    let y = margin;
 
-  // Encabezado principal
-  pdf.setFontSize(16);
-  pdf.setTextColor(0, 70, 140);
-  pdf.text(`Cotización Nº ${cotizacion.numero_cotizacion || 'Sin número'}`, margin, y);
-  y += 10;
+    // Encabezado principal
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 70, 140);
+    pdf.text(`Cotización Nº ${cotizacion.numero_cotizacion || 'Sin número'}`, margin, y);
+    y += 10;
 
-  pdf.setDrawColor(180);
-  pdf.line(margin, y, 200, y);
-  y += 6;
+    pdf.setDrawColor(180);
+    pdf.line(margin, y, 200, y);
+    y += 6;
 
-  pdf.setFontSize(11);
-  pdf.setTextColor(40, 40, 40);
+    pdf.setFontSize(11);
+    pdf.setTextColor(40, 40, 40);
 
-  const contactoCompleto = [cotizacion.cliente?.contacto, cotizacion.cliente?.contacto_apellido]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
+    // ✅ Contacto del cliente
+    const contactoCompleto = [
+      cotizacion.cliente?.contacto,
+      cotizacion.cliente?.contacto_apellido
+    ].filter(Boolean).join(' ').trim();
 
-  // 🗓️ Datos de la cotización
-  pdf.setFontSize(12);
-  pdf.setTextColor(0, 70, 140);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Datos de la cotización", margin, y);
-  y += 6;
+    // ✅ Vendedor: detección automática (string u objeto)
+    let vendedorNombreCompleto = '-';
 
-  pdf.setFontSize(10);
-  pdf.setTextColor(50, 50, 50);
-  pdf.setFont("helvetica", "normal");
-  pdf.text(`Fecha: ${cotizacion.fecha || new Date().toLocaleDateString()}`, margin, y); y += 5;
-  pdf.text(`Vendedor: ${cotizacion.vendedor || '-'}`, margin, y); y += 5;
-  pdf.text(`Vigente hasta: ${cotizacion.vigencia_hasta || '-'}`, margin, y); y += 8;
+    // Caso 1: viene como string dentro de cliente (lo que pasa en esta pantalla)
+    if (typeof cotizacion.cliente?.vendedor === 'string') {
+      vendedorNombreCompleto = cotizacion.cliente.vendedor;
+    }
 
-  // 👤 Cliente
-  pdf.setFontSize(12);
-  pdf.setTextColor(0, 70, 140);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Cliente", margin, y);
-  y += 6;
+    // Caso 2: viene como objeto en cotizacion.vendedor (lo que pasa en ResumenCo.jsx)
+    else if (cotizacion.vendedor && typeof cotizacion.vendedor === 'object') {
+      vendedorNombreCompleto = [
+        cotizacion.vendedor.nombre,
+        cotizacion.vendedor.apellido
+      ].filter(Boolean).join(' ').trim();
+    }
 
-  pdf.setFontSize(10);
-  pdf.setTextColor(50, 50, 50);
-  pdf.setFont("helvetica", "normal");
-  pdf.text(`Nombre: ${cotizacion.cliente?.nombre || '-'}`, margin, y); y += 5;
-  pdf.text(`Contacto: ${contactoCompleto || 'Sin contacto'}`, margin, y); y += 5;
-  pdf.text(`CUIT: ${cotizacion.cliente?.cuit || '-'}`, margin, y); y += 5;
-  pdf.text(`Email: ${cotizacion.cliente?.email || 'Sin email'}`, margin, y); y += 5;
-  pdf.text(`Dirección: ${direccionTexto}`, margin, y); y += 8;
+    // 🗓️ Datos de la cotización
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 70, 140);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Datos de la cotización", margin, y);
+    y += 6;
 
-  // 📦 Condiciones comerciales
-  pdf.setFontSize(12);
-  pdf.setTextColor(0, 70, 140);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Condiciones comerciales", margin, y);
-  y += 6;
+    pdf.setFontSize(10);
+    pdf.setTextColor(50, 50, 50);
+    pdf.setFont("helvetica", "normal");
 
-  pdf.setFontSize(10);
-  pdf.setTextColor(50, 50, 50);
-  pdf.setFont("helvetica", "normal");
-  pdf.text(`Forma de pago: ${formaPago}`, margin, y); y += 5;
-  pdf.text(`Tipo de cambio: ${tipoCambio}`, margin, y); y += 5;
-  pdf.text(`Plazo de pago: ${diasPago}`, margin, y); y += 5;
-  if (observaciones) {
-    pdf.text(`Observaciones: ${observaciones}`, margin, y);
+    pdf.text(`Fecha: ${cotizacion.fecha || new Date().toLocaleDateString()}`, margin, y);
     y += 5;
-  }
-  pdf.text(`Costo de envío: $${Number(cotizacion.costo_envio || 0).toFixed(2)}`, margin, y); y += 5;
-  pdf.text(`Envío bonificado: ${cotizacion.envio_bonificado ? 'Sí' : 'No'}`, margin, y); y += 8;
 
-  // Tabla de productos
-  const headers = [
-    'Producto', 'Marca', 'Categoría', 'Subcategoría',
-    'Cantidad', 'Unitario', 'IVA %', 'Descuento', 'Subtotal', 'Total c/IVA'
-  ];
+    // ✅ Ahora SIEMPRE muestra el nombre correcto
+    pdf.text(`Vendedor: ${vendedorNombreCompleto}`, margin, y);
+    y += 5;
 
-  const rows = cotizacion.productos.map(p => {
-    const cantidad = Number(p.cantidad) || 0;
-    const unitario = Number(p.precio_unitario) || 0;
-    const descuento = Number(p.descuento) || 0;
-    const tasaIVA = Number(p.tasa_iva ?? 21);
-    const precioFinal = unitario - descuento;
-    const subtotal = precioFinal * cantidad;
-    const totalConIVA = subtotal * (1 + tasaIVA / 100);
+    pdf.text(`Vigente hasta: ${cotizacion.vigencia_hasta || '-'}`, margin, y);
+    y += 8;
 
-    return [
-      p.detalle || 'Sin nombre',
-      p.marca || '-',
-      p.categoria || '-',
-      p.subcategoria || '-',
-      cantidad,
-      unitario.toFixed(2),
-      `${tasaIVA}%`,
-      descuento.toFixed(2),
-      subtotal.toFixed(2),
-      totalConIVA.toFixed(2)
+    // 👤 Cliente
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 70, 140);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Cliente", margin, y);
+    y += 6;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(50, 50, 50);
+    pdf.setFont("helvetica", "normal");
+
+    pdf.text(`Nombre: ${cotizacion.cliente?.nombre || '-'}`, margin, y);
+    y += 5;
+
+    pdf.text(`Contacto: ${contactoCompleto || 'Sin contacto'}`, margin, y);
+    y += 5;
+
+    pdf.text(`CUIT: ${cotizacion.cliente?.cuit || '-'}`, margin, y);
+    y += 5;
+
+    pdf.text(`Email: ${cotizacion.cliente?.email || 'Sin email'}`, margin, y);
+    y += 5;
+
+    pdf.text(`Dirección: ${direccionTexto}`, margin, y);
+    y += 8;
+
+    // 📦 Condiciones comerciales
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 70, 140);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Condiciones comerciales", margin, y);
+    y += 6;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(50, 50, 50);
+    pdf.setFont("helvetica", "normal");
+
+    pdf.text(`Forma de pago: ${formaPago}`, margin, y);
+    y += 5;
+
+    pdf.text(`Tipo de cambio: ${tipoCambio}`, margin, y);
+    y += 5;
+
+    pdf.text(`Plazo de pago: ${diasPago}`, margin, y);
+    y += 5;
+
+    if (observaciones) {
+      pdf.text(`Observaciones: ${observaciones}`, margin, y);
+      y += 5;
+    }
+
+    pdf.text(`Costo de envío: $${Number(cotizacion.costo_envio || 0).toFixed(2)}`, margin, y);
+    y += 5;
+
+    pdf.text(`Envío bonificado: ${cotizacion.envio_bonificado ? 'Sí' : 'No'}`, margin, y);
+    y += 8;
+
+
+    // ✅ Tabla de productos — CORREGIDA
+    const headers = [
+      'Producto',
+      'Categoría',
+      'Subcategoría',
+      'Cantidad',
+      'Precio unitario',
+      'IVA %',
+      'Descuento',
+      'Subtotal s/IVA',
+      'Total c/IVA'
     ];
-  });
 
-  autoTable(pdf, {
-    startY: y,
-    head: [headers],
-    body: rows,
-    margin: { left: margin },
-    styles: { fontSize: 9 },
-    headStyles: {
-      fillColor: [0, 70, 140],
-      textColor: 255,
-      fontStyle: 'bold'
-    },
-    alternateRowStyles: { fillColor: [245, 245, 255] }
-  });
+    const rows = cotizacion.productos.map(p => {
+      const cantidad = Number(p.cantidad) || 0;
+      const unitario = Number(p.precio_unitario) || 0;
+      const descuento = Number(p.descuento) || 0;
+      const tasaIVA = Number(p.tasa_iva ?? 21);
+      const precioFinal = unitario - descuento;
+      const subtotal = precioFinal * cantidad;
+      const totalConIVA = subtotal * (1 + tasaIVA / 100);
 
-  // Resumen Fiscal
-  const calcularResumenFiscal = (productos, costoEnvio = 0) => {
-    let base21 = 0, base105 = 0, descuentosTotales = 0;
-
-    productos.forEach(p => {
-      const precioFinal = Number(p.precio_unitario) - Number(p.descuento);
-      const subtotal = precioFinal * Number(p.cantidad);
-      const iva = Number(p.tasa_iva ?? 21);
-
-      descuentosTotales += Number(p.descuento ?? 0);
-
-      if (iva === 21) base21 += subtotal;
-      else if (iva === 10.5) base105 += subtotal;
-      else base21 += subtotal;
+      return [
+        p.detalle || 'Sin nombre',
+        p.marca || '-',
+        p.categoria || '-',
+        p.subcategoria || '-',
+        cantidad,
+        unitario.toFixed(2),
+        `${tasaIVA}%`,
+        descuento.toFixed(2),
+        subtotal.toFixed(2),
+        totalConIVA.toFixed(2)
+      ];
     });
 
-    const iva21 = (base21 + costoEnvio) * 0.21;
-    const iva105 = base105 * 0.105;
-    const baseImponible = base21 + base105 + costoEnvio;
-    const totalFinal = baseImponible + iva21 + iva105 - descuentosTotales;
+    autoTable(pdf, {
+      startY: y,
+      head: [headers],
+      body: rows,
+      margin: { left: margin },
+      styles: { fontSize: 9 },
+      headStyles: {
+        fillColor: [0, 70, 140],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: { fillColor: [245, 245, 255] }
+    });
 
-    return { base21, base105, costoEnvio, iva21, iva105, descuentosTotales, baseImponible, totalFinal };
+    // ✅ Resumen Fiscal (sin cambios)
+    const calcularResumenFiscal = (productos, costoEnvio = 0) => {
+      let base21 = 0, base105 = 0, descuentosTotales = 0;
+
+      productos.forEach(p => {
+        const precioFinal = Number(p.precio_unitario) - Number(p.descuento);
+        const subtotal = precioFinal * Number(p.cantidad);
+        const iva = Number(p.tasa_iva ?? 21);
+
+        descuentosTotales += Number(p.descuento ?? 0);
+
+        if (iva === 21) base21 += subtotal;
+        else if (iva === 10.5) base105 += subtotal;
+        else base21 += subtotal;
+      });
+
+      const iva21 = (base21 + costoEnvio) * 0.21;
+      const iva105 = base105 * 0.105;
+      const baseImponible = base21 + base105 + costoEnvio;
+      const totalFinal = baseImponible + iva21 + iva105 - descuentosTotales;
+
+      return { base21, base105, costoEnvio, iva21, iva105, descuentosTotales, baseImponible, totalFinal };
+    };
+
+    const resumenFiscal = calcularResumenFiscal(cotizacion.productos, cotizacion.costo_envio || 0);
+
+    const subtotalProductos = (resumenFiscal.base21 + resumenFiscal.base105).toFixed(2);
+    const totalFinal = resumenFiscal.totalFinal.toFixed(2);
+
+    autoTable(pdf, {
+      startY: pdf.lastAutoTable.finalY + 4,
+      head: [],
+      body: [
+        ['Subtotal productos (sin envío)', '', '', '', '', '', '', '', '', `$${subtotalProductos}`],
+        ['Total Final (con envío e IVA)', '', '', '', '', '', '', '', '', `$${totalFinal}`]
+      ],
+      margin: { left: margin },
+      styles: { fontSize: 10 },
+      columnStyles: {
+        9: { halign: 'right' }
+      },
+      didParseCell: function (data) {
+        if (data.row.index === 1) {
+          data.cell.styles.fillColor = [220, 235, 255];
+          data.cell.styles.textColor = [0, 70, 140];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    });
+
+    autoTable(pdf, {
+      startY: pdf.lastAutoTable.finalY + 10,
+      head: [['Concepto', 'Monto']],
+      body: [
+        ['Base 21% (productos con IVA 21%)', `$${resumenFiscal.base21.toFixed(2)}`],
+        ['Base 10.5% (productos con IVA 10.5%)', `$${resumenFiscal.base105.toFixed(2)}`],
+        ['Costo de envío', `$${resumenFiscal.costoEnvio.toFixed(2)}`],
+        ['IVA 21% (incluye envío)', `$${resumenFiscal.iva21.toFixed(2)}`],
+        ['IVA 10.5%', `$${resumenFiscal.iva105.toFixed(2)}`],
+        ['Descuentos', `$${resumenFiscal.descuentosTotales.toFixed(2)}`],
+        ['Base imponible (incluye envío)', `$${resumenFiscal.baseImponible.toFixed(2)}`],
+        ['Total Final (con envío e IVA)', `$${resumenFiscal.totalFinal.toFixed(2)}`],
+      ],
+      margin: { left: margin },
+      styles: { fontSize: 10 },
+      headStyles: {
+        fillColor: [0, 70, 140],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { cellWidth: 100, halign: 'left' },
+        1: { cellWidth: 50, halign: 'right' }
+      },
+      didParseCell: function (data) {
+        if (data.row.index === 7) {
+          data.cell.styles.fillColor = [220, 235, 255];
+          data.cell.styles.textColor = [0, 70, 140];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    });
+
+    return pdf;
   };
-
-  const resumenFiscal = calcularResumenFiscal(cotizacion.productos, cotizacion.costo_envio || 0);
-
-  const subtotalProductos = (resumenFiscal.base21 + resumenFiscal.base105).toFixed(2);
-  const totalFinal = resumenFiscal.totalFinal.toFixed(2);
-
-  autoTable(pdf, {
-    startY: pdf.lastAutoTable.finalY + 4,
-    head: [],
-    body: [
-      ['Subtotal productos (sin envío)', '', '', '', '', '', '', '', '', `$${subtotalProductos}`],
-      ['Total Final (con envío e IVA)', '', '', '', '', '', '', '', '', `$${totalFinal}`]
-    ],
-    margin: { left: margin },
-    styles: { fontSize: 10 },
-    columnStyles: {
-      9: { halign: 'right' }
-    },
-    didParseCell: function (data) {
-      if (data.row.index === 1) {
-        data.cell.styles.fillColor = [220, 235, 255];
-        data.cell.styles.textColor = [0, 70, 140];
-        data.cell.styles.fontStyle = 'bold';
-      }
-    }
-  });
-
-   autoTable(pdf, {
-    startY: pdf.lastAutoTable.finalY + 10,
-    head: [['Concepto', 'Monto']],
-    body: [
-      ['Base 21% (productos con IVA 21%)', `$${resumenFiscal.base21.toFixed(2)}`],
-      ['Base 10.5% (productos con IVA 10.5%)', `$${resumenFiscal.base105.toFixed(2)}`],
-      ['Costo de envío', `$${resumenFiscal.costoEnvio.toFixed(2)}`],
-      ['IVA 21% (incluye envío)', `$${resumenFiscal.iva21.toFixed(2)}`],
-      ['IVA 10.5%', `$${resumenFiscal.iva105.toFixed(2)}`],
-      ['Descuentos', `$${resumenFiscal.descuentosTotales.toFixed(2)}`],
-      ['Base imponible (incluye envío)', `$${resumenFiscal.baseImponible.toFixed(2)}`],
-      ['Total Final (con envío e IVA)', `$${resumenFiscal.totalFinal.toFixed(2)}`],
-    ],
-    margin: { left: margin },
-    styles: { fontSize: 10 },
-    headStyles: {
-      fillColor: [0, 70, 140],
-      textColor: 255,
-      fontStyle: 'bold'
-    },
-    columnStyles: {
-      0: { cellWidth: 100, halign: 'left' },
-      1: { cellWidth: 50, halign: 'right' }
-    },
-    didParseCell: function (data) {
-      if (data.row.index === 7) { // 👈 resaltar Total Final
-        data.cell.styles.fillColor = [220, 235, 255];
-        data.cell.styles.textColor = [0, 70, 140];
-        data.cell.styles.fontStyle = 'bold';
-      }
-    }
-  });
-
-  // 👇 cierre de la función
-  return pdf;
-};
 
   const handleEnviarAlCliente = async () => {
     // ✅ Validar que exista email del cliente
@@ -342,204 +394,267 @@ const generarPDFCotizacion = () => {
       setMensajeExito('');
     }
   };
-const handleDescargarPDF = () => {
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const margin = 10;
-  let y = margin;
 
-  // Encabezado principal
-  pdf.setFontSize(16);
-  pdf.setTextColor(0, 70, 140);
-  pdf.text(`Cotización Nº ${cotizacion.numero_cotizacion || 'Sin número'}`, margin, y);
-  y += 10;
+  const handleDescargarPDF = () => {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const margin = 10;
+    let y = margin;
 
-  pdf.setDrawColor(180);
-  pdf.line(margin, y, 200, y);
-  y += 6;
+    // Encabezado principal
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 70, 140);
+    pdf.text(`Cotización Nº ${cotizacion.numero_cotizacion || 'Sin número'}`, margin, y);
+    y += 10;
 
-  const contactoCompleto = [cotizacion.cliente?.contacto, cotizacion.cliente?.contacto_apellido]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
+    pdf.setDrawColor(180);
+    pdf.line(margin, y, 200, y);
+    y += 6;
 
-  // 🗓️ Datos de la cotización
-  pdf.setFontSize(12);
-  pdf.setTextColor(0, 70, 140);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Datos de la cotización", margin, y);
-  y += 6;
+    // ✅ Contacto del cliente
+    const contactoCompleto = [
+      cotizacion.cliente?.contacto,
+      cotizacion.cliente?.contacto_apellido
+    ].filter(Boolean).join(' ').trim();
 
-  pdf.setFontSize(10);
-  pdf.setTextColor(50, 50, 50);
-  pdf.setFont("helvetica", "normal");
-  pdf.text(`Fecha: ${cotizacion.fecha || new Date().toLocaleDateString()}`, margin, y); y += 5;
-  pdf.text(`Vendedor: ${cotizacion.vendedor || '-'}`, margin, y); y += 5;
-  pdf.text(`Vigente hasta: ${cotizacion.vigencia_hasta || '-'}`, margin, y); y += 8;
+    // ✅ Vendedor: detección automática (string u objeto)
+    let vendedorNombreCompleto = '-';
 
-  // 👤 Cliente
-  pdf.setFontSize(12);
-  pdf.setTextColor(0, 70, 140);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Cliente", margin, y);
-  y += 6;
-
-  pdf.setFontSize(10);
-  pdf.setTextColor(50, 50, 50);
-  pdf.setFont("helvetica", "normal");
-  pdf.text(`Nombre: ${cotizacion.cliente?.nombre || '-'}`, margin, y); y += 5;
-  pdf.text(`Contacto: ${contactoCompleto || 'Sin contacto'}`, margin, y); y += 5;
-  pdf.text(`CUIT: ${cotizacion.cliente?.cuit || '-'}`, margin, y); y += 5;
-  pdf.text(`Email: ${cotizacion.cliente?.email || 'Sin email'}`, margin, y); y += 5;
-  pdf.text(`Dirección: ${direccionTexto}`, margin, y); y += 8;
-
-  // 📦 Condiciones comerciales
-  pdf.setFontSize(12);
-  pdf.setTextColor(0, 70, 140);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Condiciones comerciales", margin, y);
-  y += 6;
-
-  pdf.setFontSize(10);
-  pdf.setTextColor(50, 50, 50);
-  pdf.setFont("helvetica", "normal");
-  pdf.text(`Forma de pago: ${formaPago}`, margin, y); y += 5;
-  pdf.text(`Tipo de cambio: ${tipoCambio}`, margin, y); y += 5;
-  pdf.text(`Plazo de pago: ${diasPago}`, margin, y); y += 5;
-  if (observaciones) {
-    pdf.text(`Observaciones: ${observaciones}`, margin, y);
-    y += 5;
-  }
-  pdf.text(`Costo de envío: $${Number(cotizacion.costo_envio || 0).toFixed(2)}`, margin, y); y += 5;
-  pdf.text(`Envío bonificado: ${cotizacion.envio_bonificado ? 'Sí' : 'No'}`, margin, y); y += 8;
-
-  // Tabla de productos con IVA %
-  const headers = ['Producto', 'Cantidad', 'Unitario', 'IVA %', 'Descuento', 'Subtotal', 'Total c/IVA'];
-
-  const rows = cotizacion.productos.map(p => {
-    const cantidad = Number(p.cantidad) || 0;
-    const unitario = Number(p.precio_unitario) || 0;
-    const descuento = Number(p.descuento) || 0;
-    const tasaIVA = Number(p.tasa_iva ?? 21);
-    const precioFinal = unitario - descuento;
-    const subtotal = precioFinal * cantidad;
-    const totalConIVA = subtotal * (1 + tasaIVA / 100);
-
-    return [
-      p.detalle || 'Sin nombre',
-      cantidad,
-      unitario.toFixed(2),
-      `${tasaIVA}%`,
-      descuento.toFixed(2),
-      subtotal.toFixed(2),
-      totalConIVA.toFixed(2)
-    ];
-  });
-
-  autoTable(pdf, {
-    startY: y,
-    head: [headers],
-    body: rows,
-    margin: { left: margin },
-    styles: { fontSize: 9 },
-    headStyles: {
-      fillColor: [0, 70, 140],
-      textColor: 255,
-      fontStyle: 'bold'
-    },
-    alternateRowStyles: { fillColor: [245, 245, 255] },
-    columnStyles: {
-      0: { cellWidth: 60, overflow: 'linebreak' }
+    // Caso 1: viene como string dentro de cliente (lo que pasa en esta pantalla)
+    if (typeof cotizacion.cliente?.vendedor === 'string') {
+      vendedorNombreCompleto = cotizacion.cliente.vendedor;
     }
-  });
 
-  // Función para calcular resumen fiscal
-  const calcularResumenFiscal = (productos, costoEnvio = 0) => {
-    let base21 = 0, base105 = 0, descuentosTotales = 0;
+    // Caso 2: viene como objeto en cotizacion.vendedor (lo que pasa en ResumenCo.jsx)
+    else if (cotizacion.vendedor && typeof cotizacion.vendedor === 'object') {
+      vendedorNombreCompleto = [
+        cotizacion.vendedor.nombre,
+        cotizacion.vendedor.apellido
+      ].filter(Boolean).join(' ').trim();
+    }
 
-    productos.forEach(p => {
-      const precioFinal = Number(p.precio_unitario) - Number(p.descuento);
-      const subtotal = precioFinal * Number(p.cantidad);
-      const iva = Number(p.tasa_iva ?? 21);
+    // 🗓️ Datos de la cotización
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 70, 140);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Datos de la cotización", margin, y);
+    y += 6;
 
-      descuentosTotales += Number(p.descuento ?? 0);
+    pdf.setFontSize(10);
+    pdf.setTextColor(50, 50, 50);
+    pdf.setFont("helvetica", "normal");
 
-      if (iva === 21) base21 += subtotal;
-      else if (iva === 10.5) base105 += subtotal;
-      else base21 += subtotal;
+    pdf.text(`Fecha: ${cotizacion.fecha || new Date().toLocaleDateString()}`, margin, y);
+    y += 5;
+
+    // ✅ Ahora SIEMPRE muestra el nombre correcto
+    pdf.text(`Vendedor: ${vendedorNombreCompleto}`, margin, y);
+    y += 5;
+
+    pdf.text(`Vigente hasta: ${cotizacion.vigencia_hasta || '-'}`, margin, y);
+    y += 8;
+
+    // 👤 Cliente
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 70, 140);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Cliente", margin, y);
+    y += 6;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(50, 50, 50);
+    pdf.setFont("helvetica", "normal");
+
+    pdf.text(`Nombre: ${cotizacion.cliente?.nombre || '-'}`, margin, y);
+    y += 5;
+
+    pdf.text(`Contacto: ${contactoCompleto || 'Sin contacto'}`, margin, y);
+    y += 5;
+
+    pdf.text(`CUIT: ${cotizacion.cliente?.cuit || '-'}`, margin, y);
+    y += 5;
+
+    pdf.text(`Email: ${cotizacion.cliente?.email || 'Sin email'}`, margin, y);
+    y += 5;
+
+    pdf.text(`Dirección: ${direccionTexto}`, margin, y);
+    y += 8;
+
+    // 📦 Condiciones comerciales
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 70, 140);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Condiciones comerciales", margin, y);
+    y += 6;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(50, 50, 50);
+    pdf.setFont("helvetica", "normal");
+
+    pdf.text(`Forma de pago: ${formaPago}`, margin, y);
+    y += 5;
+
+    pdf.text(`Tipo de cambio: ${tipoCambio}`, margin, y);
+    y += 5;
+
+    pdf.text(`Plazo de pago: ${diasPago}`, margin, y);
+    y += 5;
+
+    if (observaciones) {
+      pdf.text(`Observaciones: ${observaciones}`, margin, y);
+      y += 5;
+    }
+
+    pdf.text(`Costo de envío: $${Number(cotizacion.costo_envio || 0).toFixed(2)}`, margin, y);
+    y += 5;
+
+    pdf.text(`Envío bonificado: ${cotizacion.envio_bonificado ? 'Sí' : 'No'}`, margin, y);
+    y += 8;
+
+
+
+    // Tabla de productos con IVA %
+    // Tabla de productos con IVA %
+    const headers = [
+      'Producto',
+      'Categoría',
+      'Subcategoría',
+      'Cantidad',
+      'Precio unitario',
+      'IVA %',
+      'Descuento',
+      'Subtotal s/IVA',
+      'Total c/IVA'
+    ];
+
+    const rows = cotizacion.productos.map(p => {
+      const cantidad = Number(p.cantidad) || 0;
+      const unitario = Number(p.precio_unitario) || 0;
+      const descuento = Number(p.descuento) || 0;
+      const tasaIVA = Number(p.tasa_iva ?? 21);
+      const precioFinal = unitario - descuento;
+      const subtotal = precioFinal * cantidad;
+      const totalConIVA = subtotal * (1 + tasaIVA / 100);
+
+      return [
+        p.detalle || 'Sin nombre',
+        p.marca || '-',
+        p.categoria || '-',
+        p.subcategoria || '-',
+        cantidad,
+        unitario.toFixed(2),
+        `${tasaIVA}%`,
+        descuento.toFixed(2),
+        subtotal.toFixed(2),
+        totalConIVA.toFixed(2)
+      ];
     });
 
-    const iva21 = (base21 + costoEnvio) * 0.21;
-    const iva105 = base105 * 0.105;
-    const baseImponible = base21 + base105 + costoEnvio;
-    const totalFinal = baseImponible + iva21 + iva105 - descuentosTotales;
+    autoTable(pdf, {
+      startY: y,
+      head: [headers],
+      body: rows,
+      margin: { left: margin },
+      styles: { fontSize: 9 },
+      headStyles: {
+        fillColor: [0, 70, 140],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: { fillColor: [245, 245, 255] },
+      columnStyles: {
+        0: { cellWidth: 40, overflow: 'linebreak' },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 25 }
+      }
+    });
 
-    return { base21, base105, costoEnvio, iva21, iva105, descuentosTotales, baseImponible, totalFinal };
+    // Función para calcular resumen fiscal
+    const calcularResumenFiscal = (productos, costoEnvio = 0) => {
+      let base21 = 0, base105 = 0, descuentosTotales = 0;
+
+      productos.forEach(p => {
+        const precioFinal = Number(p.precio_unitario) - Number(p.descuento);
+        const subtotal = precioFinal * Number(p.cantidad);
+        const iva = Number(p.tasa_iva ?? 21);
+
+        descuentosTotales += Number(p.descuento ?? 0);
+
+        if (iva === 21) base21 += subtotal;
+        else if (iva === 10.5) base105 += subtotal;
+        else base21 += subtotal;
+      });
+
+      const iva21 = (base21 + costoEnvio) * 0.21;
+      const iva105 = base105 * 0.105;
+      const baseImponible = base21 + base105 + costoEnvio;
+      const totalFinal = baseImponible + iva21 + iva105 - descuentosTotales;
+
+      return { base21, base105, costoEnvio, iva21, iva105, descuentosTotales, baseImponible, totalFinal };
+    };
+
+    const resumenFiscal = calcularResumenFiscal(cotizacion.productos, cotizacion.costo_envio || 0);
+
+    const subtotalProductos = (resumenFiscal.base21 + resumenFiscal.base105).toFixed(2);
+    const totalFinal = resumenFiscal.totalFinal.toFixed(2);
+
+    // Totales debajo de la tabla de productos
+    autoTable(pdf, {
+      startY: pdf.lastAutoTable.finalY + 4,
+      head: [],
+      body: [
+        ['Total Final (con envío e IVA)', '', '', '', '', '', '', '', '', `$${totalFinal}`]
+      ],
+      margin: { left: margin },
+      styles: { fontSize: 10 },
+      columnStyles: {
+        9: { halign: 'right' }   // 👈 columna donde va el total
+      },
+      didParseCell: function (data) {
+        // Resaltar la única fila
+        data.cell.styles.fillColor = [220, 235, 255];
+        data.cell.styles.textColor = [0, 70, 140];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    });
+
+    // Resumen Fiscal completo
+    autoTable(pdf, {
+      startY: pdf.lastAutoTable.finalY + 10,
+      head: [['Concepto', 'Monto']],
+      body: [
+        ['Base 21% (productos)', `$${resumenFiscal.base21.toFixed(2)}`],
+        ['Base 10.5% (productos)', `$${resumenFiscal.base105.toFixed(2)}`],
+        ['Costo de envío', `$${resumenFiscal.costoEnvio.toFixed(2)}`],
+        ['IVA 21% (incluye envío)', `$${resumenFiscal.iva21.toFixed(2)}`],
+        ['IVA 10.5%', `$${resumenFiscal.iva105.toFixed(2)}`],
+        ['Descuentos', `$${resumenFiscal.descuentosTotales.toFixed(2)}`],
+        ['Base imponible (incluye envío)', `$${resumenFiscal.baseImponible.toFixed(2)}`],
+        ['Total Final (con envío e IVA)', `$${resumenFiscal.totalFinal.toFixed(2)}`],
+      ],
+      margin: { left: margin },
+      styles: { fontSize: 10 },
+      headStyles: {
+        fillColor: [0, 70, 140],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { cellWidth: 100, halign: 'left' },
+        1: { cellWidth: 50, halign: 'right' }
+      },
+      didParseCell: function (data) {
+        if (data.row.index === 7) { // 👈 resaltar Total Final
+          data.cell.styles.fillColor = [220, 235, 255];
+          data.cell.styles.textColor = [0, 70, 140];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    });
+
+    // 👇 cierre de la función
+    pdf.save(`cotizacion_${cotizacion.numero_cotizacion || 'sin_numero'}.pdf`);
   };
-
-  const resumenFiscal = calcularResumenFiscal(cotizacion.productos, cotizacion.costo_envio || 0);
-
-  const subtotalProductos = (resumenFiscal.base21 + resumenFiscal.base105).toFixed(2);
-  const totalFinal = resumenFiscal.totalFinal.toFixed(2);
-
-  // Totales debajo de la tabla de productos
-  autoTable(pdf, {
-    startY: pdf.lastAutoTable.finalY + 4,
-    head: [],
-    body: [
-      ['Subtotal productos (sin envío)', '', '', '', '', '', '', '', `$${subtotalProductos}`],
-      ['Total Final (con envío e IVA)', '', '', '', '', '', '', '', `$${totalFinal}`]
-    ],
-    margin: { left: margin },
-    styles: { fontSize: 10 },
-    columnStyles: {
-      8: { halign: 'right' }
-    },
-    didParseCell: function (data) {
-      if (data.row.index === 1) {
-        data.cell.styles.fillColor = [220, 235, 255];
-        data.cell.styles.textColor = [0, 70, 140];
-        data.cell.styles.fontStyle = 'bold';
-      }
-    }
-  });
-
-  // Resumen Fiscal completo
-   autoTable(pdf, {
-    startY: pdf.lastAutoTable.finalY + 10,
-    head: [['Concepto', 'Monto']],
-    body: [
-      ['Base 21% (productos)', `$${resumenFiscal.base21.toFixed(2)}`],
-      ['Base 10.5% (productos)', `$${resumenFiscal.base105.toFixed(2)}`],
-      ['Costo de envío', `$${resumenFiscal.costoEnvio.toFixed(2)}`],
-      ['IVA 21% (incluye envío)', `$${resumenFiscal.iva21.toFixed(2)}`],
-      ['IVA 10.5%', `$${resumenFiscal.iva105.toFixed(2)}`],
-      ['Descuentos', `$${resumenFiscal.descuentosTotales.toFixed(2)}`],
-      ['Base imponible (incluye envío)', `$${resumenFiscal.baseImponible.toFixed(2)}`],
-      ['Total Final (con envío e IVA)', `$${resumenFiscal.totalFinal.toFixed(2)}`],
-    ],
-    margin: { left: margin },
-    styles: { fontSize: 10 },
-    headStyles: {
-      fillColor: [0, 70, 140],
-      textColor: 255,
-      fontStyle: 'bold'
-    },
-    columnStyles: {
-      0: { cellWidth: 100, halign: 'left' },
-      1: { cellWidth: 50, halign: 'right' }
-    },
-    didParseCell: function (data) {
-      if (data.row.index === 7) { // 👈 resaltar Total Final
-        data.cell.styles.fillColor = [220, 235, 255];
-        data.cell.styles.textColor = [0, 70, 140];
-        data.cell.styles.fontStyle = 'bold';
-      }
-    }
-  });
-
-  // 👇 cierre de la función
-  pdf.save(`cotizacion_${cotizacion.numero_cotizacion || 'sin_numero'}.pdf`);
-};
 
   return (
     <div className="container mt-4">
@@ -555,45 +670,45 @@ const handleDescargarPDF = () => {
           </span>
         </div>
 
-<div className="card-body">
-  <div className="row text-sm">
+        <div className="card-body">
+          <div className="row text-sm">
 
-    {/* 🗓️ Datos de la cotización */}
-    <div className="col-md-4 mb-3">
-      <h6 className="text-primary border-bottom pb-1">Datos de la cotización</h6>
-      <p><strong>Fecha:</strong> {cotizacion.cliente?.fecha_emision || new Date().toLocaleDateString()}</p>
-      <p><strong>Vendedor:</strong> {cotizacion.cliente?.vendedor || '-'}</p>
-      <p><strong>Vigente hasta:</strong> {cotizacion.vigencia_hasta || '-'}</p>
-    </div>
+            {/* 🗓️ Datos de la cotización */}
+            <div className="col-md-4 mb-3">
+              <h6 className="text-primary border-bottom pb-1">Datos de la cotización</h6>
+              <p><strong>Fecha:</strong> {cotizacion.cliente?.fecha_emision || new Date().toLocaleDateString()}</p>
+              <p><strong>Vendedor:</strong> {cotizacion.cliente?.vendedor || '-'}</p>
+              <p><strong>Vigente hasta:</strong> {cotizacion.vigencia_hasta || '-'}</p>
+            </div>
 
-    {/* 👤 Cliente */}
-    <div className="col-md-4 mb-3">
-      <h6 className="text-primary border-bottom pb-1">Cliente</h6>
-      <p><strong>Nombre:</strong> {cotizacion.cliente?.nombre || '-'}</p>
-      <p><strong>Contacto:</strong> {
-        [cotizacion.cliente?.contacto, cotizacion.cliente?.contacto_apellido]
-          .filter(Boolean)
-          .join(' ')
-          .trim() || 'Sin contacto'
-      }</p>
-      <p><strong>CUIT:</strong> {cotizacion.cliente?.cuit || '-'}</p>
-      <p><strong>Email:</strong> {cotizacion.cliente?.email || 'Sin email definido'}</p>
-      <p><strong>Dirección:</strong> {direccionTexto}</p>
-    </div>
+            {/* 👤 Cliente */}
+            <div className="col-md-4 mb-3">
+              <h6 className="text-primary border-bottom pb-1">Cliente</h6>
+              <p><strong>Nombre:</strong> {cotizacion.cliente?.nombre || '-'}</p>
+              <p><strong>Contacto:</strong> {
+                [cotizacion.cliente?.contacto, cotizacion.cliente?.contacto_apellido]
+                  .filter(Boolean)
+                  .join(' ')
+                  .trim() || 'Sin contacto'
+              }</p>
+              <p><strong>CUIT:</strong> {cotizacion.cliente?.cuit || '-'}</p>
+              <p><strong>Email:</strong> {cotizacion.cliente?.email || 'Sin email definido'}</p>
+              <p><strong>Dirección:</strong> {direccionTexto}</p>
+            </div>
 
-    {/* 📦 Condiciones comerciales */}
-    <div className="col-md-4 mb-3">
-      <h6 className="text-primary border-bottom pb-1">Condiciones comerciales</h6>
-      <p><strong>Forma de pago:</strong> {formaPago}</p>
-      <p><strong>Tipo de cambio:</strong> {tipoCambio}</p>
-      <p><strong>Plazo de pago:</strong> {diasPago}</p>
-      {observaciones && <p><strong>Observaciones:</strong> {observaciones}</p>}
-      <p><strong>Costo de envío:</strong> ${Number(cotizacion.costo_envio || 0).toFixed(2)}</p>
-      <p><strong>Envío bonificado:</strong> {cotizacion.envio_bonificado ? 'Sí' : 'No'}</p>
-    </div>
+            {/* 📦 Condiciones comerciales */}
+            <div className="col-md-4 mb-3">
+              <h6 className="text-primary border-bottom pb-1">Condiciones comerciales</h6>
+              <p><strong>Forma de pago:</strong> {formaPago}</p>
+              <p><strong>Tipo de cambio:</strong> {tipoCambio}</p>
+              <p><strong>Plazo de pago:</strong> {diasPago}</p>
+              {observaciones && <p><strong>Observaciones:</strong> {observaciones}</p>}
+              <p><strong>Costo de envío:</strong> ${Number(cotizacion.costo_envio || 0).toFixed(2)}</p>
+              <p><strong>Envío bonificado:</strong> {cotizacion.envio_bonificado ? 'Sí' : 'No'}</p>
+            </div>
 
-  </div>
-</div>
+          </div>
+        </div>
 
 
       </div>
@@ -611,7 +726,7 @@ const handleDescargarPDF = () => {
               <th>Precio unitario</th>
               <th>IVA %</th>   {/* 👈 nueva columna */}
               <th>Descuento</th>
-              <th>Subtotal</th>
+              <th>Subtotal s/IVA</th>
               <th>Total c/IVA</th>
             </tr>
           </thead>
@@ -655,7 +770,7 @@ const handleDescargarPDF = () => {
               return (
                 <>
                   <tr className="table-secondary fw-bold">
-                    <td colSpan="8" className="text-end">Subtotal productos (sin envío):</td>
+                    <td colSpan="8" className="text-end"></td>
                     <td>{totalSinIVA.toFixed(2)}</td>
                     <td>{totalConIVA.toFixed(2)}</td>
                   </tr>

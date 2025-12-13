@@ -1734,7 +1734,7 @@ const NuevaCotizacion = () => {
       ? buildPayload(idEstadoBorradorLocal ?? 'borrador', { vigencia_hasta: fechaVencimiento, vencimiento })
       : (() => {
         const normalizarNumero = v => (v === null || v === undefined || v === '' ? null : Number(v));
-        
+
 
         const productos = (Array.isArray(carrito) ? carrito : []).map(p => ({
           id_producto: normalizarNumero(p.id_producto ?? p.id ?? null),
@@ -1761,46 +1761,46 @@ const NuevaCotizacion = () => {
           observaciones
         });
 
-// ✅ Lógica tolerante para condiciones comerciales
-const formaPagoFinal = condicionSeleccionada?.forma_pago
-  ?? cabecera?.forma_pago
-  ?? null;
+        // ✅ Lógica tolerante para condiciones comerciales
+        const formaPagoFinal = condicionSeleccionada?.forma_pago
+          ?? cabecera?.forma_pago
+          ?? null;
 
-const tipoCambioFinal = condicionSeleccionada?.tipo_cambio
-  ?? cabecera?.tipo_cambio
-  ?? null;
+        const tipoCambioFinal = condicionSeleccionada?.tipo_cambio
+          ?? cabecera?.tipo_cambio
+          ?? null;
 
-const diasPagoFinal = condicionSeleccionada?.dias_pago
-  ?? Number(diasPago)
-  ?? Number(diasPagoExtra)
-  ?? cabecera?.dias_pago
-  ?? null;
+        const diasPagoFinal = condicionSeleccionada?.dias_pago
+          ?? Number(diasPago)
+          ?? Number(diasPagoExtra)
+          ?? cabecera?.dias_pago
+          ?? null;
 
-const observacionesFinal = condicionSeleccionada?.observaciones
-  ?? observaciones
-  ?? cabecera?.observaciones
-  ?? '';
+        const observacionesFinal = condicionSeleccionada?.observaciones
+          ?? observaciones
+          ?? cabecera?.observaciones
+          ?? '';
 
-const basePayload = {
-  id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
-  id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
-  id_usuario: Number(usuarioActual?.id) || null,
-  id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
-  id_condicion: resolvedIdCond,
+        const basePayload = {
+          id_cliente: normalizarNumero(clienteSeleccionado ?? clienteObjeto?.id ?? cliente),
+          id_contacto: contacto ? normalizarNumero(typeof contacto === 'object' ? contacto.id : contacto) : null,
+          id_usuario: Number(usuarioActual?.id) || null,
+          id_direccion_cliente: normalizarNumero(direccionIdSeleccionada),
+          id_condicion: resolvedIdCond,
 
-  // ✅ Condiciones comerciales completas
- forma_pago: formaPagoFinal,
-tipo_cambio: tipoCambioFinal,
-dias_pago: diasPagoFinal,
-observaciones: observacionesFinal,
+          // ✅ Condiciones comerciales completas
+          forma_pago: formaPagoFinal,
+          tipo_cambio: tipoCambioFinal,
+          dias_pago: diasPagoFinal,
+          observaciones: observacionesFinal,
 
-  // Resto de cabecera
-  vigencia_hasta: fechaVencimiento,
-  plazo_entrega: plazoEntrega || '',
-  costo_envio: Number(costoEnvio) || 0,
-  productos
-};
-     
+          // Resto de cabecera
+          vigencia_hasta: fechaVencimiento,
+          plazo_entrega: plazoEntrega || '',
+          costo_envio: Number(costoEnvio) || 0,
+          productos
+        };
+
         if (idEstadoBorradorLocal) basePayload.id_estado = idEstadoBorradorLocal;
         basePayload.vencimiento = Number.isFinite(Number(vencimiento)) ? Number(vencimiento) : null;
         return basePayload;
@@ -1809,13 +1809,13 @@ observaciones: observacionesFinal,
     console.log('📤 Payload borrador (pre-send):', payloadBorrador);
 
 
- 
-  console.log('✅ basePayload con condiciones:', {
-    forma_pago: payloadBorrador.forma_pago,
-    tipo_cambio: payloadBorrador.tipo_cambio,
-    dias_pago: payloadBorrador.dias_pago,
-    observaciones: payloadBorrador.observaciones
-  });
+
+    console.log('✅ basePayload con condiciones:', {
+      forma_pago: payloadBorrador.forma_pago,
+      tipo_cambio: payloadBorrador.tipo_cambio,
+      dias_pago: payloadBorrador.dias_pago,
+      observaciones: payloadBorrador.observaciones
+    });
 
 
 
@@ -1957,25 +1957,25 @@ observaciones: observacionesFinal,
       }));
 
 
-     // ✅ Condiciones agrupadas con lógica tolerante
-const condicionesResumen = {
-  forma_pago: payloadBorrador.forma_pago 
-    ?? respSave?.data?.condiciones?.forma_pago 
-    ?? cabecera?.forma_pago 
-    ?? '-',
-  tipo_cambio: payloadBorrador.tipo_cambio 
-    ?? respSave?.data?.condiciones?.tipo_cambio 
-    ?? cabecera?.tipo_cambio 
-    ?? '-',
-  dias_pago: payloadBorrador.dias_pago 
-    ?? respSave?.data?.condiciones?.dias_pago 
-    ?? cabecera?.dias_pago 
-    ?? '-',
-  observaciones: payloadBorrador.observaciones 
-    ?? respSave?.data?.condiciones?.observaciones 
-    ?? cabecera?.observaciones 
-    ?? ''
-};
+      // ✅ Condiciones agrupadas con lógica tolerante
+      const condicionesResumen = {
+        forma_pago: payloadBorrador.forma_pago
+          ?? respSave?.data?.condiciones?.forma_pago
+          ?? cabecera?.forma_pago
+          ?? '-',
+        tipo_cambio: payloadBorrador.tipo_cambio
+          ?? respSave?.data?.condiciones?.tipo_cambio
+          ?? cabecera?.tipo_cambio
+          ?? '-',
+        dias_pago: payloadBorrador.dias_pago
+          ?? respSave?.data?.condiciones?.dias_pago
+          ?? cabecera?.dias_pago
+          ?? '-',
+        observaciones: payloadBorrador.observaciones
+          ?? respSave?.data?.condiciones?.observaciones
+          ?? cabecera?.observaciones
+          ?? ''
+      };
 
       console.log('🧪 direccionIdFinal:', direccionIdFinal);
       console.log('🧪 direccionDesdeClienteObjeto:', direccionDesdeClienteObjeto);
@@ -2211,7 +2211,7 @@ const condicionesResumen = {
 
 
 
-{/* Renderizado del componente */}
+  {/* Renderizado del componente */ }
   return (
 
     <div className="container-fluid bg-light d-flex flex-column min-vh-100">
@@ -2410,92 +2410,92 @@ const condicionesResumen = {
                   <label className="form-label">Forma de pago<span style={{ color: 'red' }}>*</span></label>
                   {/* Select construido desde condiciones cargadas */}
 
-      
-        {/* Select construido desde condiciones cargadas */}
-        <select
-          className="form-select"
-          value={
-            condicionSeleccionada && condicionSeleccionada.id
-              ? String(condicionSeleccionada.id)
-              : (condicionSeleccionada && condicionSeleccionada.forma_pago
-                  ? '__custom_sel'
-                  : '')
-          }
-          onChange={(e) => {
-            const val = e.target.value;
-            if (!val) {
-              setCondicionSeleccionada('');
-              setFormaPago('');
-              return;
-            }
-            if (val === '__custom_sel') return;
 
-            const seleccionado = Array.isArray(condiciones)
-              ? condiciones.find(c => Number(c.id) === Number(val))
-              : undefined;
+                  {/* Select construido desde condiciones cargadas */}
+                  <select
+                    className="form-select"
+                    value={
+                      condicionSeleccionada && condicionSeleccionada.id
+                        ? String(condicionSeleccionada.id)
+                        : (condicionSeleccionada && condicionSeleccionada.forma_pago
+                          ? '__custom_sel'
+                          : '')
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) {
+                        setCondicionSeleccionada('');
+                        setFormaPago('');
+                        return;
+                      }
+                      if (val === '__custom_sel') return;
 
-            if (seleccionado) {
-              const forma = String(seleccionado.forma_pago ?? seleccionado.nombre ?? '').trim();
-              // ✅ Guardamos el objeto completo del backend, normalizando forma_pago
-             const condicionFinal = {
-  ...seleccionado,
-  forma_pago: forma // solo normalizamos el texto, sin perder los demás campos
-};
+                      const seleccionado = Array.isArray(condiciones)
+                        ? condiciones.find(c => Number(c.id) === Number(val))
+                        : undefined;
 
-setCondicionSeleccionada(condicionFinal);
-console.log('✅ Condición seleccionada actualizada:', condicionFinal);
+                      if (seleccionado) {
+                        const forma = String(seleccionado.forma_pago ?? seleccionado.nombre ?? '').trim();
+                        // ✅ Guardamos el objeto completo del backend, normalizando forma_pago
+                        const condicionFinal = {
+                          ...seleccionado,
+                          forma_pago: forma // solo normalizamos el texto, sin perder los demás campos
+                        };
 
-              if (seleccionado.dias_pago !== undefined && seleccionado.dias_pago !== null) {
-                const diasStr = String(seleccionado.dias_pago ?? '').trim();
-                if (typeof setDiasPendiente === 'function') {
-                  setDiasPendiente(diasStr);
-                } else {
-                  const opciones = Array.isArray(opcionesDiasPago)
-                    ? opcionesDiasPago.map(x => String(x ?? '').trim())
-                    : [];
-                  if (diasStr && opciones.includes(diasStr)) {
-                    setDiasPago(diasStr);
-                    setDiasPagoExtra('');
-                  } else if (diasStr) {
-                    setDiasPago('');
-                    setDiasPagoExtra(diasStr);
-                  }
-                  diasResueltoRef.current = true;
-                }
-              }
-            } else {
-              const text = e.target.options[e.target.selectedIndex]?.text ?? '';
-              setCondicionSeleccionada({
-                id: null,
-                forma_pago: String(text).trim(),
-                tipo_cambio: null,
-                dias_pago: null,
-                observaciones: null
-              });
-              setFormaPago(String(text).trim());
-              // NO tocar dias aquí
-            }
-          }}
-        >
-          <option value="">Seleccioná...</option>
+                        setCondicionSeleccionada(condicionFinal);
+                        console.log('✅ Condición seleccionada actualizada:', condicionFinal);
 
-          {Array.isArray(condiciones) && condiciones.length > 0
-            ? condiciones.map(c => (
-                <option key={c.id} value={String(c.id)}>
-                  {String(c.forma_pago ?? c.nombre ?? '').trim()}
-                </option>
-              ))
-            : null}
+                        if (seleccionado.dias_pago !== undefined && seleccionado.dias_pago !== null) {
+                          const diasStr = String(seleccionado.dias_pago ?? '').trim();
+                          if (typeof setDiasPendiente === 'function') {
+                            setDiasPendiente(diasStr);
+                          } else {
+                            const opciones = Array.isArray(opcionesDiasPago)
+                              ? opcionesDiasPago.map(x => String(x ?? '').trim())
+                              : [];
+                            if (diasStr && opciones.includes(diasStr)) {
+                              setDiasPago(diasStr);
+                              setDiasPagoExtra('');
+                            } else if (diasStr) {
+                              setDiasPago('');
+                              setDiasPagoExtra(diasStr);
+                            }
+                            diasResueltoRef.current = true;
+                          }
+                        }
+                      } else {
+                        const text = e.target.options[e.target.selectedIndex]?.text ?? '';
+                        setCondicionSeleccionada({
+                          id: null,
+                          forma_pago: String(text).trim(),
+                          tipo_cambio: null,
+                          dias_pago: null,
+                          observaciones: null
+                        });
+                        setFormaPago(String(text).trim());
+                        // NO tocar dias aquí
+                      }
+                    }}
+                  >
+                    <option value="">Seleccioná...</option>
 
-          {condicionSeleccionada &&
-            (condicionSeleccionada.id === null ||
-              condicionSeleccionada.id === undefined) &&
-            condicionSeleccionada.forma_pago ? (
-              <option key="__custom_sel" value="__custom_sel" disabled>
-                {String(condicionSeleccionada.forma_pago).trim()}
-              </option>
-            ) : null}
-        </select>
+                    {Array.isArray(condiciones) && condiciones.length > 0
+                      ? condiciones.map(c => (
+                        <option key={c.id} value={String(c.id)}>
+                          {String(c.forma_pago ?? c.nombre ?? '').trim()}
+                        </option>
+                      ))
+                      : null}
+
+                    {condicionSeleccionada &&
+                      (condicionSeleccionada.id === null ||
+                        condicionSeleccionada.id === undefined) &&
+                      condicionSeleccionada.forma_pago ? (
+                      <option key="__custom_sel" value="__custom_sel" disabled>
+                        {String(condicionSeleccionada.forma_pago).trim()}
+                      </option>
+                    ) : null}
+                  </select>
 
 
 
@@ -2978,7 +2978,7 @@ console.log('✅ Condición seleccionada actualizada:', condicionFinal);
                             <div>
                               <strong>{p.detalle}</strong><br />
                               <small className="text-muted">
-                                {p.part_number} · {p.marca} · ${p.precio}  · IVA {p.tasa_iva}%
+                                {p.part_number} · {p.marca} · ${p.precio} · IVA {p.tasa_iva}% · Stock: {p.stock ?? 'Sin datos'}
                               </small>
                             </div>
                             <button
